@@ -4,112 +4,312 @@
   margin: 0 auto;
 }
 
-.store-details-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 30px;
-}
-
 .header-back-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   background: white;
   border: 1px solid var(--border-color);
-  padding: 8px 16px;
-  border-radius: 10px;
+  padding: 10px 18px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 15px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.header-back-btn:hover {
+  background: #f8fafc;
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  transform: translateX(-5px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+
+.store-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: white;
+  padding: 20px 30px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.header-left-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.store-main-icon {
+  width: 64px;
+  height: 64px;
+  background: #f0fdf4;
+  color: var(--primary-color);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .header-main-info h1 {
-  font-size: 32px;
+  font-size: 28px;
   color: var(--text-primary);
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  margin: 0;
 }
 
-.header-main-info p {
+.header-location {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
-  margin-top: 5px;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.store-status-card {
+  text-align: right;
+  padding-left: 20px;
+  border-left: 1px solid var(--border-color);
+}
+
+.store-status-card span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.status-active-badge {
+  background: #f0fdf4;
+  color: #16a34a;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-active-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #16a34a;
+  border-radius: 50%;
 }
 
 .tabs-nav {
   display: flex;
-  gap: 30px;
-  border-bottom: 2px solid var(--border-color);
+  background: white;
+  padding: 0 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
   margin-bottom: 30px;
+  gap: 0;
 }
 
 .tab-btn {
-  padding: 12px 10px;
-  background: none;
-  border: none;
-  font-size: 16px;
+  flex: 1;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
+  border: none;
+  background: none;
   position: relative;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.tab-btn:hover {
-  color: var(--primary-color);
+.tab-btn:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 25%;
+  height: 50%;
+  width: 1px;
+  background: var(--border-color);
 }
+
 
 .tab-btn.active {
   color: var(--primary-color);
+  background: #fafafa;
 }
 
 .tab-btn.active::after {
   content: '';
   position: absolute;
-  bottom: -2px;
+  bottom: 0;
   left: 0;
   width: 100%;
-  height: 2px;
+  height: 3px;
   background: var(--primary-color);
 }
 
-/* Info Tab */
-.info-grid {
+/* Redesigned Info Cards */
+.info-cards-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 25px;
+  margin-bottom: 25px;
 }
 
-.info-card {
+.premium-info-card {
   background: white;
+  border-radius: 24px;
   padding: 25px;
-  border-radius: 20px;
   border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
 }
 
-.info-card h3 {
-  font-size: 14px;
-  text-transform: uppercase;
+.premium-info-card::before {
+  content: '...';
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: #e2e8f0;
+  letter-spacing: 2px;
+  font-size: 24px;
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.card-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-icon-box.green { background: #f0fdf4; color: #16a34a; }
+.card-icon-box.purple { background: #f5f3ff; color: #7c3aed; }
+.card-icon-box.blue { background: #eff6ff; color: #2563eb; }
+
+.card-label h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.card-label p {
+  font-size: 12px;
   color: var(--text-secondary);
-  margin-bottom: 15px;
-  letter-spacing: 0.5px;
 }
 
-.info-item {
+.data-section {
+  padding: 20px;
+  border-radius: 16px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.data-section.green { background: #f7fee7; }
+.data-section.purple { background: #fdf4ff; }
+.data-section.blue { background: #f0f9ff; }
+
+.data-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 15px;
-  font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.info-item svg {
-  color: var(--primary-color);
+.data-row.small {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 4px;
 }
+
+.map-card {
+  background: white;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  overflow: hidden;
+  min-height: 240px;
+  margin-top: 20px;
+}
+
+.map-card-info {
+  width: 320px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: white;
+  z-index: 2;
+}
+
+.map-card-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.map-btn-view {
+  background: white;
+  border: 1px solid #16a34a;
+  color: #16a34a;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  transition: all 0.2s ease;
+}
+
+.map-btn-view:hover {
+  background: #f0fdf4;
+  transform: translateY(-2px);
+}
+
+.map-visual {
+  flex: 1;
+  background: #f1f5f9 url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/78.4867,17.3850,12,0/800x300?access_token=pk.eyJ1IjoiYm9vcG9mZmljaWFsIiwiYSI6ImNsdzY4Z3YxaTBqZ3UybG8wM3Y5Ym80M3YifQ==');
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  border-left: 1px solid var(--border-color);
+}
+
+.map-pin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #064e3b;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+}
+
+
 
 /* Access Tab */
 .access-header {

@@ -14,8 +14,16 @@ import {
   UserCheck,
   Search,
   Scale,
-  Package
+  Package,
+  Map as MapIcon,
+  Globe,
+  MapPin as MapPinFilled,
+  Layout as LayoutIcon,
+  Target,
+  FileText as FileIcon,
+  Info
 } from 'lucide-react';
+
 import { db } from '../../config/firebase';
 import { 
   doc, 
@@ -222,40 +230,137 @@ const StoreDetails = () => {
       </button>
 
       <div className="store-details-header">
-        <div className="header-main-info">
-          <h1><Store size={32} /> {store.name}</h1>
-          <p>{store.city}, {store.state}</p>
+        <div className="header-left-group">
+          <div className="store-main-icon">
+            <Store size={32} />
+          </div>
+          <div className="header-main-info">
+            <h1>{store.name}</h1>
+            <div className="header-location">
+              <MapPin size={14} /> {store.city}, {store.state}
+            </div>
+          </div>
+        </div>
+        <div className="store-status-card">
+          <span>Store Status</span>
+          <div className="status-active-badge">Active</div>
         </div>
       </div>
 
       <div className="tabs-nav">
-        <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Store Info</button>
-        <button className={`tab-btn ${activeTab === 'access' ? 'active' : ''}`} onClick={() => setActiveTab('access')}>Access</button>
-        <button className={`tab-btn ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>Billing</button>
-        <button className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>Orders</button>
+        <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
+          <Info size={18} /> Store Info
+        </button>
+        <button className={`tab-btn ${activeTab === 'access' ? 'active' : ''}`} onClick={() => setActiveTab('access')}>
+          <Users size={18} /> Access
+        </button>
+        <button className={`tab-btn ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+          <FileIcon size={18} /> Billing
+        </button>
+        <button className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+          <ShoppingBag size={18} /> Orders
+        </button>
       </div>
 
       <div className="tab-content">
         {activeTab === 'info' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="info-grid">
-            <div className="info-card">
-              <h3>Contact Information</h3>
-              <div className="info-item"><Phone size={18} /> {store.phone}</div>
-            </div>
-            <div className="info-card">
-              <h3>Location Details</h3>
-              <div className="info-item"><MapPin size={18} /> {store.address}</div>
-              <div className="info-item"><Navigation size={18} /> {store.city}, {store.state}</div>
-            </div>
-            {(store.latitude && store.longitude) && (
-              <div className="info-card">
-                <h3>GPS Coordinates</h3>
-                <div className="info-item">Lat: {store.latitude}</div>
-                <div className="info-item">Long: {store.longitude}</div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="info-cards-row">
+              {/* Contact Card */}
+              <div className="premium-info-card">
+                <div className="card-top">
+                  <div className="card-icon-box green">
+                    <Phone size={22} />
+                  </div>
+                  <div className="card-label">
+                    <h3>Contact Information</h3>
+                    <p>Reachable via phone</p>
+                  </div>
+                </div>
+                <div className="data-section green">
+                  <div className="data-row">
+                    <Phone size={20} />
+                    <span>{store.phone}</span>
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* Location Card */}
+              <div className="premium-info-card">
+                <div className="card-top">
+                  <div className="card-icon-box purple">
+                    <MapPinFilled size={22} />
+                  </div>
+                  <div className="card-label">
+                    <h3>Location Details</h3>
+                    <p>Store address</p>
+                  </div>
+                </div>
+                <div className="data-section purple">
+                  <div className="data-row">
+                    <Navigation size={18} />
+                    <span>{store.name} Address</span>
+                  </div>
+                  <div className="data-row small">
+                    <MapIcon size={14} />
+                    <span>{store.city}, {store.state}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* GPS Card */}
+              <div className="premium-info-card">
+                <div className="card-top">
+                  <div className="card-icon-box blue">
+                    <Target size={22} />
+                  </div>
+                  <div className="card-label">
+                    <h3>GPS Coordinates</h3>
+                    <p>Store location on map</p>
+                  </div>
+                </div>
+                <div className="data-section blue">
+                  <div className="data-row small">
+                    <span>Latitude</span>
+                  </div>
+                  <div className="data-row" style={{ marginBottom: '10px' }}>
+                    <span>{store.latitude || '17.3850'}</span>
+                  </div>
+                  <div className="data-row small">
+                    <span>Longitude</span>
+                  </div>
+                  <div className="data-row">
+                    <span>{store.longitude || '78.4867'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Map Card */}
+            <div className="map-card">
+              <div className="map-card-info">
+                <div className="map-card-header">
+                  <div className="card-icon-box green" style={{ borderRadius: '12px' }}>
+                    <MapIcon size={24} />
+                  </div>
+                  <div className="card-label">
+                    <h3>Store Location</h3>
+                    <p>Visual representation of store location</p>
+                  </div>
+                </div>
+                <button className="map-btn-view">
+                  <Globe size={18} /> View on Map
+                </button>
+              </div>
+              <div className="map-visual">
+                <div className="map-pin">
+                  <MapPinFilled size={48} fill="currentColor" />
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
+
 
         {activeTab === 'access' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
