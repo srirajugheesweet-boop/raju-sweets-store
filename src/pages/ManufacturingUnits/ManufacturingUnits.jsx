@@ -36,6 +36,8 @@ const ManufacturingUnits = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editingUnit, setEditingUnit] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -103,14 +105,18 @@ const ManufacturingUnits = () => {
 
   const handleDelete = async () => {
     if (!showDeleteModal) return;
+    setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'manufacturing_units', showDeleteModal));
       toast.success("Unit deleted successfully");
       setShowDeleteModal(null);
     } catch (error) {
       toast.error("Failed to delete unit");
+    } finally {
+      setIsDeleting(false);
     }
   };
+
 
   const filteredUnits = units.filter(unit => 
     unit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -265,8 +271,10 @@ const ManufacturingUnits = () => {
             <h3 className="modal-title">Delete Unit?</h3>
             <p className="modal-text">This action cannot be undone. All data related to this manufacturing unit will be permanently removed.</p>
             <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setShowDeleteModal(null)}>Cancel</button>
-              <button className="modal-btn confirm delete" onClick={handleDelete}>Delete Permanently</button>
+              <button className="modal-btn cancel" onClick={() => setShowDeleteModal(null)} disabled={isDeleting}>Cancel</button>
+              <button className="modal-btn confirm delete" onClick={handleDelete} disabled={isDeleting}>
+                {isDeleting ? <div className="loader" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Delete Permanently'}
+              </button>
             </div>
           </div>
         </div>

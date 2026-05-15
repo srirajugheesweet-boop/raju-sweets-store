@@ -12,6 +12,8 @@
   "dependencies": {
     "firebase": "^12.13.0",
     "framer-motion": "^12.38.0",
+    "imagekit-javascript": "^4.0.1",
+    "imagekitio-react": "^4.3.0",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

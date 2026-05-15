@@ -34,6 +34,8 @@ const Employees = () => {
   // Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   // Form State
   const [formData, setFormData] = useState({
@@ -126,6 +128,7 @@ const Employees = () => {
 
   const handleDelete = async () => {
     if (!employeeToDelete) return;
+    setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'employees', employeeToDelete.id));
       toast.success('Employee removed');
@@ -134,8 +137,11 @@ const Employees = () => {
       fetchEmployees();
     } catch (error) {
       toast.error('Failed to delete');
+    } finally {
+      setIsDeleting(false);
     }
   };
+
 
   const handleRowClick = (id) => {
     navigate(`/employees/${id}`);
@@ -326,9 +332,12 @@ const Employees = () => {
                 Are you sure you want to delete <strong>{employeeToDelete?.firstName} {employeeToDelete?.lastName}</strong>? This action cannot be undone.
               </p>
               <div className="modal-actions">
-                <button className="modal-btn cancel" onClick={() => setShowDeleteModal(false)}>Cancel</button>
-                <button className="modal-btn confirm" onClick={handleDelete}>Delete Now</button>
+                <button className="modal-btn cancel" onClick={() => setShowDeleteModal(false)} disabled={isDeleting}>Cancel</button>
+                <button className="modal-btn confirm" onClick={handleDelete} disabled={isDeleting}>
+                  {isDeleting ? <div className="loader" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Delete Now'}
+                </button>
               </div>
+
             </motion.div>
           </div>
         )}

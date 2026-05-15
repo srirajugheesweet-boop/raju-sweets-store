@@ -34,6 +34,8 @@ const PackingUnits = () => {
   const [submitting, setSubmitting] = useState(false);
   const [editingUnit, setEditingUnit] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -101,14 +103,18 @@ const PackingUnits = () => {
 
   const handleDelete = async () => {
     if (!showDeleteModal) return;
+    setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'packing_units', showDeleteModal));
       toast.success("Unit deleted successfully");
       setShowDeleteModal(null);
     } catch (error) {
       toast.error("Failed to delete unit");
+    } finally {
+      setIsDeleting(false);
     }
   };
+
 
   const filteredUnits = units.filter(unit => 
     unit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -246,9 +252,12 @@ const PackingUnits = () => {
             <h3 className="modal-title">Remove Packing Unit?</h3>
             <p className="modal-text">Permanently delete this packing unit? This will remove all associated logs and data.</p>
             <div className="modal-actions">
-              <button className="modal-btn cancel" onClick={() => setShowDeleteModal(null)}>Go Back</button>
-              <button className="modal-btn confirm delete" onClick={handleDelete}>Yes, Remove</button>
+              <button className="modal-btn cancel" onClick={() => setShowDeleteModal(null)} disabled={isDeleting}>Go Back</button>
+              <button className="modal-btn confirm delete" onClick={handleDelete} disabled={isDeleting}>
+                {isDeleting ? <div className="loader" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Yes, Remove'}
+              </button>
             </div>
+
           </div>
         </div>
       )}
