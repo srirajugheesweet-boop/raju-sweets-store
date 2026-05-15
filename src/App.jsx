@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login/Login';
 import Home from './pages/Home/Home';
+import Support from './pages/Support/Support';
 import { Toaster } from 'react-hot-toast';
 
 // Placeholder for other pages
@@ -59,9 +60,12 @@ function App() {
           <Route path="/employees" element={<ProtectedRoute><PlaceholderPage title="Employees" /></ProtectedRoute>} />
           <Route path="/timesheet" element={<ProtectedRoute><PlaceholderPage title="Timesheet" /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><PlaceholderPage title="Reports" /></ProtectedRoute>} />
+          <Route path="/support" element={<ProtectedRoute><Layout><Support /></Layout></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><PlaceholderPage title="Payments" /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><PlaceholderPage title="Settings" /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><PlaceholderPage title="Notifications" /></ProtectedRoute>} />
+          <Route path="/documents" element={<ProtectedRoute><PlaceholderPage title="Documents" /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
