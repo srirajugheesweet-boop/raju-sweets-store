@@ -86,7 +86,11 @@ const Header = () => {
       <div className="header-right">
         <div className="dropdown-container">
           <button className="dropdown-trigger">
-            <Zap size={18} fill="currentColor" style={{ color: '#F9D423' }} />
+            {activeItem ? (
+              React.cloneElement(activeItem.icon, { size: 18, style: { color: '#F9D423' } })
+            ) : (
+              <Zap size={18} fill="currentColor" style={{ color: '#F9D423' }} />
+            )}
             <span>{activeItem ? activeItem.label : 'Quick Access'}</span>
             <ChevronDown size={18} />
           </button>
