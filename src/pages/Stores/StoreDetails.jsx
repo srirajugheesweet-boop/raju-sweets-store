@@ -21,8 +21,14 @@ import {
   Layout as LayoutIcon,
   Target,
   FileText as FileIcon,
-  Info
+  Info,
+  Printer,
+  Minus
 } from 'lucide-react';
+
+import logo from '../../assets/logo.png';
+const DEFAULT_ITEM_IMAGE = logo;
+
 
 import { db } from '../../config/firebase';
 import { 
@@ -144,18 +150,26 @@ const StoreDetails = () => {
 
   // Billing Logic
   const handleItemClick = (item) => {
+    const existing = cart.find(c => c.id === item.id);
     if (item.unit === 'Weight') {
       setShowWeightModal(item);
-      setWeightInput({ weight: '', amount: '' });
+      if (existing) {
+        setWeightInput({ weight: existing.quantity, amount: existing.total });
+      } else {
+        setWeightInput({ weight: '', amount: '' });
+      }
     } else {
       addToCart(item, 1, item.price);
     }
   };
 
   const addToCart = (item, quantity, amount) => {
-    const existing = cart.find(c => c.id === item.id);
-    if (existing && item.unit !== 'Weight') {
-      setCart(cart.map(c => c.id === item.id ? { ...c, quantity: c.quantity + quantity, total: (c.quantity + quantity) * c.price } : c));
+    const existingIndex = cart.findIndex(c => c.id === item.id);
+    if (existingIndex > -1 && item.unit !== 'Weight') {
+      setCart(cart.map((c, i) => i === existingIndex ? { ...c, quantity: c.quantity + quantity, total: (c.quantity + quantity) * c.price } : c));
+    } else if (existingIndex > -1 && item.unit === 'Weight') {
+      // Update existing weight entry
+      setCart(cart.map((c, i) => i === existingIndex ? { ...c, quantity, total: parseFloat(amount) } : c));
     } else {
       setCart([...cart, { 
         id: item.id, 
@@ -166,8 +180,36 @@ const StoreDetails = () => {
         total: parseFloat(amount) 
       }]);
     }
-    toast.success(`${item.name} added`);
+    toast.success(`${item.name} updated`);
   };
+
+
+  const updateQuantity = (itemId, delta, isWeight = false) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.id === itemId);
+      if (!existing) return prev;
+      
+      if (delta === -1 && existing.quantity <= (isWeight ? 0.001 : 1)) {
+        return prev.filter(c => c.id !== itemId);
+      }
+
+      return prev.map(c => {
+        if (c.id === itemId) {
+          const newQty = isWeight ? parseFloat(c.quantity) + (delta * 0.1) : c.quantity + delta;
+          const newTotal = isWeight ? (newQty * c.price) : (newQty * c.price);
+          return { ...c, quantity: isWeight ? newQty.toFixed(3) : newQty, total: newTotal };
+        }
+        return c;
+      });
+    });
+  };
+
+
+  const handlePrint = (bill) => {
+    toast.success(`Printing Bill: ${bill.billId}`);
+    // Future: Add real print logic
+  };
+
 
   const handleWeightCalc = (type, value) => {
     const price = showWeightModal.price;
@@ -209,8 +251,8 @@ const StoreDetails = () => {
       await addDoc(collection(db, 'stores', id, 'bills'), billData);
       toast.success(`Bill Settled: ${billId}`);
       setCart([]);
-      setShowBillingModal(false);
     } catch (error) {
+
       toast.error("Failed to settle bill");
     } finally {
       setSubmittingAccess(false);
@@ -398,6 +440,7 @@ const StoreDetails = () => {
                     <th>Amount</th>
                     <th>Mode</th>
                     <th>Items</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -408,8 +451,15 @@ const StoreDetails = () => {
                       <td>₹{bill.totalAmount.toFixed(2)}</td>
                       <td>{bill.paymentMode}</td>
                       <td>{bill.items.length} items</td>
+                      <td>
+                        <button className="store-mini-btn" onClick={() => handlePrint(bill)} title="Print Bill">
+                          <Printer size={16} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
+
+
                   {bills.length === 0 && <tr><td colSpan="5" style={{textAlign:'center', padding: '40px'}}>No bills found.</td></tr>}
                 </tbody>
               </table>
@@ -470,23 +520,72 @@ const StoreDetails = () => {
               <div className="billing-left-panel">
                 <div className="stores-search-bar"><Search size={18} className="stores-search-icon" /><input type="text" placeholder="Search products..." value={billingSearch} onChange={(e) => setBillingSearch(e.target.value)} /></div>
                 <div className="billing-item-list">
-                  {storeItems.filter(i => i.name.toLowerCase().includes(billingSearch.toLowerCase())).map(item => (
-                    <div key={item.id} className="billing-item-card" onClick={() => handleItemClick(item)}>
-                      <h4>{item.name}</h4><p>₹{item.price}</p><span>{item.unit}</span>
-                    </div>
-                  ))}
+                  {storeItems.filter(i => i.name.toLowerCase().includes(billingSearch.toLowerCase())).map(item => {
+                    const inCart = cart.find(c => c.id === item.id);
+                    return (
+                      <div key={item.id} className="billing-item-card">
+                        <div className="billing-item-img" onClick={() => handleItemClick(item)}>
+                          <img src={(!item.image || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} alt={item.name} />
+                          {inCart && (
+                            <div className="item-cart-badge">{item.unit === 'Weight' ? inCart.quantity + 'kg' : inCart.quantity}</div>
+                          )}
+                        </div>
+                        <div className="billing-item-info">
+                          <h4>{item.name}</h4>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                            <p>₹{item.price}</p>
+                            {item.unit === 'Piece' ? (
+                              <div className="pos-qty-controls">
+                                <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }}><Minus size={14} /></button>
+                                <span>{inCart ? inCart.quantity : 0}</span>
+                                <button onClick={(e) => { e.stopPropagation(); inCart ? updateQuantity(item.id, 1) : handleItemClick(item); }}><Plus size={14} /></button>
+                              </div>
+                            ) : (
+                              <button className="pos-weight-btn" onClick={() => handleItemClick(item)}><Scale size={14} /></button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+
               </div>
               <div className="billing-right-panel">
                 <h3 style={{ marginBottom: '20px' }}><ShoppingBag size={20} /> Order Summary</h3>
                 <div className="summary-items">
                   {cart.map((item, idx) => (
                     <div key={idx} className="summary-item-row">
-                      <div><div style={{ fontWeight: '600' }}>{item.name}</div><div style={{ fontSize: '12px' }}>{item.quantity} x ₹{item.price}</div></div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}><span style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</span><button onClick={() => setCart(cart.filter((_, i) => i !== idx))} style={{ color: '#ef4444', background: 'none' }}><X size={16} /></button></div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600' }}>{item.name}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>₹{item.price} / {item.unit === 'Weight' ? 'kg' : 'pc'}</div>
+                      </div>
+                      <div className="summary-qty-section">
+                        {item.unit === 'Weight' ? (
+                          <div className="pos-qty-controls">
+                            <button onClick={() => handleItemClick(storeItems.find(si => si.id === item.id))} title="Edit Weight">
+                              <Scale size={14} />
+                            </button>
+                            <span style={{ minWidth: '40px', textAlign: 'center' }}>{item.quantity}kg</span>
+                            <button onClick={() => handleItemClick(storeItems.find(si => si.id === item.id))} title="Edit Weight">
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="pos-qty-controls">
+                            <button onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
+                            <span style={{ minWidth: '40px', textAlign: 'center' }}>{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
+                          </div>
+                        )}
+                        <div style={{ fontWeight: '700', minWidth: '80px', textAlign: 'right' }}>₹{item.total.toFixed(2)}</div>
+                        <button onClick={() => setCart(cart.filter((_, i) => i !== idx))} style={{ color: '#ef4444', background: 'none', marginLeft: '10px' }}><X size={16} /></button>
+                      </div>
+
                     </div>
                   ))}
                 </div>
+
                 <div className="summary-total">
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: '800' }}><span>Total</span><span style={{ color: 'var(--primary-color)' }}>₹{cart.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span></div>
                   <div className="payment-modes">{['Cash', 'UPI', 'Card'].map(mode => <button key={mode} className={`mode-btn ${paymentMode === mode ? 'active' : ''}`} onClick={() => setPaymentMode(mode)}>{mode}</button>)}</div>
