@@ -33,7 +33,7 @@ function App() {
               border: '1px solid #E2E8F0',
               fontFamily: 'IBM Plex Sans',
               borderRadius: '12px',
-              padding: '16px',
+              padding: '8px 16px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }
           }}
