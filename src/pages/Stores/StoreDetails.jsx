@@ -290,19 +290,24 @@ const StoreDetails = () => {
       </div>
 
       <div className="tabs-nav">
-        <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
-          <Info size={18} /> Store Info
-        </button>
-        <button className={`tab-btn ${activeTab === 'access' ? 'active' : ''}`} onClick={() => setActiveTab('access')}>
-          <Users size={18} /> Access
-        </button>
-        <button className={`tab-btn ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-          <FileIcon size={18} /> Billing
-        </button>
-        <button className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-          <ShoppingBag size={18} /> Orders
-        </button>
+        <div className={`tab-tile ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
+          <div className="tile-icon-box"><Info size={24} /></div>
+          <span>Store Info</span>
+        </div>
+        <div className={`tab-tile ${activeTab === 'access' ? 'active' : ''}`} onClick={() => setActiveTab('access')}>
+          <div className="tile-icon-box"><Users size={24} /></div>
+          <span>Access Control</span>
+        </div>
+        <div className={`tab-tile ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+          <div className="tile-icon-box"><FileIcon size={24} /></div>
+          <span>Billing & POS</span>
+        </div>
+        <div className={`tab-tile ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+          <div className="tile-icon-box"><ShoppingBag size={24} /></div>
+          <span>Recent Orders</span>
+        </div>
       </div>
+
 
       <div className="tab-content">
         {activeTab === 'info' && (
