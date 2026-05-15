@@ -7,6 +7,7 @@ import Login from './pages/Login/Login';
 import Home from './pages/Home/Home';
 import Support from './pages/Support/Support';
 import Employees from './pages/Employees/Employees';
+import EmployeeDetails from './pages/Employees/EmployeeDetails';
 import { Toaster } from 'react-hot-toast';
 
 // Placeholder for other pages
@@ -59,6 +60,7 @@ function App() {
           <Route path="/packing" element={<ProtectedRoute><PlaceholderPage title="Packing Units" /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><PlaceholderPage title="Users & Roles" /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><Layout><Employees /></Layout></ProtectedRoute>} />
+          <Route path="/employees/:id" element={<ProtectedRoute><Layout><EmployeeDetails /></Layout></ProtectedRoute>} />
           <Route path="/timesheet" element={<ProtectedRoute><PlaceholderPage title="Timesheet" /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><PlaceholderPage title="Reports" /></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><Layout><Support /></Layout></ProtectedRoute>} />

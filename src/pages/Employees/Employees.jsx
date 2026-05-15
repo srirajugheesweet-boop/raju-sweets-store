@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
   X, 
@@ -11,7 +12,11 @@ import {
   Search,
   MoreVertical,
   Trash2,
-  Calendar
+  Calendar,
+  Eye,
+  Edit2,
+  AlertTriangle,
+  IndianRupee
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
@@ -20,16 +25,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './Employees.css';
 
 const Employees = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     phone: '',
+    salary: '',
     acceptedLeaves: '',
     address: '',
     city: '',
@@ -75,6 +86,10 @@ const Employees = () => {
     }
   };
 
+  const handleNumberScroll = (e) => {
+    e.target.blur();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.firstName || !formData.phone) {
@@ -91,7 +106,7 @@ const Employees = () => {
       toast.success('Employee added successfully!');
       setIsFormOpen(false);
       setFormData({
-        firstName: '', lastName: '', phone: '', acceptedLeaves: '', address: '', city: '', state: '',
+        firstName: '', lastName: '', phone: '', salary: '', acceptedLeaves: '', address: '', city: '', state: '',
         emergencyContact: { relation: '', name: '', mobile: '' }
       });
       fetchEmployees();
@@ -103,59 +118,76 @@ const Employees = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      try {
-        await deleteDoc(doc(db, 'employees', id));
-        toast.success('Employee removed');
-        fetchEmployees();
-      } catch (error) {
-        toast.error('Failed to delete');
-      }
+  const confirmDelete = (e, emp) => {
+    e.stopPropagation();
+    setEmployeeToDelete(emp);
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!employeeToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'employees', employeeToDelete.id));
+      toast.success('Employee removed');
+      setShowDeleteModal(false);
+      setEmployeeToDelete(null);
+      fetchEmployees();
+    } catch (error) {
+      toast.error('Failed to delete');
     }
   };
 
+  const handleRowClick = (id) => {
+    navigate(`/employees/${id}`);
+  };
+
+  const handleActionClick = (e, action, id) => {
+    e.stopPropagation();
+    if (action === 'view') navigate(`/employees/${id}`);
+    if (action === 'edit') navigate(`/employees/edit/${id}`);
+  };
+
   return (
-    <div className="employees-container">
-      <div className="employees-header">
+    <div className="emp-container">
+      <div className="emp-header">
         <div>
-          <h1 className="employees-title">Employee Management</h1>
+          <h1 className="emp-title">Employee Management</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
             {employees.length} Total Employees
           </p>
         </div>
-        <button className="add-btn" onClick={() => setIsFormOpen(!isFormOpen)}>
+        <button className="emp-add-btn" onClick={() => setIsFormOpen(!isFormOpen)}>
           {isFormOpen ? <><X size={18} /> Close Form</> : <><UserPlus size={18} /> Add Employee</>}
         </button>
       </div>
 
-      <div className="employees-layout">
-        <div className="list-section">
-          <div className="employees-table-container">
+      <div className="emp-layout">
+        <div className="emp-list-section">
+          <div className="emp-table-wrapper">
             {loading ? (
-              <div className="empty-state"><div className="loader"></div></div>
+              <div className="emp-empty-state"><div className="loader"></div></div>
             ) : employees.length === 0 ? (
-              <div className="empty-state">
+              <div className="emp-empty-state">
                 <ShieldAlert size={48} style={{ opacity: 0.2, marginBottom: '15px' }} />
                 <p>No employees found. Click "Add Employee" to get started.</p>
               </div>
             ) : (
-              <table className="employees-table">
+              <table className="emp-table">
                 <thead>
                   <tr>
                     <th>Employee Name</th>
                     <th>Phone</th>
+                    <th>Salary</th>
                     <th>Leaves</th>
-                    <th>Location</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map((emp) => (
-                    <tr key={emp.id}>
+                    <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
                       <td>
-                        <div className="emp-name">
-                          <div className="emp-avatar">{emp.firstName[0]}{emp.lastName[0]}</div>
+                        <div className="emp-name-cell">
+                          <div className="emp-avatar-box">{emp.firstName[0]}{emp.lastName ? emp.lastName[0] : ''}</div>
                           <div>
                             <div style={{ fontWeight: '700' }}>{emp.firstName} {emp.lastName}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>EMP-{emp.id.slice(0, 5).toUpperCase()}</div>
@@ -164,16 +196,26 @@ const Employees = () => {
                       </td>
                       <td>{emp.phone}</td>
                       <td>
+                        <div style={{ fontWeight: '600' }}>₹{emp.salary || '0'}</div>
+                      </td>
+                      <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Calendar size={14} color="#06D6A0" />
                           <span>{emp.acceptedLeaves || 0} Days</span>
                         </div>
                       </td>
-                      <td>{emp.city}, {emp.state}</td>
                       <td>
-                        <button onClick={() => handleDelete(emp.id)} style={{ color: 'var(--error-color)', background: 'transparent' }}>
-                          <Trash2 size={18} />
-                        </button>
+                        <div className="emp-actions-cell">
+                          <button className="action-icon-btn view" onClick={(e) => handleActionClick(e, 'view', emp.id)}>
+                            <Eye size={16} />
+                          </button>
+                          <button className="action-icon-btn edit" onClick={(e) => handleActionClick(e, 'edit', emp.id)}>
+                            <Edit2 size={16} />
+                          </button>
+                          <button className="action-icon-btn delete" onClick={(e) => confirmDelete(e, emp)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -186,80 +228,111 @@ const Employees = () => {
         <AnimatePresence>
           {isFormOpen && (
             <motion.div 
-              className="form-section"
+              className="emp-form-section"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
             >
-              <div className="form-header">
+              <div className="emp-form-header">
                 <h3>Add New Employee</h3>
-                <button className="close-btn" onClick={() => setIsFormOpen(false)}><X size={18} /></button>
+                <button className="emp-close-circle" onClick={() => setIsFormOpen(false)}><X size={18} /></button>
               </div>
 
-              <form onSubmit={handleSubmit} className="employee-form">
-                <div className="section-label">Personal Information</div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">First Name</label>
-                    <input type="text" name="firstName" className="form-input" value={formData.firstName} onChange={handleInputChange} placeholder="John" required />
+              <form onSubmit={handleSubmit} className="emp-data-form">
+                <div className="emp-group-label">Personal Information</div>
+                <div className="emp-form-row">
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">First Name</label>
+                    <input type="text" name="firstName" className="emp-text-input" value={formData.firstName} onChange={handleInputChange} placeholder="John" required />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Last Name</label>
-                    <input type="text" name="lastName" className="form-input" value={formData.lastName} onChange={handleInputChange} placeholder="Doe" />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Phone Number</label>
-                    <input type="tel" name="phone" className="form-input" value={formData.phone} onChange={handleInputChange} placeholder="+91 00000 00000" required />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Accepted Leaves</label>
-                    <input type="number" name="acceptedLeaves" className="form-input" value={formData.acceptedLeaves} onChange={handleInputChange} placeholder="12" />
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">Last Name</label>
+                    <input type="text" name="lastName" className="emp-text-input" value={formData.lastName} onChange={handleInputChange} placeholder="Doe" />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Address</label>
-                  <input type="text" name="address" className="form-input" value={formData.address} onChange={handleInputChange} placeholder="Street, Area" />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">City</label>
-                    <input type="text" name="city" className="form-input" value={formData.city} onChange={handleInputChange} placeholder="Hyderabad" />
+                <div className="emp-form-row">
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">Phone Number</label>
+                    <input type="tel" name="phone" className="emp-text-input" value={formData.phone} onChange={handleInputChange} placeholder="+91 00000 00000" required />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">State</label>
-                    <input type="text" name="state" className="form-input" value={formData.state} onChange={handleInputChange} placeholder="Telangana" />
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">Salary (Monthly)</label>
+                    <input type="number" name="salary" className="emp-text-input" value={formData.salary} onChange={handleInputChange} onWheel={handleNumberScroll} placeholder="₹ 25,000" />
                   </div>
                 </div>
 
-                <div className="section-label">Emergency Contact</div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Contact Name</label>
-                    <input type="text" name="emergency_name" className="form-input" value={formData.emergencyContact.name} onChange={handleInputChange} placeholder="Relation Name" />
+                <div className="emp-form-row">
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">Accepted Leaves</label>
+                    <input type="number" name="acceptedLeaves" className="emp-text-input" value={formData.acceptedLeaves} onChange={handleInputChange} onWheel={handleNumberScroll} placeholder="12" />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Relation</label>
-                    <input type="text" name="emergency_relation" className="form-input" value={formData.emergencyContact.relation} onChange={handleInputChange} placeholder="e.g. Spouse" />
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">City</label>
+                    <input type="text" name="city" className="emp-text-input" value={formData.city} onChange={handleInputChange} placeholder="Hyderabad" />
                   </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Contact Mobile</label>
-                  <input type="tel" name="emergency_mobile" className="form-input" value={formData.emergencyContact.mobile} onChange={handleInputChange} placeholder="+91 00000 00000" />
                 </div>
 
-                <button type="submit" className="login-button" disabled={submitting} style={{ marginTop: '10px' }}>
-                  {submitting ? <div className="loader" style={{ width: '20px', height: '20px' }}></div> : <><UserPlus size={18} /> Save Employee</>}
+                <div className="emp-input-group">
+                  <label className="emp-input-label">Address</label>
+                  <input type="text" name="address" className="emp-text-input" value={formData.address} onChange={handleInputChange} placeholder="Street, Area" />
+                </div>
+
+                <div className="emp-input-group">
+                  <label className="emp-input-label">State</label>
+                  <input type="text" name="state" className="emp-text-input" value={formData.state} onChange={handleInputChange} placeholder="Telangana" />
+                </div>
+
+                <div className="emp-group-label">Emergency Contact</div>
+                <div className="emp-form-row">
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">Contact Name</label>
+                    <input type="text" name="emergency_name" className="emp-text-input" value={formData.emergencyContact.name} onChange={handleInputChange} placeholder="Relation Name" />
+                  </div>
+                  <div className="emp-input-group">
+                    <label className="emp-input-label">Relation</label>
+                    <input type="text" name="emergency_relation" className="emp-text-input" value={formData.emergencyContact.relation} onChange={handleInputChange} placeholder="e.g. Spouse" />
+                  </div>
+                </div>
+                <div className="emp-input-group">
+                  <label className="emp-input-label">Contact Mobile</label>
+                  <input type="tel" name="emergency_mobile" className="emp-text-input" value={formData.emergencyContact.mobile} onChange={handleInputChange} placeholder="+91 00000 00000" />
+                </div>
+
+                <button type="submit" className="emp-save-btn" disabled={submitting} style={{ marginTop: '10px' }}>
+                  {submitting ? <div className="loader"></div> : <><UserPlus size={18} /> Save Employee</>}
                 </button>
               </form>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="modal-overlay">
+            <motion.div 
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="modal-title">Delete Employee?</h3>
+              <p className="modal-text">
+                Are you sure you want to delete <strong>{employeeToDelete?.firstName} {employeeToDelete?.lastName}</strong>? This action cannot be undone.
+              </p>
+              <div className="modal-actions">
+                <button className="modal-btn cancel" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+                <button className="modal-btn confirm" onClick={handleDelete}>Delete Now</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
