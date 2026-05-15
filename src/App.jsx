@@ -11,7 +11,9 @@ import EmployeeDetails from './pages/Employees/EmployeeDetails';
 import ManufacturingUnits from './pages/ManufacturingUnits/ManufacturingUnits';
 import PackingUnits from './pages/PackingUnits/PackingUnits';
 import Items from './pages/Items/Items';
+import Stores from './pages/Stores/Stores';
 import { Toaster } from 'react-hot-toast';
+
 
 // Placeholder for other pages
 const PlaceholderPage = ({ title }) => (
@@ -58,7 +60,8 @@ function App() {
           <Route path="/customers" element={<ProtectedRoute><PlaceholderPage title="Customers" /></ProtectedRoute>} />
           <Route path="/items" element={<ProtectedRoute><Layout><Items /></Layout></ProtectedRoute>} />
           <Route path="/categories" element={<ProtectedRoute><PlaceholderPage title="Categories" /></ProtectedRoute>} />
-          <Route path="/stores" element={<ProtectedRoute><PlaceholderPage title="Stores" /></ProtectedRoute>} />
+          <Route path="/stores" element={<ProtectedRoute><Layout><Stores /></Layout></ProtectedRoute>} />
+
           <Route path="/manufacturing" element={<ProtectedRoute><Layout><ManufacturingUnits /></Layout></ProtectedRoute>} />
           <Route path="/packing" element={<ProtectedRoute><Layout><PackingUnits /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><PlaceholderPage title="Users & Roles" /></ProtectedRoute>} />
