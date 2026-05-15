@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { 
@@ -53,6 +53,7 @@ const menuItems = [
 
 const Header = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -63,6 +64,12 @@ const Header = () => {
       toast.error('Error logging out');
     }
   };
+
+  // Find active menu item
+  const activeItem = menuItems.find(item => {
+    if (item.path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(item.path);
+  });
 
   return (
     <header className="header">
@@ -79,15 +86,19 @@ const Header = () => {
       <div className="header-right">
         <div className="dropdown-container">
           <button className="dropdown-trigger">
-            <Zap size={18} fill="currentColor" />
-            <span>Quick Access</span>
+            <Zap size={18} fill="currentColor" style={{ color: '#F9D423' }} />
+            <span>{activeItem ? activeItem.label : 'Quick Access'}</span>
             <ChevronDown size={18} />
           </button>
           <div className="dropdown-menu">
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {menuItems.map((item) => (
-                <Link key={item.id} to={item.path} className="dropdown-item">
-                  {item.icon}
+                <Link 
+                  key={item.id} 
+                  to={item.path} 
+                  className={`dropdown-item ${location.pathname.startsWith(item.path) ? 'active' : ''}`}
+                >
+                  {React.cloneElement(item.icon, { size: 18 })}
                   <span>{item.label}</span>
                 </Link>
               ))}

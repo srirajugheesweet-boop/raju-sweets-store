@@ -122,13 +122,31 @@
   transition: all 0.2s ease;
 }
 
-.dropdown-item:hover {
+.dropdown-item:hover,
+.dropdown-item.active {
   background: #F7FAFC;
-  color: #1A0B48;
+  color: var(--primary-color);
 }
 
-.dropdown-item svg {
-  color: #7B2CBF;
+.dropdown-item.active svg {
+  color: var(--primary-color);
+}
+
+.dropdown-item.active {
+  background: #F0FFF4;
+  position: relative;
+}
+
+.dropdown-item.active::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  background: var(--primary-color);
+  border-radius: 4px;
 }
 
 .logout-btn {
