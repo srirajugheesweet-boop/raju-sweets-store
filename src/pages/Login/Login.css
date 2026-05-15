@@ -9,47 +9,47 @@
 
 .login-card {
   width: 100%;
-  max-width: 440px;
-  padding: 48px;
+  max-width: 420px;
+  padding: 32px;
   background: var(--bg-secondary);
-  border-radius: 24px;
+  border-radius: 20px;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-color);
 }
 
 .login-logo-container {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
 .login-title {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .login-subtitle {
   color: var(--text-secondary);
-  font-size: 15px;
-  margin-bottom: 32px;
+  font-size: 14px;
+  margin-bottom: 24px;
 }
 
 .login-tabs {
   display: flex;
-  gap: 8px;
-  margin-bottom: 32px;
+  gap: 6px;
+  margin-bottom: 24px;
   background: #EDF2F7;
   padding: 4px;
-  border-radius: 14px;
+  border-radius: 12px;
 }
 
 .login-tab {
   flex: 1;
-  padding: 12px;
-  border-radius: 10px;
-  font-size: 14px;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   background: transparent;
   color: var(--text-secondary);
@@ -63,15 +63,15 @@
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   text-align: left;
 }
 
 .form-label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--text-primary);
 }
 
@@ -83,18 +83,26 @@
 
 .input-icon {
   position: absolute;
-  left: 16px;
+  left: 18px;
   color: var(--text-secondary);
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.form-input {
+.input-wrapper .form-input {
   width: 100%;
-  padding: 14px 16px 14px 46px;
+  height: 40px;
+  padding-left: 56px !important;
+  padding-right: 16px;
   background: #F7FAFC;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   transition: var(--transition);
 }
 
@@ -107,17 +115,18 @@
 
 .login-button {
   width: 100%;
-  padding: 16px;
+  height: 40px;
+  padding: 0;
   background: var(--primary-color);
   color: #FFFFFF;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
-  border-radius: 12px;
-  margin-top: 8px;
+  border-radius: 10px;
+  margin-top: 4px;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .login-button:hover {

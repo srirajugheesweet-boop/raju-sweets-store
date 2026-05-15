@@ -19,9 +19,12 @@ import {
   UserCircle, 
   Clock, 
   BarChart3, 
-  History, 
+  ShieldCheck, 
   CreditCard, 
-  Settings 
+  Settings,
+  Bell,
+  FileText,
+  LifeBuoy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
@@ -40,9 +43,12 @@ const menuItems = [
   { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees' },
   { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet' },
   { id: 'reports', label: 'Reports', icon: <BarChart3 />, path: '/reports' },
-  { id: 'audit', label: 'Audit Logs', icon: <History />, path: '/audit' },
+  { id: 'audit', label: 'Audit Logs', icon: <ShieldCheck />, path: '/audit' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
   { id: 'settings', label: 'Settings', icon: <Settings />, path: '/settings' },
+  { id: 'notifications', label: 'Notifications', icon: <Bell />, path: '/notifications' },
+  { id: 'documents', label: 'Documents', icon: <FileText />, path: '/documents' },
+  { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support' },
 ];
 
 const Header = () => {
