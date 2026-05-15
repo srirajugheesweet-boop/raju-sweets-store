@@ -12,7 +12,9 @@ import ManufacturingUnits from './pages/ManufacturingUnits/ManufacturingUnits';
 import PackingUnits from './pages/PackingUnits/PackingUnits';
 import Items from './pages/Items/Items';
 import Stores from './pages/Stores/Stores';
+import StoreDetails from './pages/Stores/StoreDetails';
 import { Toaster } from 'react-hot-toast';
+
 
 
 // Placeholder for other pages
@@ -61,6 +63,8 @@ function App() {
           <Route path="/items" element={<ProtectedRoute><Layout><Items /></Layout></ProtectedRoute>} />
           <Route path="/categories" element={<ProtectedRoute><PlaceholderPage title="Categories" /></ProtectedRoute>} />
           <Route path="/stores" element={<ProtectedRoute><Layout><Stores /></Layout></ProtectedRoute>} />
+          <Route path="/stores/:id" element={<ProtectedRoute><Layout><StoreDetails /></Layout></ProtectedRoute>} />
+
 
           <Route path="/manufacturing" element={<ProtectedRoute><Layout><ManufacturingUnits /></Layout></ProtectedRoute>} />
           <Route path="/packing" element={<ProtectedRoute><Layout><PackingUnits /></Layout></ProtectedRoute>} />

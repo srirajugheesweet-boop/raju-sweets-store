@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 import { 
   Plus, 
   Search, 
@@ -30,7 +32,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './Stores.css';
 
 const Stores = () => {
+  const navigate = useNavigate();
   const [stores, setStores] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,14 +175,14 @@ const Stores = () => {
               <div className="stores-empty-state"><div className="loader"></div></div>
             ) : filteredStores.length > 0 ? (
               filteredStores.map(store => (
-                <div key={store.id} className="store-card">
+                <div key={store.id} className="store-card" onClick={() => navigate(`/stores/${store.id}`)} style={{ cursor: 'pointer' }}>
                   <div className="store-card-header">
                     <div className="store-icon-box">
                       <Store size={24} />
                     </div>
                     <div className="store-card-actions">
-                      <button onClick={() => handleEdit(store)} className="store-mini-btn edit"><Edit size={16} /></button>
-                      <button onClick={() => setShowDeleteModal(store.id)} className="store-mini-btn delete"><Trash2 size={16} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleEdit(store); }} className="store-mini-btn edit"><Edit size={16} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); setShowDeleteModal(store.id); }} className="store-mini-btn delete"><Trash2 size={16} /></button>
                     </div>
                   </div>
                   <div className="store-card-body">
