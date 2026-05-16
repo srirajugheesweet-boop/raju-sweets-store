@@ -11,6 +11,7 @@ import {
   Users,
   ArrowRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -28,6 +29,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './Customers.css';
 
 const Customers = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -99,7 +101,8 @@ const Customers = () => {
     setEditingCustomer(null);
   };
 
-  const handleEdit = (customer) => {
+  const handleEdit = (e, customer) => {
+    e.stopPropagation();
     setEditingCustomer(customer);
     setFormData({
       firstName: customer.firstName,
@@ -124,6 +127,11 @@ const Customers = () => {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const openDeleteModal = (e, id) => {
+    e.stopPropagation();
+    setShowDeleteModal(id);
   };
 
   const filteredCustomers = customers.filter(customer => 
@@ -162,12 +170,17 @@ const Customers = () => {
               <div className="cust-loader-container"><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></div>
             ) : filteredCustomers.length > 0 ? (
               filteredCustomers.map(customer => (
-                <div key={customer.id} className="cust-card">
+                <div 
+                  key={customer.id} 
+                  className="cust-card"
+                  onClick={() => navigate(`/customers/${customer.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="cust-card-header">
                     <div className="cust-icon"><User size={20} /></div>
                     <div className="cust-actions">
-                      <button onClick={() => handleEdit(customer)} className="cust-action-btn edit"><Edit size={16} /></button>
-                      <button onClick={() => setShowDeleteModal(customer.id)} className="cust-action-btn delete"><Trash2 size={16} /></button>
+                      <button onClick={(e) => handleEdit(e, customer)} className="cust-action-btn edit"><Edit size={16} /></button>
+                      <button onClick={(e) => openDeleteModal(e, customer.id)} className="cust-action-btn delete"><Trash2 size={16} /></button>
                     </div>
                   </div>
                   <div className="cust-info">

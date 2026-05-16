@@ -14,6 +14,7 @@ import Items from './pages/Items/Items';
 import Stores from './pages/Stores/Stores';
 import StoreDetails from './pages/Stores/StoreDetails';
 import Customers from './pages/Customers/Customers';
+import CustomerDetails from './pages/Customers/CustomerDetails';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -61,6 +62,7 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><PlaceholderPage title="Orders" /></ProtectedRoute>} />
           <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
+          <Route path="/customers/:id" element={<ProtectedRoute><Layout><CustomerDetails /></Layout></ProtectedRoute>} />
           <Route path="/items" element={<ProtectedRoute><Layout><Items /></Layout></ProtectedRoute>} />
           <Route path="/categories" element={<ProtectedRoute><PlaceholderPage title="Categories" /></ProtectedRoute>} />
           <Route path="/stores" element={<ProtectedRoute><Layout><Stores /></Layout></ProtectedRoute>} />
