@@ -377,7 +377,51 @@ const Orders = () => {
             </div>
 
             <div className="ord-modal-content">
-              {/* Left Panel: Summary */}
+              {/* Left Panel: Form & Selection */}
+              <div className="ord-items-panel">
+                <div className="ord-panel-header">
+                  <div className="ord-panel-top">
+                    <CustomDropdown 
+                      label="Select Customer"
+                      options={customers}
+                      onSelect={setSelectedCustomer}
+                      selectedValue={selectedCustomer}
+                      placeholder="Search name or number..."
+                      icon={User}
+                    />
+                    <CustomDropdown 
+                      label="Select Delivery Store"
+                      options={stores}
+                      onSelect={setSelectedStore}
+                      selectedValue={selectedStore}
+                      placeholder="Select a store..."
+                      icon={Store}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Package size={18} color="var(--primary-color)" />
+                  <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Select Items</h3>
+                </div>
+
+                <div className="ord-items-grid">
+                  {items.map(item => (
+                    <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClick(item)}>
+                      <img src={item.image} alt={item.name} className="ord-item-img" />
+                      <div className="ord-item-details">
+                        <h4>{item.name}</h4>
+                        <div className="ord-price-row">
+                          <span className="price">₹{item.price}</span>
+                          <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Panel: Summary */}
               <div className="ord-summary-panel">
                 <h2><FileText size={20} /> Order Summary</h2>
                 
@@ -445,59 +489,6 @@ const Orders = () => {
                   <button className="ord-save-btn" onClick={saveOrder} disabled={submitting}>
                     {submitting ? <div className="loader"></div> : 'Confirm & Save Order'}
                   </button>
-                </div>
-              </div>
-
-              {/* Right Panel: Form & Selection */}
-              <div className="ord-items-panel">
-                <div className="ord-panel-header">
-                  <div className="ord-panel-top">
-                    <CustomDropdown 
-                      label="Select Customer"
-                      options={customers}
-                      onSelect={setSelectedCustomer}
-                      selectedValue={selectedCustomer}
-                      placeholder="Search name or number..."
-                      icon={User}
-                    />
-                    <CustomDropdown 
-                      label="Select Delivery Store"
-                      options={stores}
-                      onSelect={setSelectedStore}
-                      selectedValue={selectedStore}
-                      placeholder="Select a store..."
-                      icon={Store}
-                    />
-                  </div>
-                  <div className="ord-desc-group">
-                    <label>Order Description / Special Notes</label>
-                    <input 
-                      className="ord-global-desc"
-                      placeholder="General description for this order (optional)..."
-                      value={globalDescription}
-                      onChange={(e) => setGlobalDescription(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Package size={18} color="var(--primary-color)" />
-                  <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Select Items</h3>
-                </div>
-
-                <div className="ord-items-grid">
-                  {items.map(item => (
-                    <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClick(item)}>
-                      <img src={item.image} alt={item.name} className="ord-item-img" />
-                      <div className="ord-item-details">
-                        <h4>{item.name}</h4>
-                        <div className="ord-price-row">
-                          <span className="price">₹{item.price}</span>
-                          <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>

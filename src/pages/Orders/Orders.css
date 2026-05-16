@@ -139,10 +139,10 @@
   overflow: hidden;
 }
 
-/* Left Panel: Summary & Form */
+/* Right Panel: Summary & Form */
 .ord-summary-panel {
   width: 400px;
-  border-right: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   padding: 24px;
@@ -213,7 +213,7 @@
   color: var(--primary-color);
 }
 
-/* Middle Panel: Item Selection */
+/* Left Panel: Item Selection */
 .ord-items-panel {
   flex: 1;
   background: #f8fafc;
