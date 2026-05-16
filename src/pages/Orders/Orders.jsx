@@ -138,7 +138,7 @@ const Orders = () => {
 
   // Modals
   const [showWeightModal, setShowWeightModal] = useState(null);
-  const [weightInput, setWeightInput] = useState({ weight: '', amount: '' });
+  const [weightInput, setWeightInput] = useState({ weight: '', amount: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ const Orders = () => {
   const handleItemClick = (item) => {
     if (item.unit === 'Weight') {
       setShowWeightModal(item);
-      setWeightInput({ weight: '', amount: '' });
+      setWeightInput({ weight: '', amount: '', description: '' });
     } else {
       addToCart(item, 1, item.price);
     }
@@ -182,14 +182,14 @@ const Orders = () => {
   const handleWeightCalc = (type, value, price) => {
     if (type === 'weight') {
       const amt = (parseFloat(value) * price).toFixed(2);
-      setWeightInput({ weight: value, amount: isNaN(amt) ? '' : amt });
+      setWeightInput({ ...weightInput, weight: value, amount: isNaN(amt) ? '' : amt });
     } else {
       const wt = (parseFloat(value) / price).toFixed(3);
-      setWeightInput({ weight: isNaN(wt) ? '' : wt, amount: value });
+      setWeightInput({ ...weightInput, weight: isNaN(wt) ? '' : wt, amount: value });
     }
   };
 
-  const addToCart = (item, quantity, total) => {
+  const addToCart = (item, quantity, total, itemDescription = '') => {
     const existingIndex = cart.findIndex(c => c.id === item.id);
     if (existingIndex > -1 && item.unit !== 'Weight') {
       const newCart = [...cart];
@@ -204,6 +204,7 @@ const Orders = () => {
         unit: item.unit,
         quantity: Number(quantity),
         total: Number(total),
+        description: itemDescription,
         mUnitId: item.mUnitId,
         status: 'preparation_started'
       }]);
@@ -431,6 +432,7 @@ const Orders = () => {
                       <div className="ord-item-info">
                         <h4>{item.name}</h4>
                         <p>{item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity} pcs`} @ ₹{item.price}</p>
+                        {item.description && <p className="item-note">Note: {item.description}</p>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <div className="ord-item-price">
@@ -533,6 +535,23 @@ const Orders = () => {
                   />
                 </div>
 
+                <div className="ord-weight-input-group">
+                  <label>Item Description / Note</label>
+                  <textarea 
+                    placeholder="e.g. less sugar, extra packing..."
+                    value={weightInput.description}
+                    onChange={(e) => setWeightInput({ ...weightInput, description: e.target.value })}
+                    style={{ 
+                      height: '60px', 
+                      padding: '10px', 
+                      border: '1px solid var(--border-color)', 
+                      border_radius: '10px', 
+                      font_size: '14px', 
+                      resize: 'none' 
+                    }}
+                  />
+                </div>
+
                 <div className="modal-actions" style={{ marginTop: '10px' }}>
                   <button className="modal-btn cancel" onClick={() => setShowWeightModal(null)}>Cancel</button>
                   <button 
@@ -540,7 +559,7 @@ const Orders = () => {
                     style={{ background: 'var(--primary-color)' }}
                     onClick={() => {
                       if (weightInput.weight && weightInput.amount) {
-                        addToCart(showWeightModal, weightInput.weight, weightInput.amount);
+                        addToCart(showWeightModal, weightInput.weight, weightInput.amount, weightInput.description);
                         setShowWeightModal(null);
                       } else {
                         toast.error("Please enter weight or amount");

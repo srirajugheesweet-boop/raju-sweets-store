@@ -185,6 +185,13 @@
   margin-top: 2px;
 }
 
+.ord-item-info .item-note {
+  font-style: italic;
+  color: var(--primary-color);
+  opacity: 0.8;
+  font-size: 11px;
+}
+
 .ord-item-price {
   text-align: right;
 }
