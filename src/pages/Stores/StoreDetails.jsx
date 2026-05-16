@@ -127,11 +127,13 @@ const StoreDetails = () => {
   useEffect(() => {
     const q = query(
       collection(db, 'orders'), 
-      where('storeId', '==', id),
-      orderBy('createdAt', 'desc')
+      where('storeId', '==', id)
+      // orderBy('createdAt', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      fetchedOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setOrders(fetchedOrders);
     });
     return () => unsubscribe();
   }, [id]);
@@ -304,22 +306,22 @@ const StoreDetails = () => {
         </div>
       </div>
 
-      <div className="tabs-nav">
-        <div className={`tab-tile ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
-          <div className="tile-icon-box"><Info size={24} /></div>
+      <div className="sd-tabs-nav">
+        <div className={`sd-tab-tile ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>
+          <div className="sd-tile-icon"><Info size={18} /></div>
           <span>Store Info</span>
         </div>
-        <div className={`tab-tile ${activeTab === 'access' ? 'active' : ''}`} onClick={() => setActiveTab('access')}>
-          <div className="tile-icon-box"><Users size={24} /></div>
+        <div className={`sd-tab-tile ${activeTab === 'access' ? 'active' : ''}`} onClick={() => setActiveTab('access')}>
+          <div className="sd-tile-icon"><Users size={18} /></div>
           <span>Access Control</span>
         </div>
-        <div className={`tab-tile ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
-          <div className="tile-icon-box"><FileIcon size={24} /></div>
+        <div className={`sd-tab-tile ${activeTab === 'billing' ? 'active' : ''}`} onClick={() => setActiveTab('billing')}>
+          <div className="sd-tile-icon"><FileIcon size={18} /></div>
           <span>Billing & POS</span>
         </div>
-        <div className={`tab-tile ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
-          <div className="tile-icon-box"><ShoppingBag size={24} /></div>
-          <span>Recent Orders</span>
+        <div className={`sd-tab-tile ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>
+          <div className="sd-tile-icon"><ShoppingBag size={18} /></div>
+          <span>Orders</span>
         </div>
       </div>
 
@@ -490,7 +492,7 @@ const StoreDetails = () => {
         {activeTab === 'orders' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div className="access-header">
-              <h2>Recent Orders ({orders.length})</h2>
+              <h2>Store Orders ({orders.length})</h2>
               <button className="add-access-btn" style={{ background: '#059669' }} onClick={() => navigate('/orders')}>
                 <Plus size={18} /> New Order
               </button>

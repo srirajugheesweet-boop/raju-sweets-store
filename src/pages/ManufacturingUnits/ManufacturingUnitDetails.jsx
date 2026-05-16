@@ -66,6 +66,9 @@ const ManufacturingUnitDetails = () => {
       
       setOrders(unitOrders);
       setLoading(false);
+    }, (error) => {
+      console.error("MU Orders subscription error:", error);
+      setLoading(false);
     });
     return () => unsubscribe();
   }, [id]);

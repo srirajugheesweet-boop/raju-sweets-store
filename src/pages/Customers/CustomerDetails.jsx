@@ -39,34 +39,52 @@ const CustomerDetails = () => {
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'orders', 'cart', 'wishlist', 'addresses'
 
   useEffect(() => {
-    const fetchCustomer = async () => {
+    let unsubscribeOrders = () => {};
+
+    const loadData = async () => {
       try {
+        // 1. Fetch Customer Info
         const customerDoc = await getDoc(doc(db, 'customers', id));
         if (customerDoc.exists()) {
           setCustomer({ id: customerDoc.id, ...customerDoc.data() });
         } else {
           toast.error("Customer not found");
           navigate('/customers');
+          setLoading(false);
+          return;
         }
+
+        // 2. Subscribe to Orders
+        const q = query(
+          collection(db, 'orders'), 
+          where('customerId', '==', id)
+          // orderBy('createdAt', 'desc') // Temporarily commented to check index issue
+        );
+        
+        unsubscribeOrders = onSnapshot(q, (snapshot) => {
+          const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          // Sort manually if index is missing for orderBy
+          fetchedOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+          setOrders(fetchedOrders);
+          setLoading(false);
+        }, (error) => {
+          console.error("Orders sync error:", error);
+          toast.error("Failed to sync orders");
+          setLoading(false);
+        });
+
       } catch (error) {
-        console.error("Error fetching customer:", error);
-        toast.error("Failed to load customer details");
+        console.error("Data load error:", error);
+        toast.error("An error occurred while loading data");
+        setLoading(false);
       }
     };
-    fetchCustomer();
 
-    // Fetch Orders
-    const q = query(
-      collection(db, 'orders'), 
-      where('customerId', '==', id),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    });
+    loadData();
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeOrders();
+    };
   }, [id, navigate]);
 
   if (loading) {
