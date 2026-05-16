@@ -40,7 +40,8 @@ import {
   query, 
   orderBy, 
   deleteDoc,
-  serverTimestamp 
+  serverTimestamp,
+  where 
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,6 +51,7 @@ const StoreDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [store, setStore] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'access', 'orders', 'billing'
   
@@ -120,6 +122,19 @@ const StoreDetails = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // Fetch Orders
+  useEffect(() => {
+    const q = query(
+      collection(db, 'orders'), 
+      where('storeId', '==', id),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [id]);
 
   const handleAddAccess = async (e) => {
     e.preventDefault();
@@ -474,12 +489,40 @@ const StoreDetails = () => {
 
         {activeTab === 'orders' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="access-header"><h2>Recent Orders</h2><button className="add-access-btn" style={{ background: '#059669' }}><Plus size={18} /> New Order</button></div>
+            <div className="access-header">
+              <h2>Recent Orders ({orders.length})</h2>
+              <button className="add-access-btn" style={{ background: '#059669' }} onClick={() => navigate('/orders')}>
+                <Plus size={18} /> New Order
+              </button>
+            </div>
             <div className="orders-table-container">
               <table className="orders-table">
-                <thead><tr><th>Order ID</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  <tr><td>#ORD-7742</td><td>15 May 2026</td><td>Ghee Sweets, Mixture</td><td>₹ 4,500</td><td><span className="status-badge pending">Pending</span></td></tr>
+                  {orders.map(order => (
+                    <tr key={order.id}>
+                      <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>#{order.orderId}</td>
+                      <td>{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</td>
+                      <td>{order.customerName}</td>
+                      <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
+                      <td>
+                        <span className={`status-badge ${order.status}`} style={{ fontSize: '10px' }}>
+                          {order.status.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {orders.length === 0 && (
+                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>No orders found for this store.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

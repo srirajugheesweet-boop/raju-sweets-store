@@ -84,30 +84,32 @@ const Header = () => {
       </div>
 
       <div className="header-right">
-        <div className="dropdown-container">
-          <button className="dropdown-trigger">
-            {activeItem ? (
-              React.cloneElement(activeItem.icon, { size: 18, style: { color: '#F9D423' } })
-            ) : (
-              <Zap size={18} fill="currentColor" style={{ color: '#F9D423' }} />
-            )}
-            <span>{activeItem ? activeItem.label : 'Quick Access'}</span>
+        <div className="hd-container">
+          <button className="hd-trigger">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {activeItem ? (
+                React.cloneElement(activeItem.icon, { size: 18, style: { color: '#F9D423' } })
+              ) : (
+                <Zap size={18} fill="currentColor" style={{ color: '#F9D423' }} />
+              )}
+              <span>{activeItem ? activeItem.label : 'Quick Access'}</span>
+            </div>
             <ChevronDown size={18} />
           </button>
-          <div className="dropdown-menu">
+          <div className="hd-menu">
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {menuItems.map((item) => (
                 <Link 
                   key={item.id} 
                   to={item.path} 
-                  className={`dropdown-item ${location.pathname.startsWith(item.path) ? 'active' : ''}`}
+                  className={`hd-item ${location.pathname.startsWith(item.path) ? 'active' : ''}`}
                 >
                   {React.cloneElement(item.icon, { size: 18 })}
                   <span>{item.label}</span>
                 </Link>
               ))}
             </div>
-            <button onClick={handleLogout} className="logout-btn">
+            <button onClick={handleLogout} className="hd-logout-btn">
               <LogOut size={18} />
               <span>Logout</span>
             </button>

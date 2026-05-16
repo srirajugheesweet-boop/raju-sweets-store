@@ -15,6 +15,8 @@ import Stores from './pages/Stores/Stores';
 import StoreDetails from './pages/Stores/StoreDetails';
 import Customers from './pages/Customers/Customers';
 import CustomerDetails from './pages/Customers/CustomerDetails';
+import Orders from './pages/Orders/Orders';
+import ManufacturingUnitDetails from './pages/ManufacturingUnits/ManufacturingUnitDetails';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -60,7 +62,7 @@ function App() {
 
           {/* Module Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />
-          <Route path="/orders" element={<ProtectedRoute><PlaceholderPage title="Orders" /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
           <Route path="/customers/:id" element={<ProtectedRoute><Layout><CustomerDetails /></Layout></ProtectedRoute>} />
           <Route path="/items" element={<ProtectedRoute><Layout><Items /></Layout></ProtectedRoute>} />
@@ -70,6 +72,7 @@ function App() {
 
 
           <Route path="/manufacturing" element={<ProtectedRoute><Layout><ManufacturingUnits /></Layout></ProtectedRoute>} />
+          <Route path="/manufacturing/:id" element={<ProtectedRoute><Layout><ManufacturingUnitDetails /></Layout></ProtectedRoute>} />
           <Route path="/packing" element={<ProtectedRoute><Layout><PackingUnits /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><PlaceholderPage title="Users & Roles" /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><Layout><Employees /></Layout></ProtectedRoute>} />

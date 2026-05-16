@@ -11,6 +11,7 @@ import {
   Factory,
   ArrowRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -29,6 +30,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './ManufacturingUnits.css';
 
 const ManufacturingUnits = () => {
+  const navigate = useNavigate();
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -154,30 +156,35 @@ const ManufacturingUnits = () => {
               <div className="mu-loader-container"><div className="loader"></div></div>
             ) : filteredUnits.length > 0 ? (
               filteredUnits.map(unit => (
-                <div key={unit.id} className="mu-unit-card">
-                  <div className="mu-card-header">
-                    <div className="mu-unit-icon"><Factory size={20} /></div>
-                    <div className="mu-unit-actions">
-                      <button onClick={() => handleEdit(unit)} className="mu-action-btn edit"><Edit size={16} /></button>
-                      <button onClick={() => setShowDeleteModal(unit.id)} className="mu-action-btn delete"><Trash2 size={16} /></button>
+                  <div 
+                    key={unit.id} 
+                    className="mu-unit-card"
+                    onClick={() => navigate(`/manufacturing/${unit.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="mu-card-header">
+                      <div className="mu-unit-icon"><Factory size={20} /></div>
+                      <div className="mu-unit-actions">
+                        <button onClick={(e) => { e.stopPropagation(); handleEdit(unit); }} className="mu-action-btn edit"><Edit size={16} /></button>
+                        <button onClick={(e) => { e.stopPropagation(); setShowDeleteModal(unit.id); }} className="mu-action-btn delete"><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                    <div className="mu-unit-info">
+                      <h3>{unit.name}</h3>
+                      <div className="mu-info-item">
+                        <MapPin size={14} />
+                        <span>{unit.city}, {unit.state}</span>
+                      </div>
+                      <div className="mu-info-item">
+                        <Building2 size={14} />
+                        <span className="mu-address-text">{unit.address}</span>
+                      </div>
+                    </div>
+                    <div className="mu-card-footer">
+                      <span className="mu-status-badge">Active</span>
+                      <button className="mu-view-details">Details <ArrowRight size={14} /></button>
                     </div>
                   </div>
-                  <div className="mu-unit-info">
-                    <h3>{unit.name}</h3>
-                    <div className="mu-info-item">
-                      <MapPin size={14} />
-                      <span>{unit.city}, {unit.state}</span>
-                    </div>
-                    <div className="mu-info-item">
-                      <Building2 size={14} />
-                      <span className="mu-address-text">{unit.address}</span>
-                    </div>
-                  </div>
-                  <div className="mu-card-footer">
-                    <span className="mu-status-badge">Active</span>
-                    <button className="mu-view-details">Details <ArrowRight size={14} /></button>
-                  </div>
-                </div>
               ))
             ) : (
               <div className="mu-empty-state">

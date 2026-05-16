@@ -23,7 +23,8 @@ import {
   collection, 
   onSnapshot, 
   query, 
-  orderBy 
+  orderBy,
+  where 
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,7 @@ const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'orders', 'cart', 'wishlist', 'addresses'
 
@@ -49,11 +51,22 @@ const CustomerDetails = () => {
       } catch (error) {
         console.error("Error fetching customer:", error);
         toast.error("Failed to load customer details");
-      } finally {
-        setLoading(false);
       }
     };
     fetchCustomer();
+
+    // Fetch Orders
+    const q = query(
+      collection(db, 'orders'), 
+      where('customerId', '==', id),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [id, navigate]);
 
   if (loading) {
@@ -190,12 +203,44 @@ const CustomerDetails = () => {
             >
               <div className="cd-view-header">
                 <h2>Orders History</h2>
-                <button className="cd-btn-primary"><Plus size={18} /> Add Order</button>
+                <button className="cd-btn-primary" onClick={() => navigate('/orders')}><Plus size={18} /> New Order</button>
               </div>
-              <div className="cd-empty-state">
-                <ShoppingBag size={48} />
-                <p>No orders found for this customer.</p>
-              </div>
+              
+              {orders.length > 0 ? (
+                <div className="cd-table-wrapper">
+                  <table className="cd-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map(order => (
+                        <tr key={order.id}>
+                          <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>#{order.orderId}</td>
+                          <td>{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</td>
+                          <td>{order.items.length} Items</td>
+                          <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
+                          <td>
+                            <span className={`status-badge ${order.status}`} style={{ fontSize: '10px' }}>
+                              {order.status.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="cd-empty-state">
+                  <ShoppingBag size={48} />
+                  <p>No orders found for this customer.</p>
+                </div>
+              )}
             </motion.div>
           )}
 
