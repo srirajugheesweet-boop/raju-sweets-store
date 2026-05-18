@@ -154,9 +154,10 @@ const PackingUnitDetails = () => {
                   return (
                     <div key={idx} className="mud-item-row">
                       <div className="mud-item-main">
-                        <Package size={16} />
+                        <Package size={16} className="item-icon" />
                         <div className="mud-item-name-qty">
                           <span className="name">{item.name}</span>
+                          {item.description && <span className="desc">{item.description}</span>}
                           <span className="qty">{item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity} pcs`}</span>
                         </div>
                       </div>
