@@ -371,3 +371,137 @@
     transform: translateY(0);
   }
 }
+
+/* Today Worksheet Sub Navigation Tabs */
+.mu-sub-tabs {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.mu-sub-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mu-sub-tab-btn:hover {
+  color: #0f172a;
+}
+
+.mu-sub-tab-btn.active {
+  background: white;
+  color: #10b981;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Date Filter Bar for Worksheet */
+.mu-date-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.mu-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mu-filter-cal-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.mu-filter-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.mu-date-picker-input {
+  height: 36px;
+  padding: 0 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  outline: none;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.mu-date-picker-input:focus {
+  border-color: #10b981;
+  background: #f0fdf4;
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.05);
+}
+
+.mu-today-reset-btn {
+  height: 36px;
+  padding: 0 14px;
+  background: white;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mu-today-reset-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+/* Completed Card Stamps */
+.mu-worksheet-card.completed-card {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.mu-worksheet-card.completed-card .mu-item-qty {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.mu-worksheet-card.completed-card .mu-item-description {
+  border-left-color: #10b981;
+  background: #ffffff;
+}
+
+.mu-completed-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #10b981;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 10px;
+  background: #d1fae5;
+  border-radius: 8px;
+  border: 1.5px dashed #10b981;
+}
+

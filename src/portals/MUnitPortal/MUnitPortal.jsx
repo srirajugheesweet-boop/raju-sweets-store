@@ -1,7 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
-import { BarChart3, ShoppingBag, ClipboardList, CheckCircle2, User, Clock, ArrowRight, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { 
+  BarChart3, 
+  ShoppingBag, 
+  ClipboardList, 
+  CheckCircle2, 
+  User, 
+  Clock, 
+  ArrowRight, 
+  Eye, 
+  ChevronDown, 
+  ChevronUp,
+  Calendar,
+  AlertCircle
+} from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, onSnapshot, query, doc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -13,6 +26,10 @@ const MUnitPortal = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState([]);
+
+  // Today Worksheet states
+  const [worksheetSubTab, setWorksheetSubTab] = useState('pending'); // 'pending' or 'completed'
+  const [worksheetDate, setWorksheetDate] = useState(new Date().toISOString().split('T')[0]); // defaults to today's YYYY-MM-DD
 
   useEffect(() => {
     const q = query(collection(db, 'orders'));
@@ -36,35 +53,102 @@ const MUnitPortal = () => {
 
   if (!tab) return <Navigate to={`/munit-portal/${id}/worksheet`} replace />;
 
-  // 1. Group & Aggregate items for the worksheet
-  // Only items where item.mUnitId === id and item.status === 'preparation_started'
-  const getWorksheetItems = () => {
+  // Helper function to match dates across local format variations securely
+  const isSameDay = (orderDateStr, selectedDateStr) => {
+    if (!orderDateStr || !selectedDateStr) return false;
+    
+    // selectedDateStr is always YYYY-MM-DD
+    const [selYear, selMonth, selDay] = selectedDateStr.split('-').map(Number);
+    
+    try {
+      // 1. Slash format (DD/MM/YYYY or MM/DD/YYYY)
+      if (orderDateStr.includes('/')) {
+        const parts = orderDateStr.split('/');
+        if (parts.length === 3) {
+          const d = Number(parts[0]);
+          const m = Number(parts[1]) - 1; // 0-indexed month
+          const y = Number(parts[2]);
+          if (y === selYear && m === (selMonth - 1) && d === selDay) {
+            return true;
+          }
+          // fallback to check MM/DD/YYYY
+          const dAlt = Number(parts[1]);
+          const mAlt = Number(parts[0]) - 1;
+          const yAlt = Number(parts[2]);
+          if (yAlt === selYear && mAlt === (selMonth - 1) && dAlt === selDay) {
+            return true;
+          }
+        }
+      }
+      
+      // 2. Dash format (YYYY-MM-DD)
+      if (orderDateStr.includes('-')) {
+        const parts = orderDateStr.split('-');
+        if (parts.length === 3) {
+          const y = Number(parts[0]);
+          const m = Number(parts[1]) - 1;
+          const d = Number(parts[2]);
+          if (y === selYear && m === (selMonth - 1) && d === selDay) {
+            return true;
+          }
+        }
+      }
+
+      // 3. Fallback date parse
+      const parsed = new Date(orderDateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.getFullYear() === selYear && 
+               parsed.getMonth() === (selMonth - 1) && 
+               parsed.getDate() === selDay;
+      }
+    } catch (e) {
+      console.error("Error parsing order date:", e);
+    }
+    return false;
+  };
+
+  // Group & Aggregate items for the worksheet based on tab (pending/completed) and worksheetDate
+  const getWorksheetItems = (statusType) => {
     const groups = {};
     orders.forEach(order => {
-      // Skip if order is cancelled or completed globally if you have such logic, 
-      // but usually we just process items based on item.status
+      // Filter orders matching the selected date
+      const orderDateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '';
+      if (!isSameDay(orderDateStr, worksheetDate)) return;
+
       if (order.items) {
         order.items.forEach((item, index) => {
-          if (item.mUnitId === id && item.status === 'preparation_started') {
-            const key = item.name + '_' + (item.unit || 'Pieces');
-            if (!groups[key]) {
-              groups[key] = {
-                name: item.name,
-                unit: item.unit,
-                totalQty: 0,
-                description: item.description || '',
-                linkedOrders: []
-              };
+          if (item.mUnitId === id) {
+            const isPending = item.status === 'preparation_started' || !item.status;
+            const isCompleted = item.status === 'preparation_complete' || 
+                                item.status === 'moved_to_packing' || 
+                                item.status === 'packing_complete' || 
+                                item.status === 'moved_to_store' || 
+                                item.status === 'delivered';
+
+            const match = (statusType === 'pending' && isPending) || (statusType === 'completed' && isCompleted);
+
+            if (match) {
+              const key = item.name + '_' + (item.unit || 'Pieces');
+              if (!groups[key]) {
+                groups[key] = {
+                  name: item.name,
+                  unit: item.unit,
+                  totalQty: 0,
+                  description: item.description || '',
+                  status: item.status,
+                  linkedOrders: []
+                };
+              }
+              groups[key].totalQty += Number(item.quantity || 0);
+              groups[key].linkedOrders.push({
+                orderDocId: order.id,
+                orderId: order.orderId,
+                itemIndex: index,
+                quantity: item.quantity,
+                customerName: order.customerName,
+                createdAt: order.createdAt
+              });
             }
-            groups[key].totalQty += Number(item.quantity || 0);
-            groups[key].linkedOrders.push({
-              orderDocId: order.id,
-              orderId: order.orderId,
-              itemIndex: index,
-              quantity: item.quantity,
-              customerName: order.customerName,
-              createdAt: order.createdAt
-            });
           }
         });
       }
@@ -72,7 +156,7 @@ const MUnitPortal = () => {
     return Object.values(groups);
   };
 
-  // 2. Mark grouped item as done
+  // Mark grouped item as done
   const handleMarkItemDone = async (groupedItem) => {
     try {
       const promises = groupedItem.linkedOrders.map(async (link) => {
@@ -95,7 +179,7 @@ const MUnitPortal = () => {
     }
   };
 
-  // 3. Filter orders assigned to this manufacturing unit
+  // Filter orders assigned to this manufacturing unit
   const getAssignedOrders = () => {
     return orders.filter(order => 
       order.items && order.items.some(item => item.mUnitId === id)
@@ -126,7 +210,9 @@ const MUnitPortal = () => {
     );
   };
 
-  const worksheetItems = getWorksheetItems();
+  const pendingWorksheetItems = getWorksheetItems('pending');
+  const completedWorksheetItems = getWorksheetItems('completed');
+  const activeWorksheetItems = worksheetSubTab === 'pending' ? pendingWorksheetItems : completedWorksheetItems;
   const assignedOrders = getAssignedOrders();
 
   return (
@@ -139,28 +225,78 @@ const MUnitPortal = () => {
           </div>
         ) : (
           <>
+            {/* --- TODAY WORKSHEET TAB --- */}
             {tab === 'worksheet' && (
               <div className="mu-worksheet-view animate-fade-in">
-                <div className="mu-view-header">
-                  <div>
-                    <h2>Today Worksheet</h2>
-                    <p className="mu-subtitle">Aggregated list of sweet items to prepare today</p>
+                
+                {/* Header with Sub tabs and Date picker */}
+                <div className="mu-view-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                    <div>
+                      <h2>Today Worksheet</h2>
+                      <p className="mu-subtitle">Aggregated list of sweet items to prepare</p>
+                    </div>
+                    
+                    {/* Pending vs Completed Sub tabs */}
+                    <div className="mu-sub-tabs">
+                      <button 
+                        className={`mu-sub-tab-btn ${worksheetSubTab === 'pending' ? 'active' : ''}`}
+                        onClick={() => setWorksheetSubTab('pending')}
+                      >
+                        <Clock size={16} /> Pending ({pendingWorksheetItems.length})
+                      </button>
+                      <button 
+                        className={`mu-sub-tab-btn ${worksheetSubTab === 'completed' ? 'active' : ''}`}
+                        onClick={() => setWorksheetSubTab('completed')}
+                      >
+                        <CheckCircle2 size={16} /> Completed ({completedWorksheetItems.length})
+                      </button>
+                    </div>
                   </div>
-                  <span className="mu-badge">{worksheetItems.length} Items Pending</span>
+
+                  {/* Worksheet Date Selector */}
+                  <div className="mu-date-filter-bar">
+                    <div className="mu-filter-left">
+                      <Calendar size={18} className="mu-filter-cal-icon" />
+                      <span className="mu-filter-label">Filter Worksheet Date:</span>
+                      <input 
+                        type="date" 
+                        className="mu-date-picker-input"
+                        value={worksheetDate} 
+                        onChange={(e) => setWorksheetDate(e.target.value)} 
+                      />
+                    </div>
+                    <button 
+                      className="mu-today-reset-btn"
+                      onClick={() => setWorksheetDate(new Date().toISOString().split('T')[0])}
+                    >
+                      Select Today
+                    </button>
+                  </div>
                 </div>
 
-                {worksheetItems.length === 0 ? (
+                {activeWorksheetItems.length === 0 ? (
                   <div className="mu-empty-state">
-                    <CheckCircle2 size={48} className="mu-empty-icon" />
-                    <h3>All Tasks Completed!</h3>
-                    <p>No pending sweet items for preparation today.</p>
+                    {worksheetSubTab === 'pending' ? (
+                      <>
+                        <CheckCircle2 size={48} className="mu-empty-icon" />
+                        <h3>All Tasks Done!</h3>
+                        <p>No pending sweet items for preparation on {new Date(worksheetDate).toLocaleDateString()}.</p>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle size={48} className="mu-empty-icon" style={{ color: '#94a3b8' }} />
+                        <h3>No Completed Sweets</h3>
+                        <p>No sweets have been marked done for {new Date(worksheetDate).toLocaleDateString()} yet.</p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="mu-worksheet-grid">
-                    {worksheetItems.map((groupedItem, idx) => (
+                    {activeWorksheetItems.map((groupedItem, idx) => (
                       <motion.div 
                         key={idx} 
-                        className="mu-worksheet-card"
+                        className={`mu-worksheet-card ${worksheetSubTab === 'completed' ? 'completed-card' : ''}`}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: idx * 0.05 }}
@@ -190,12 +326,18 @@ const MUnitPortal = () => {
                         </div>
 
                         <div className="mu-card-footer">
-                          <button 
-                            className="mu-btn-complete"
-                            onClick={() => handleMarkItemDone(groupedItem)}
-                          >
-                            <CheckCircle2 size={16} /> Mark as Done
-                          </button>
+                          {worksheetSubTab === 'pending' ? (
+                            <button 
+                              className="mu-btn-complete"
+                              onClick={() => handleMarkItemDone(groupedItem)}
+                            >
+                              <CheckCircle2 size={16} /> Mark as Done
+                            </button>
+                          ) : (
+                            <div className="mu-completed-stamp">
+                              <CheckCircle2 size={16} /> Preparation Completed
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     ))}
@@ -204,6 +346,7 @@ const MUnitPortal = () => {
               </div>
             )}
 
+            {/* --- ASSIGNED ORDERS TAB --- */}
             {tab === 'orders' && (
               <div className="mu-orders-view animate-fade-in">
                 <div className="mu-view-header">
@@ -281,7 +424,6 @@ const MUnitPortal = () => {
                                         </thead>
                                         <tbody>
                                           {order.items.map((item, idx) => {
-                                            // Only show the items belonging to this unit in the expanded view
                                             if (item.mUnitId !== id) return null;
 
                                             return (
