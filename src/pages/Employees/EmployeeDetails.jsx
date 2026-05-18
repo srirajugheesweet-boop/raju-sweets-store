@@ -50,6 +50,10 @@ const EmployeeDetails = () => {
   const [editData, setEditData] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Attendance & Leaves States
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [leaveRecords, setLeaveRecords] = useState([]);
+
   // Advance States
   const [advances, setAdvances] = useState([]);
   const [showAdvModal, setShowAdvModal] = useState(false);
@@ -111,7 +115,37 @@ const EmployeeDetails = () => {
       console.error("Advances sub error:", error);
     });
 
-    return () => unsubscribe();
+    // Real-time attendance
+    const qAttendance = query(
+      collection(db, 'attendance'),
+      where('employeeId', '==', id)
+    );
+    const unsubscribeAttendance = onSnapshot(qAttendance, (snapshot) => {
+      const records = snapshot.docs.map(doc => doc.data());
+      records.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setAttendanceRecords(records);
+    }, (error) => {
+      console.error("Attendance sub error:", error);
+    });
+
+    // Real-time leaves
+    const qLeaves = query(
+      collection(db, 'leaves'),
+      where('employeeId', '==', id)
+    );
+    const unsubscribeLeaves = onSnapshot(qLeaves, (snapshot) => {
+      const records = snapshot.docs.map(doc => doc.data());
+      records.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setLeaveRecords(records);
+    }, (error) => {
+      console.error("Leaves sub error:", error);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeAttendance();
+      unsubscribeLeaves();
+    };
   }, [id]);
 
   // Click outside listener for dropdowns
@@ -379,18 +413,82 @@ const EmployeeDetails = () => {
         )}
 
         {activeTab === 'timesheet' && (
-          <div className="empty-tab-content">
-            <Clock size={48} style={{ opacity: 0.2, marginBottom: '20px' }} />
-            <h3>Timesheet Data</h3>
-            <p>No timesheet records available for this employee yet.</p>
+          <div className="tab-details-view">
+            <h2 className="section-title-custom">Attendance Timesheet Records</h2>
+            {attendanceRecords.length === 0 ? (
+              <div className="empty-tab-content">
+                <Clock size={48} style={{ opacity: 0.2, marginBottom: '20px' }} />
+                <h3>Timesheet Data</h3>
+                <p>No timesheet records available for this employee yet.</p>
+              </div>
+            ) : (
+              <div className="details-table-wrapper">
+                <table className="details-sub-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Last Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendanceRecords.map((record, index) => (
+                      <tr key={index}>
+                        <td style={{ fontWeight: '700' }}>{record.date}</td>
+                        <td>
+                          <span className={`status-badge-custom ${record.status}`}>
+                            {record.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                          {new Date(record.updatedAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'leaves' && (
-          <div className="empty-tab-content">
-            <Calendar size={48} style={{ opacity: 0.2, marginBottom: '20px' }} />
-            <h3>Leave Management</h3>
-            <p>No leave requests or history found.</p>
+          <div className="tab-details-view">
+            <h2 className="section-title-custom">Employee Leave History</h2>
+            {leaveRecords.length === 0 ? (
+              <div className="empty-tab-content">
+                <Calendar size={48} style={{ opacity: 0.2, marginBottom: '20px' }} />
+                <h3>Leave Management</h3>
+                <p>No leave requests or history found.</p>
+              </div>
+            ) : (
+              <div className="details-table-wrapper">
+                <table className="details-sub-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Leave Type</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveRecords.map((record, index) => (
+                      <tr key={index}>
+                        <td style={{ fontWeight: '700' }}>{record.date}</td>
+                        <td style={{ fontWeight: '600' }}>{record.type}</td>
+                        <td>{record.reason}</td>
+                        <td>
+                          <span className="status-badge-custom approved">
+                            {record.status.toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

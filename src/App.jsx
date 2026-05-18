@@ -8,6 +8,7 @@ import Home from './pages/Home/Home';
 import Support from './pages/Support/Support';
 import Employees from './pages/Employees/Employees';
 import EmployeeDetails from './pages/Employees/EmployeeDetails';
+import TimeSheet from './pages/Employees/TimeSheet';
 import ManufacturingUnits from './pages/ManufacturingUnits/ManufacturingUnits';
 import PackingUnits from './pages/PackingUnits/PackingUnits';
 import PackingUnitDetails from './pages/PackingUnits/PackingUnitDetails';
@@ -93,7 +94,7 @@ function App() {
           <Route path="/users" element={<ProtectedRoute><Layout><Users /></Layout></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><Layout><Employees /></Layout></ProtectedRoute>} />
           <Route path="/employees/:id" element={<ProtectedRoute><Layout><EmployeeDetails /></Layout></ProtectedRoute>} />
-          <Route path="/timesheet" element={<ProtectedRoute><PlaceholderPage title="Timesheet" /></ProtectedRoute>} />
+          <Route path="/timesheet" element={<ProtectedRoute><TimeSheet /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute><PlaceholderPage title="Reports" /></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><Layout><Support /></Layout></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" /></ProtectedRoute>} />
