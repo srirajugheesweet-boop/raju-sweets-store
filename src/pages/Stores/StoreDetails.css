@@ -1,8 +1,7 @@
 .store-details-container {
-  padding: 30px;
+  padding: 20px;
   width: 100%;
 }
-
 
 .header-back-btn {
   display: inline-flex;
@@ -10,13 +9,13 @@
   gap: 8px;
   background: white;
   border: 1px solid var(--border-color);
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
@@ -25,41 +24,40 @@
   background: #f8fafc;
   color: var(--primary-color);
   border-color: var(--primary-color);
-  transform: translateX(-5px);
+  transform: translateX(-3px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
-
 
 .store-details-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   background: white;
-  padding: 20px 30px;
-  border-radius: 20px;
+  padding: 15px 20px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
 }
 
 .header-left-group {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
 }
 
 .store-main-icon {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   background: #f0fdf4;
   color: var(--primary-color);
-  border-radius: 16px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .header-main-info h1 {
-  font-size: 28px;
+  font-size: 20px;
   color: var(--text-primary);
   font-weight: 700;
   margin: 0;
@@ -70,29 +68,29 @@
   align-items: center;
   gap: 6px;
   color: var(--text-secondary);
-  font-size: 14px;
-  margin-top: 4px;
+  font-size: 13px;
+  margin-top: 2px;
 }
 
 .store-status-card {
   text-align: right;
-  padding-left: 20px;
+  padding-left: 15px;
   border-left: 1px solid var(--border-color);
 }
 
 .store-status-card span {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .status-active-badge {
   background: #f0fdf4;
   color: #16a34a;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
