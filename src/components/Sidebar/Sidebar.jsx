@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
@@ -50,6 +50,18 @@ export const menuItems = [
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem('sidebar-scroll-pos');
+    if (savedScroll && menuRef.current) {
+      menuRef.current.scrollTop = Number(savedScroll);
+    }
+  }, []);
+
+  const handleScroll = (e) => {
+    sessionStorage.setItem('sidebar-scroll-pos', e.target.scrollTop);
+  };
 
   const handleLogout = async () => {
     try {
@@ -63,7 +75,11 @@ const Sidebar = () => {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-menu">
+      <div 
+        className="sidebar-menu" 
+        ref={menuRef} 
+        onScroll={handleScroll}
+      >
         {menuItems.map((item) => (
           <Link 
             key={item.id} 
