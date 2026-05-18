@@ -931,3 +931,259 @@
   gap: 15px;
 }
 
+/* Compact Bluetooth Indicator */
+.st-compact-bluetooth {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.st-compact-bluetooth:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.st-compact-bluetooth svg.connected {
+  color: #10b981;
+  animation: btPulse 1.5s infinite ease-in-out;
+}
+
+.st-compact-bluetooth svg.disconnected {
+  color: #64748b;
+}
+
+@keyframes btPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Connected Device Banner */
+.st-bluetooth-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.st-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #16a34a;
+}
+
+.st-banner-disconnect-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.st-banner-disconnect-btn:hover {
+  color: #b91c1c;
+}
+
+/* Bluetooth Scan Modal */
+.st-bluetooth-scan-modal {
+  width: 440px;
+  max-width: 90vw;
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scan-modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scan-modal-header .close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.scan-modal-header .close-btn:hover {
+  color: #0f172a;
+}
+
+.scan-modal-body {
+  padding: 24px;
+  min-height: 240px;
+}
+
+/* Scanning Pulse Animation */
+.scan-loading-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  gap: 15px;
+}
+
+.scan-radar {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+}
+
+.scan-radar svg {
+  z-index: 2;
+  animation: btPulse 2s infinite ease-in-out;
+}
+
+.scan-radar .circle {
+  position: absolute;
+  border: 1px solid #93c5fd;
+  border-radius: 50%;
+  animation: radarWave 2s infinite linear;
+  opacity: 0;
+}
+
+.circle-1 { animation-delay: 0s !important; }
+.circle-2 { animation-delay: 0.6s !important; }
+.circle-3 { animation-delay: 1.2s !important; }
+
+@keyframes radarWave {
+  0% { width: 80px; height: 80px; opacity: 0.8; }
+  100% { width: 180px; height: 180px; opacity: 0; }
+}
+
+.scan-pulse-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2563eb;
+  margin: 0;
+}
+
+/* Bluetooth Devices List */
+.device-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.results-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+.devices-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.devices-container::-webkit-scrollbar {
+  width: 3px;
+}
+
+.devices-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.device-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+}
+
+.device-list-row:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.device-avatar-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: white;
+  color: #2563eb;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.row-connect-btn {
+  height: 28px;
+  padding: 0 12px;
+  background: white;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.device-list-row:hover .row-connect-btn {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.device-list-row.connecting {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.device-list-row.connecting .row-connect-btn {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #93c5fd;
+  cursor: wait;
+}
+
+.scan-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+
