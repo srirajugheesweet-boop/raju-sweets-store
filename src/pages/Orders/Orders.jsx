@@ -9,6 +9,7 @@ import {
   ChevronDown, 
   Scale, 
   Trash2,
+  Minus,
   Calendar,
   Clock,
   ArrowRight,
@@ -203,10 +204,17 @@ const Orders = () => {
 
   const addToCart = (item, quantity, total, itemDescription = '') => {
     const existingIndex = cart.findIndex(c => c.id === item.id);
-    if (existingIndex > -1 && item.unit !== 'Weight') {
+    
+    if (existingIndex > -1) {
       const newCart = [...cart];
-      newCart[existingIndex].quantity += quantity;
-      newCart[existingIndex].total = newCart[existingIndex].quantity * item.price;
+      if (item.unit !== 'Weight') {
+        newCart[existingIndex].quantity += Number(quantity);
+        newCart[existingIndex].total = newCart[existingIndex].quantity * item.price;
+      } else {
+        newCart[existingIndex].quantity = Number(quantity);
+        newCart[existingIndex].total = Number(total);
+        newCart[existingIndex].description = itemDescription;
+      }
       setCart(newCart);
     } else {
       setCart([...cart, {
@@ -222,6 +230,28 @@ const Orders = () => {
       }]);
     }
     toast.success(`${item.name} added`);
+  };
+
+  const updateCartQuantity = (id, delta) => {
+    setCart(prev => prev.map(c => {
+      if (c.id === id) {
+        const newQty = c.quantity + delta;
+        if (newQty < 1) return c; // don't decrement below 1
+        return { ...c, quantity: newQty, total: newQty * c.price };
+      }
+      return c;
+    }));
+  };
+
+  const handleEditCartItem = (item) => {
+    const originalItem = items.find(i => i.id === item.id);
+    if (!originalItem) return;
+    setShowWeightModal(originalItem);
+    setWeightInput({
+      weight: item.quantity.toString(),
+      amount: item.total.toString(),
+      description: item.description || ''
+    });
   };
 
   const removeFromCart = (id) => {
@@ -619,10 +649,21 @@ const Orders = () => {
                         {item.description && <p className="item-note">Note: {item.description}</p>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        {item.unit === 'Weight' ? (
+                          <button onClick={() => handleEditCartItem(item)} className="ord-edit-cart-btn" title="Edit Weight">
+                            <Edit size={14} />
+                          </button>
+                        ) : (
+                          <div className="ord-qty-controls">
+                            <button onClick={() => updateCartQuantity(item.id, -1)}><Minus size={12} /></button>
+                            <span>{item.quantity}</span>
+                            <button onClick={() => updateCartQuantity(item.id, 1)}><Plus size={12} /></button>
+                          </div>
+                        )}
                         <div className="ord-item-price">
                           <span className="amt">₹{item.total.toFixed(2)}</span>
                         </div>
-                        <button onClick={() => removeFromCart(item.id)} style={{ color: 'var(--error-color)', background: 'none' }}>
+                        <button onClick={() => removeFromCart(item.id)} style={{ color: 'var(--error-color)', background: 'none' }} title="Remove Item">
                           <X size={16} />
                         </button>
                       </div>
