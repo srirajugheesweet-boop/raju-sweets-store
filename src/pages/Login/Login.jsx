@@ -6,6 +6,7 @@ import { Mail, Lock, LogIn, Phone, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Descope, useSession, useUser, useDescope } from '@descope/react-sdk';
+import logo from '../../assets/logo.png';
 import './Login.css';
 
 const Login = () => {
@@ -102,7 +103,7 @@ const Login = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="login-logo-container">
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏺</div>
+          <img src={logo} alt="Raju Ghee Sweets" style={{ width: '80px', height: '80px', objectFit: 'contain', marginBottom: '16px', borderRadius: '12px' }} />
           <h1 style={{ fontSize: '32px', color: 'var(--primary-color)', marginBottom: '4px', fontWeight: '800' }}>Raju Ghee Sweets</h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px', fontWeight: '500' }}>Authentic Traditional Flavors</p>
         </div>
