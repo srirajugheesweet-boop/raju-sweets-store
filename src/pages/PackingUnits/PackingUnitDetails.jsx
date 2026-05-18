@@ -25,9 +25,9 @@ import {
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import './ManufacturingUnitDetails.css';
+import './PackingUnitDetails.css';
 
-const ManufacturingUnitDetails = () => {
+const PackingUnitDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [unit, setUnit] = useState(null);
@@ -37,12 +37,12 @@ const ManufacturingUnitDetails = () => {
   useEffect(() => {
     const fetchUnit = async () => {
       try {
-        const unitDoc = await getDoc(doc(db, 'manufacturing_units', id));
+        const unitDoc = await getDoc(doc(db, 'packing_units', id));
         if (unitDoc.exists()) {
           setUnit({ id: unitDoc.id, ...unitDoc.data() });
         } else {
-          toast.error("Manufacturing unit not found");
-          navigate('/manufacturing');
+          toast.error("Packing unit not found");
+          navigate('/packing');
         }
       } catch (error) {
         toast.error("Failed to load unit details");
@@ -59,10 +59,9 @@ const ManufacturingUnitDetails = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Filter orders that have at least one item from this manufacturing unit
-      const unitOrders = allOrders.filter(order => 
-        order.items.some(item => item.mUnitId === id)
-      );
+      // Filter orders that have at least one item assigned to this packing unit, or the order itself is assigned
+      // Assuming packing unit is assigned at order level (pUnitId) or item level
+      const unitOrders = allOrders.filter(order => order.pUnitId === id);
       
       setOrders(unitOrders);
       setLoading(false);
@@ -95,7 +94,7 @@ const ManufacturingUnitDetails = () => {
 
   return (
     <div className="mud-container">
-      <button className="cd-back-btn" onClick={() => navigate('/manufacturing')}>
+      <button className="cd-back-btn" onClick={() => navigate('/packing')}>
         <ArrowLeft size={18} /> Back to Units
       </button>
 
@@ -120,7 +119,7 @@ const ManufacturingUnitDetails = () => {
       <div className="mud-content">
         <div className="mud-section-header">
           <h2><ShoppingBag size={20} /> Assigned Orders & Items</h2>
-          <p>Displaying items that need preparation at this facility</p>
+          <p>Displaying items that need packing at this facility</p>
         </div>
 
         <div className="mud-orders-grid">
@@ -141,15 +140,15 @@ const ManufacturingUnitDetails = () => {
                 <span>{order.customerName}</span>
               </div>
 
-              {order.mUnitDescription && (
+              {order.pUnitDescription && (
                 <div className="mud-unit-instructions">
                   <AlertCircle size={14} />
-                  <p>{order.mUnitDescription}</p>
+                  <p>{order.pUnitDescription}</p>
                 </div>
               )}
 
               <div className="mud-items-list">
-                {order.items.filter(item => item.mUnitId === id).map((item, idx) => {
+                {order.items.map((item, idx) => {
                   // Find original index in order.items for updates
                   const originalIndex = order.items.findIndex(i => i.id === item.id);
                   return (
@@ -185,7 +184,7 @@ const ManufacturingUnitDetails = () => {
             <div className="mud-empty-state">
               <Package size={48} />
               <h3>No Active Orders</h3>
-              <p>There are no items currently assigned to this manufacturing unit.</p>
+              <p>There are no orders currently assigned to this packing unit.</p>
             </div>
           )}
         </div>
@@ -194,4 +193,4 @@ const ManufacturingUnitDetails = () => {
   );
 };
 
-export default ManufacturingUnitDetails;
+export default PackingUnitDetails;

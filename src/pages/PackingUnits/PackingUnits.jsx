@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
@@ -27,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './PackingUnits.css';
 
 const PackingUnits = () => {
+  const navigate = useNavigate();
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -173,7 +175,7 @@ const PackingUnits = () => {
                   </div>
                   <div className="pu-card-footer">
                     <span className="pu-status-badge">Operational</span>
-                    <button className="pu-view-details">Hub Details <ArrowRight size={14} /></button>
+                    <button className="pu-view-details" onClick={() => navigate('/packing/' + unit.id)}>Hub Details <ArrowRight size={14} /></button>
                   </div>
                 </div>
               ))

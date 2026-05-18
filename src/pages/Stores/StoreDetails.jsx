@@ -23,7 +23,9 @@ import {
   FileText as FileIcon,
   Info,
   Printer,
-  Minus
+  Minus,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 import logo from '../../assets/logo.png';
@@ -41,7 +43,8 @@ import {
   orderBy, 
   deleteDoc,
   serverTimestamp,
-  where 
+  where,
+  updateDoc
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -70,6 +73,7 @@ const StoreDetails = () => {
   const [showWeightModal, setShowWeightModal] = useState(null); 
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '' });
   const [bills, setBills] = useState([]);
+  const [expandedOrders, setExpandedOrders] = useState([]);
 
   // Fetch Store Details
   useEffect(() => {
@@ -273,6 +277,24 @@ const StoreDetails = () => {
       toast.error("Failed to settle bill");
     } finally {
       setSubmittingAccess(false);
+    }
+  };
+
+  const toggleOrderAccordion = (id) => {
+    setExpandedOrders(prev => prev.includes(id) ? prev.filter(oId => oId !== id) : [...prev, id]);
+  };
+
+  const updateItemStatus = async (orderId, itemIndex, newStatus) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      const order = orders.find(o => o.id === orderId);
+      const newItems = [...order.items];
+      newItems[itemIndex].status = newStatus;
+      await updateDoc(orderRef, { items: newItems });
+      toast.success("Item status updated");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update status");
     }
   };
 
@@ -510,17 +532,68 @@ const StoreDetails = () => {
                 </thead>
                 <tbody>
                   {orders.map(order => (
-                    <tr key={order.id}>
-                      <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>#{order.orderId}</td>
-                      <td>{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</td>
-                      <td>{order.customerName}</td>
-                      <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
-                      <td>
-                        <span className={`status-badge ${order.status}`} style={{ fontSize: '10px' }}>
-                          {order.status.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                    </tr>
+                    <React.Fragment key={order.id}>
+                      <tr className={expandedOrders.includes(order.id) ? "row-expanded" : ""}>
+                        <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => toggleOrderAccordion(order.id)}>
+                            {expandedOrders.includes(order.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            #{order.orderId}
+                          </div>
+                        </td>
+                        <td>{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</td>
+                        <td>{order.customerName}</td>
+                        <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
+                        <td>
+                          <span className={`status-badge ${order.status}`} style={{ fontSize: '10px' }}>
+                            {order.status.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                      {expandedOrders.includes(order.id) && (
+                        <tr className="ord-accordion-row">
+                          <td colSpan="5" style={{ padding: 0 }}>
+                            <div className="ord-accordion-content">
+                              <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
+                              <table className="ord-items-subtable">
+                                <thead>
+                                  <tr>
+                                    <th>Item Name</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {order.items.map((item, idx) => (
+                                    <tr key={idx}>
+                                      <td style={{ fontWeight: '700' }}>{item.name}</td>
+                                      <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
+                                      <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                                      <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                                      <td>
+                                        <select 
+                                          className="ord-item-status-select"
+                                          value={item.status || 'preparation_started'}
+                                          onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                        >
+                                          <option value="preparation_started">Preparation Started</option>
+                                          <option value="preparation_complete">Preparation Complete</option>
+                                          <option value="moved_to_packing">Moved to Packing</option>
+                                          <option value="packing_complete">Packing Complete</option>
+                                          <option value="moved_to_store">Moved to Store</option>
+                                          <option value="delivered">Delivered</option>
+                                        </select>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                   {orders.length === 0 && (
                     <tr><td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>No orders found for this store.</td></tr>

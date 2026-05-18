@@ -15,7 +15,11 @@ import {
   Package,
   FileText,
   CreditCard,
-  Factory
+  Factory,
+  Printer,
+  Edit,
+  Eye,
+  ChevronUp
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -28,7 +32,8 @@ import {
   doc,
   updateDoc,
   serverTimestamp,
-  where
+  where,
+  deleteDoc
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -121,15 +126,20 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedOrders, setExpandedOrders] = useState([]);
+  const [previewOrder, setPreviewOrder] = useState(null);
+  const [editingOrderId, setEditingOrderId] = useState(null);
 
   // Form State
   const [customers, setCustomers] = useState([]);
   const [stores, setStores] = useState([]);
   const [items, setItems] = useState([]);
   const [mUnits, setMUnits] = useState([]);
+  const [pUnits, setPUnits] = useState([]);
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
+  const [selectedPUnit, setSelectedPUnit] = useState('');
   const [globalDescription, setGlobalDescription] = useState('');
   const [mUnitDescription, setMUnitDescription] = useState('');
   const [pUnitDescription, setPUnitDescription] = useState('');
@@ -154,17 +164,19 @@ const Orders = () => {
     if (showAddModal) {
       // Fetch data for the modal
       const fetchModalData = async () => {
-        const [custSnap, storeSnap, itemSnap, muSnap] = await Promise.all([
+        const [custSnap, storeSnap, itemSnap, muSnap, puSnap] = await Promise.all([
           getDocs(query(collection(db, 'customers'), orderBy('firstName', 'asc'))),
           getDocs(query(collection(db, 'stores'), orderBy('name', 'asc'))),
           getDocs(query(collection(db, 'customer_items'), orderBy('name', 'asc'))),
-          getDocs(query(collection(db, 'manufacturing_units'), orderBy('name', 'asc')))
+          getDocs(query(collection(db, 'manufacturing_units'), orderBy('name', 'asc'))),
+          getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc')))
         ]);
 
         setCustomers(custSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setStores(storeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setItems(itemSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setMUnits(muSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setPUnits(puSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       };
       fetchModalData();
     }
@@ -240,6 +252,7 @@ const Orders = () => {
         customerPhone: customer.mobileNumber,
         storeId: selectedStore,
         storeName: store.name,
+        pUnitId: selectedPUnit,
         globalDescription,
         mUnitDescription,
         pUnitDescription,
@@ -251,14 +264,14 @@ const Orders = () => {
         updatedAt: serverTimestamp()
       };
 
-      // Add to main orders collection
-      await addDoc(collection(db, 'orders'), orderData);
+      if (editingOrderId) {
+        await updateDoc(doc(db, 'orders', editingOrderId), orderData);
+        toast.success(`Order #${orderId} updated successfully!`);
+      } else {
+        await addDoc(collection(db, 'orders'), orderData);
+        toast.success(`Order #${orderId} saved successfully!`);
+      }
       
-      // Also potentially add to manufacturing unit specific task queues
-      // For each item, if it belongs to a manufacturing unit, we can create a sub-task
-      // But based on user request, it's displayed in a "manufacturing details page"
-      
-      toast.success(`Order #${orderId} saved successfully!`);
       setShowAddModal(false);
       resetForm();
     } catch (error) {
@@ -272,11 +285,110 @@ const Orders = () => {
   const resetForm = () => {
     setSelectedCustomer('');
     setSelectedStore('');
+    setSelectedPUnit('');
     setGlobalDescription('');
     setMUnitDescription('');
     setPUnitDescription('');
     setCart([]);
     setPaymentMode('Cash');
+    setEditingOrderId(null);
+  };
+
+  const handleEditOrder = (order) => {
+    setSelectedCustomer(order.customerId);
+    setSelectedStore(order.storeId);
+    setSelectedPUnit(order.pUnitId || '');
+    setGlobalDescription(order.globalDescription || '');
+    setMUnitDescription(order.mUnitDescription || '');
+    setPUnitDescription(order.pUnitDescription || '');
+    setPaymentMode(order.paymentMode || 'Cash');
+    setCart(order.items || []);
+    setEditingOrderId(order.id);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteOrder = async (id) => {
+    if (window.confirm("Are you sure you want to delete this order?")) {
+      try {
+        await deleteDoc(doc(db, 'orders', id));
+        toast.success("Order deleted successfully");
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete order");
+      }
+    }
+  };
+
+  const handlePrint = (order) => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Print Bill</title>
+          <style>
+            body { font-family: monospace; width: 300px; margin: 0 auto; padding: 20px; color: black; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { text-align: left; padding: 4px 0; border-bottom: 1px dashed #ccc; font-size: 12px; }
+            .total { margin-top: 10px; text-align: right; font-weight: bold; font-size: 14px; }
+            .divider { border-bottom: 1px dashed black; margin: 10px 0; }
+            @media print {
+              body { width: 100%; margin: 0; padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="center bold" style="font-size: 18px;">Raju Ghee Sweets</div>
+          <div class="center" style="font-size: 12px; margin-bottom: 10px;">${order.storeName}</div>
+          <div>Order: #${order.orderId}</div>
+          <div>Date: ${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : ''}</div>
+          <div>Customer: ${order.customerName}</div>
+          <div>Phone: ${order.customerPhone}</div>
+          <div class="divider"></div>
+          <table>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Amt</th>
+            </tr>
+            ${order.items.map(item => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pcs'}</td>
+                <td>₹${item.total.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </table>
+          <div class="total">Total: ₹${order.totalAmount.toFixed(2)}</div>
+          <div class="divider"></div>
+          <div class="center" style="font-size: 12px;">Thank you for your business!</div>
+        </body>
+      </html>
+    `;
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
+  const toggleOrderAccordion = (id) => {
+    setExpandedOrders(prev => prev.includes(id) ? prev.filter(oId => oId !== id) : [...prev, id]);
+  };
+
+  const updateItemStatus = async (orderId, itemIndex, newStatus) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      const order = orders.find(o => o.id === orderId);
+      const newItems = [...order.items];
+      newItems[itemIndex].status = newStatus;
+      await updateDoc(orderRef, { items: newItems });
+      toast.success("Item status updated");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update status");
+    }
   };
 
   const getStatusLabel = (status) => {
@@ -290,7 +402,10 @@ const Orders = () => {
           <h1>Customer Orders</h1>
           <p>Track and manage customer sweet orders and factory production</p>
         </div>
-        <button className="add-order-btn" onClick={() => setShowAddModal(true)}>
+        <button className="add-order-btn" onClick={() => {
+          resetForm();
+          setShowAddModal(true);
+        }}>
           <Plus size={20} /> Create New Order
         </button>
       </div>
@@ -318,6 +433,7 @@ const Orders = () => {
               <th>Total</th>
               <th>Status</th>
               <th>Date</th>
+              <th style={{ textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -328,26 +444,86 @@ const Orders = () => {
                 o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 o.customerName.toLowerCase().includes(searchQuery.toLowerCase())
               ).map(order => (
-                <tr key={order.id}>
-                  <td className="ord-id-cell">#{order.orderId}</td>
-                  <td>
-                    <div className="ord-customer-cell">
-                      <span className="name">{order.customerName}</span>
-                      <span className="phone">{order.customerPhone}</span>
-                    </div>
-                  </td>
-                  <td>{order.storeName}</td>
-                  <td>{order.items.length} Items</td>
-                  <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
-                  <td>
-                    <span className={`ord-status-badge ${order.status}`}>
-                      {getStatusLabel(order.status)}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'}
-                  </td>
-                </tr>
+                <React.Fragment key={order.id}>
+                  <tr className={expandedOrders.includes(order.id) ? "row-expanded" : ""}>
+                    <td className="ord-id-cell">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => toggleOrderAccordion(order.id)}>
+                        {expandedOrders.includes(order.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        #{order.orderId}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="ord-customer-cell">
+                        <span className="name">{order.customerName}</span>
+                        <span className="phone">{order.customerPhone}</span>
+                      </div>
+                    </td>
+                    <td>{order.storeName}</td>
+                    <td>{order.items.length} Items</td>
+                    <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
+                    <td>
+                      <span className={`ord-status-badge ${order.status}`}>
+                        {getStatusLabel(order.status)}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'}
+                    </td>
+                    <td>
+                      <div className="ord-actions-cell">
+                        <button className="ord-action-btn view" title="Preview" onClick={() => setPreviewOrder(order)}><Eye size={16} /></button>
+                        <button className="ord-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={16} /></button>
+                        <button className="ord-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
+                        <button className="ord-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  {expandedOrders.includes(order.id) && (
+                    <tr className="ord-accordion-row">
+                      <td colSpan="8" style={{ padding: 0 }}>
+                        <div className="ord-accordion-content">
+                          <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
+                          <table className="ord-items-subtable">
+                            <thead>
+                              <tr>
+                                <th>Item Name</th>
+                                <th>Description</th>
+                                <th>Quantity</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {order.items.map((item, idx) => (
+                                <tr key={idx}>
+                                  <td style={{ fontWeight: '700' }}>{item.name}</td>
+                                  <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
+                                  <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                                  <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                                  <td>
+                                    <select 
+                                      className="ord-item-status-select"
+                                      value={item.status || 'preparation_started'}
+                                      onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                    >
+                                      <option value="preparation_started">Preparation Started</option>
+                                      <option value="preparation_complete">Preparation Complete</option>
+                                      <option value="moved_to_packing">Moved to Packing</option>
+                                      <option value="packing_complete">Packing Complete</option>
+                                      <option value="moved_to_store">Moved to Store</option>
+                                      <option value="delivered">Delivered</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))
             ) : (
               <tr><td colSpan="7" className="ord-orders-empty">No orders found. Click "Create New Order" to start.</td></tr>
@@ -370,8 +546,8 @@ const Orders = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <ShoppingBag size={24} color="var(--primary-color)" />
                 <div>
-                  <h2 style={{ fontSize: '20px', fontWeight: '800' }}>Create New Customer Order</h2>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Fill in customer details and select items</p>
+                  <h2 style={{ fontSize: '20px', fontWeight: '800' }}>{editingOrderId ? 'Edit Customer Order' : 'Create New Customer Order'}</h2>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{editingOrderId ? 'Update customer details and items' : 'Fill in customer details and select items'}</p>
                 </div>
               </div>
               <button className="items-close-btn" onClick={() => setShowAddModal(false)}><X size={24} /></button>
@@ -397,6 +573,14 @@ const Orders = () => {
                       selectedValue={selectedStore}
                       placeholder="Select a store..."
                       icon={Store}
+                    />
+                    <CustomDropdown 
+                      label="Select Packing Unit"
+                      options={pUnits}
+                      onSelect={setSelectedPUnit}
+                      selectedValue={selectedPUnit}
+                      placeholder="Optional"
+                      icon={Package}
                     />
                   </div>
                 </div>
@@ -569,6 +753,96 @@ const Orders = () => {
                     Add to Order
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {previewOrder && (
+          <div className="modal-overlay" style={{ zIndex: 3000 }}>
+            <motion.div 
+              className="custom-modal ord-preview-modal"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{ maxWidth: '600px', width: '90%' }}
+            >
+              <div className="ord-preview-header">
+                <h2>Invoice Details</h2>
+                <button className="items-close-btn" onClick={() => setPreviewOrder(null)}><X size={24} /></button>
+              </div>
+              
+              <div className="ord-preview-body">
+                <div className="ord-preview-top">
+                  <div>
+                    <h3>Raju Ghee Sweets</h3>
+                    <p>{previewOrder.storeName}</p>
+                    <p style={{ marginTop: '10px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
+                    <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <h3>Bill To</h3>
+                    <p><strong>{previewOrder.customerName}</strong></p>
+                    <p>{previewOrder.customerPhone}</p>
+                  </div>
+                </div>
+
+                <div className="ord-preview-desc">
+                  {previewOrder.globalDescription && <p><strong>Global Note:</strong> {previewOrder.globalDescription}</p>}
+                  {previewOrder.mUnitDescription && <p><strong>Mfg Note:</strong> {previewOrder.mUnitDescription}</p>}
+                  {previewOrder.pUnitDescription && <p><strong>Pack Note:</strong> {previewOrder.pUnitDescription}</p>}
+                </div>
+
+                <table className="ord-preview-table">
+                  <thead>
+                    <tr>
+                      <th>Item Description</th>
+                      <th style={{ textAlign: 'center' }}>Qty</th>
+                      <th style={{ textAlign: 'right' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewOrder.items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <div style={{ fontWeight: '700' }}>{item.name}</div>
+                          {item.description && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.description}</div>}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pcs`}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="ord-preview-total">
+                  <div className="row">
+                    <span>Payment Mode</span>
+                    <span>{previewOrder.paymentMode}</span>
+                  </div>
+                  <div className="row total">
+                    <span>Total Amount</span>
+                    <span>₹{previewOrder.totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
+                <button className="modal-btn cancel" onClick={() => setPreviewOrder(null)}>Close</button>
+                <button 
+                  className="modal-btn confirm" 
+                  style={{ background: 'var(--primary-color)' }}
+                  onClick={() => {
+                    handlePrint(previewOrder);
+                  }}
+                >
+                  <Printer size={16} /> Print Bill
+                </button>
               </div>
             </motion.div>
           </div>

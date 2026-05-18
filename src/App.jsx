@@ -10,6 +10,7 @@ import Employees from './pages/Employees/Employees';
 import EmployeeDetails from './pages/Employees/EmployeeDetails';
 import ManufacturingUnits from './pages/ManufacturingUnits/ManufacturingUnits';
 import PackingUnits from './pages/PackingUnits/PackingUnits';
+import PackingUnitDetails from './pages/PackingUnits/PackingUnitDetails';
 import Items from './pages/Items/Items';
 import Stores from './pages/Stores/Stores';
 import StoreDetails from './pages/Stores/StoreDetails';
@@ -74,6 +75,7 @@ function App() {
           <Route path="/manufacturing" element={<ProtectedRoute><Layout><ManufacturingUnits /></Layout></ProtectedRoute>} />
           <Route path="/manufacturing/:id" element={<ProtectedRoute><Layout><ManufacturingUnitDetails /></Layout></ProtectedRoute>} />
           <Route path="/packing" element={<ProtectedRoute><Layout><PackingUnits /></Layout></ProtectedRoute>} />
+          <Route path="/packing/:id" element={<ProtectedRoute><Layout><PackingUnitDetails /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><PlaceholderPage title="Users & Roles" /></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><Layout><Employees /></Layout></ProtectedRoute>} />
           <Route path="/employees/:id" element={<ProtectedRoute><Layout><EmployeeDetails /></Layout></ProtectedRoute>} />
