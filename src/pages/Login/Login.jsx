@@ -5,6 +5,7 @@ import { auth } from '../../config/firebase';
 import { Mail, Lock, LogIn, Phone, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { Descope, useSession, useUser, useDescope } from '@descope/react-sdk';
 import './Login.css';
 
 const Login = () => {
@@ -13,6 +14,12 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState('email'); // 'email' or 'phone'
   
+  // Custom OTP state
+  const [mobile, setMobile] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  
+  const sdk = useDescope();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
@@ -41,9 +48,49 @@ const Login = () => {
     }
   };
 
-  const handlePhoneLogin = (e) => {
+  const handleSendOTP = async (e) => {
     e.preventDefault();
-    toast.info('Mobile login will be available soon!');
+    if (!mobile || mobile.length < 10) {
+      toast.error('Please enter a valid mobile number');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Send OTP via SMS using Descope SDK
+      // Using international format +91 for India if not provided
+      const formattedPhone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
+      await sdk.otp.signUpOrIn.sms(formattedPhone);
+      toast.success('OTP sent successfully!');
+      setOtpSent(true);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.length < 6) {
+      toast.error('Please enter the 6-digit OTP');
+      return;
+    }
+    setLoading(true);
+    try {
+      const formattedPhone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
+      const response = await sdk.otp.verify.sms(formattedPhone, otp);
+      
+      toast.success('Successfully logged in via OTP!');
+      // Store phone number to identify them in Onboarding
+      localStorage.setItem('userPhone', formattedPhone);
+      navigate('/onboarding');
+    } catch (error) {
+      console.error(error);
+      toast.error('Invalid OTP or verification failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,28 +164,59 @@ const Login = () => {
             </button>
           </form>
         ) : (
-          <form onSubmit={handlePhoneLogin}>
-            <div className="form-group">
-              <label className="form-label">Mobile Number</label>
-              <div className="input-wrapper">
-                <Phone size={18} className="input-icon" />
-                <input 
-                  type="tel" 
-                  className="form-input" 
-                  placeholder="+91 00000 00000"
-                  disabled
-                />
+          <div className="custom-otp-container">
+            {!import.meta.env.VITE_DESCOPE_PROJECT_ID ? (
+              <div style={{ textAlign: 'center', padding: '20px', background: '#FEF2F2', borderRadius: '10px', border: '1px dashed #EF4444' }}>
+                <p style={{ color: '#DC2626', fontWeight: '700', margin: '0 0 8px 0' }}>Descope Not Configured</p>
+                <p style={{ fontSize: '12px', color: '#7F1D1D', margin: 0 }}>Please add <b>VITE_DESCOPE_PROJECT_ID</b> to your <b>.env</b> file to enable Mobile OTP login.</p>
               </div>
-            </div>
-
-            <button 
-              type="submit" 
-              className="login-button"
-              style={{ opacity: 0.6 }}
-            >
-              <ShieldCheck size={18} /> Get OTP (Coming Soon)
-            </button>
-          </form>
+            ) : (
+              !otpSent ? (
+                <form onSubmit={handleSendOTP}>
+                  <div className="form-group">
+                    <label className="form-label">Mobile Number</label>
+                    <div className="input-wrapper">
+                      <Phone size={18} className="input-icon" />
+                      <input 
+                        type="tel" 
+                        className="form-input" 
+                        placeholder="Enter 10-digit mobile number"
+                        value={mobile}
+                        onChange={(e) => setMobile(e.target.value)}
+                        maxLength="10"
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="login-button" disabled={loading}>
+                    {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderWidth: '3px' }}></div> : <><ShieldCheck size={18} /> Send OTP</>}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOTP}>
+                  <div className="form-group">
+                    <label className="form-label">Enter OTP</label>
+                    <div className="input-wrapper">
+                      <Lock size={18} className="input-icon" />
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="6-digit OTP"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        maxLength="6"
+                      />
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px', textAlign: 'right' }}>
+                      <span style={{ cursor: 'pointer', color: 'var(--primary-color)' }} onClick={() => setOtpSent(false)}>Change Number?</span>
+                    </p>
+                  </div>
+                  <button type="submit" className="login-button" disabled={loading}>
+                    {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderWidth: '3px' }}></div> : <><LogIn size={18} /> Verify & Login</>}
+                  </button>
+                </form>
+              )
+            )}
+          </div>
         )}
 
         <p className="otp-note">

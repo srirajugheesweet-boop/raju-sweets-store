@@ -1,0 +1,81 @@
+.ptl-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background: #f8fafc;
+}
+.ptl-sidebar {
+  width: 260px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+.ptl-sidebar-header {
+  padding: 24px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.ptl-sidebar-header h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.ptl-nav-links {
+  flex: 1;
+  padding: 20px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ptl-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  text-decoration: none;
+  color: #64748b;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.ptl-nav-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.ptl-nav-item.active {
+  background: #0f172a;
+  color: #ffffff;
+}
+.ptl-sidebar-footer {
+  padding: 20px 15px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ptl-switch-btn, .ptl-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+}
+.ptl-switch-btn {
+  color: #3b82f6;
+  background: #eff6ff;
+}
+.ptl-logout-btn {
+  color: #ef4444;
+}
+.ptl-logout-btn:hover {
+  background: #fef2f2;
+}
+.ptl-main-content {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+}

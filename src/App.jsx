@@ -18,6 +18,11 @@ import Customers from './pages/Customers/Customers';
 import CustomerDetails from './pages/Customers/CustomerDetails';
 import Orders from './pages/Orders/Orders';
 import ManufacturingUnitDetails from './pages/ManufacturingUnits/ManufacturingUnitDetails';
+import Users from './pages/Users/Users';
+import Onboarding from './pages/Onboarding/Onboarding';
+import MUnitPortal from './portals/MUnitPortal/MUnitPortal';
+import PUnitPortal from './portals/PUnitPortal/PUnitPortal';
+import StorePortal from './portals/StorePortal/StorePortal';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -61,7 +66,16 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Module Routes */}
+          {/* Onboarding & Specialized Portals */}
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+          <Route path="/munit-portal/:id" element={<ProtectedRoute><MUnitPortal /></ProtectedRoute>} />
+          <Route path="/munit-portal/:id/:tab" element={<ProtectedRoute><MUnitPortal /></ProtectedRoute>} />
+          <Route path="/punit-portal/:id" element={<ProtectedRoute><PUnitPortal /></ProtectedRoute>} />
+          <Route path="/punit-portal/:id/:tab" element={<ProtectedRoute><PUnitPortal /></ProtectedRoute>} />
+          <Route path="/store-portal/:id" element={<ProtectedRoute><StorePortal /></ProtectedRoute>} />
+          <Route path="/store-portal/:id/:tab" element={<ProtectedRoute><StorePortal /></ProtectedRoute>} />
+
+          {/* Super Admin Module Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
@@ -76,7 +90,7 @@ function App() {
           <Route path="/manufacturing/:id" element={<ProtectedRoute><Layout><ManufacturingUnitDetails /></Layout></ProtectedRoute>} />
           <Route path="/packing" element={<ProtectedRoute><Layout><PackingUnits /></Layout></ProtectedRoute>} />
           <Route path="/packing/:id" element={<ProtectedRoute><Layout><PackingUnitDetails /></Layout></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><PlaceholderPage title="Users & Roles" /></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><Layout><Users /></Layout></ProtectedRoute>} />
           <Route path="/employees" element={<ProtectedRoute><Layout><Employees /></Layout></ProtectedRoute>} />
           <Route path="/employees/:id" element={<ProtectedRoute><Layout><EmployeeDetails /></Layout></ProtectedRoute>} />
           <Route path="/timesheet" element={<ProtectedRoute><PlaceholderPage title="Timesheet" /></ProtectedRoute>} />
