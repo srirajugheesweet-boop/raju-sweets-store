@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
-  Users, 
   Box, 
   Tag, 
   Store, 
@@ -12,37 +11,25 @@ import {
   UserCog, 
   UserCircle, 
   Clock, 
-  BarChart3, 
-  History, 
   CreditCard, 
-  Settings,
   ArrowRight,
-  Bell,
-  FileText,
-  LifeBuoy,
-  ShieldCheck
+  LifeBuoy
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import './Home.css';
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard', color: 'purple' },
+  { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments', color: 'pink' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', color: 'pink' },
-  { id: 'customers', label: 'Customers', icon: <Users />, path: '/customers', color: 'blue' },
   { id: 'items', label: 'Items', icon: <Box />, path: '/items', color: 'orange' },
   { id: 'categories', label: 'Categories', icon: <Tag />, path: '/categories', color: 'teal' },
   { id: 'stores', label: 'Stores', icon: <Store />, path: '/stores', color: 'violet' },
   { id: 'manufacturing', label: 'Manufacturing Units', icon: <Factory />, path: '/manufacturing', color: 'green' },
   { id: 'packing', label: 'Packing Units', icon: <Package />, path: '/packing', color: 'purple' },
-  { id: 'users', label: 'Users & Roles', icon: <UserCog />, path: '/users', color: 'pink' },
+  { id: 'users', label: 'Users and Roles', icon: <UserCog />, path: '/users', color: 'pink' },
   { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees', color: 'blue' },
   { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet', color: 'orange' },
-  { id: 'reports', label: 'Reports', icon: <BarChart3 />, path: '/reports', color: 'teal' },
-  { id: 'audit', label: 'Audit Logs', icon: <ShieldCheck />, path: '/audit', color: 'blue' },
-  { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments', color: 'pink' },
-  { id: 'settings', label: 'Settings', icon: <Settings />, path: '/settings', color: 'green' },
-  { id: 'notifications', label: 'Notifications', icon: <Bell />, path: '/notifications', color: 'purple' },
-  { id: 'documents', label: 'Documents', icon: <FileText />, path: '/documents', color: 'blue' },
   { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support', color: 'pink' },
 ];
 

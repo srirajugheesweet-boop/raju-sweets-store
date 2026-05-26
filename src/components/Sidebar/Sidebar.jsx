@@ -6,7 +6,6 @@ import {
   LogOut,
   LayoutDashboard, 
   ShoppingBag, 
-  Users, 
   Box, 
   Tag, 
   Store, 
@@ -15,12 +14,7 @@ import {
   UserCog, 
   UserCircle, 
   Clock, 
-  BarChart3, 
-  ShieldCheck, 
   CreditCard, 
-  Settings,
-  Bell,
-  FileText,
   LifeBuoy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -28,22 +22,16 @@ import './Sidebar.css';
 
 export const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard' },
+  { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders' },
-  { id: 'customers', label: 'Customers', icon: <Users />, path: '/customers' },
   { id: 'items', label: 'Items', icon: <Box />, path: '/items' },
   { id: 'categories', label: 'Categories', icon: <Tag />, path: '/categories' },
   { id: 'stores', label: 'Stores', icon: <Store />, path: '/stores' },
-  { id: 'manufacturing', label: 'Manufacturing', icon: <Factory />, path: '/manufacturing' },
-  { id: 'packing', label: 'Packing', icon: <Package />, path: '/packing' },
-  { id: 'users', label: 'Users & Roles', icon: <UserCog />, path: '/users' },
+  { id: 'manufacturing', label: 'Manufacturing Units', icon: <Factory />, path: '/manufacturing' },
+  { id: 'packing', label: 'Packing Units', icon: <Package />, path: '/packing' },
+  { id: 'users', label: 'Users and Roles', icon: <UserCog />, path: '/users' },
   { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees' },
   { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet' },
-  { id: 'reports', label: 'Reports', icon: <BarChart3 />, path: '/reports' },
-  { id: 'audit', label: 'Audit Logs', icon: <ShieldCheck />, path: '/audit' },
-  { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
-  { id: 'settings', label: 'Settings', icon: <Settings />, path: '/settings' },
-  { id: 'notifications', label: 'Notifications', icon: <Bell />, path: '/notifications' },
-  { id: 'documents', label: 'Documents', icon: <FileText />, path: '/documents' },
   { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support' },
 ];
 
