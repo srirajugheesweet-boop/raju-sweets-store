@@ -12,7 +12,9 @@ import {
   updateDoc, 
   addDoc, 
   serverTimestamp, 
-  getDoc 
+  getDoc,
+  getDocs,
+  deleteDoc 
 } from 'firebase/firestore';
 import { 
   ShoppingBag, 
@@ -37,11 +39,124 @@ import {
   FileText,
   AlertCircle,
   Calendar,
-  Bluetooth
+  Bluetooth,
+  Trash2,
+  Edit,
+  Store,
+  Package
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './StorePortal.css';
+import '../../pages/Orders/Orders.css';
+
+// --- Custom Searchable Dropdown ---
+const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredOptions = options.filter(opt => 
+    (opt.name || opt.firstName + ' ' + opt.lastName || '').toLowerCase().includes(search.toLowerCase()) ||
+    (opt.mobileNumber || opt.phone || '').includes(search)
+  );
+
+  const selectedOption = options.find(opt => opt.id === selectedValue);
+
+  return (
+    <div className="ord-dropdown" ref={dropdownRef}>
+      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>{label}</label>
+      <div className="ord-dropdown-trigger" onClick={() => setIsOpen(!isOpen)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Icon size={18} color="var(--primary-color)" />
+          <span>
+            {selectedOption 
+              ? (selectedOption.name || selectedOption.firstName + ' ' + selectedOption.lastName) 
+              : placeholder}
+          </span>
+        </div>
+        <ChevronDown size={18} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            className="ord-dropdown-popover"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <div className="ord-dropdown-search">
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="ord-dropdown-list">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map(opt => (
+                  <div 
+                    key={opt.id} 
+                    className="ord-dropdown-item"
+                    onClick={() => {
+                      onSelect(opt.id);
+                      setIsOpen(false);
+                      setSearch('');
+                    }}
+                  >
+                    <span className="name">{opt.name || opt.firstName + ' ' + opt.lastName}</span>
+                    <span className="sub">{opt.mobileNumber || opt.phone || opt.city}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '15px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>No results found</div>
+                  {onCreateClick && (
+                    <button 
+                      type="button"
+                      className="ord-create-customer-dropdown-btn"
+                      onClick={() => {
+                        onCreateClick(search);
+                        setIsOpen(false);
+                        setSearch('');
+                      }}
+                      style={{
+                        background: 'var(--primary-color)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      + Create Customer
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const DEFAULT_ITEM_IMAGE = 'https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&q=80&w=200';
 
@@ -84,6 +199,42 @@ const StorePortal = () => {
   const [isScanningBt, setIsScanningBt] = useState(false);
   const [connectingBtDevice, setConnectingBtDevice] = useState(null);
   const [btDevices, setBtDevices] = useState([]);
+
+  // --- ADD ORDER FUNCTIONALITY STATES ---
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState(null);
+
+  const [orderCustomers, setOrderCustomers] = useState([]);
+  const [orderItems, setOrderItems] = useState([]);
+  const [orderPUnits, setOrderPUnits] = useState([]);
+
+  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [selectedPUnit, setSelectedPUnit] = useState('');
+  const [globalDescription, setGlobalDescription] = useState('');
+  const [mUnitDescription, setMUnitDescription] = useState('');
+  const [pUnitDescription, setPUnitDescription] = useState('');
+  const [orderPaymentMode, setOrderPaymentMode] = useState('Cash');
+  const [receivedAmount, setReceivedAmount] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
+  const [orderCart, setOrderCart] = useState([]);
+
+  // Weight calculator for Order flow
+  const [showOrderWeightModal, setShowOrderWeightModal] = useState(null);
+  const [orderWeightInput, setOrderWeightInput] = useState({ weight: '', amount: '', description: '' });
+  const [savingOrder, setSavingOrder] = useState(false);
+
+  // Customer creation for Order flow
+  const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
+  const [customerFormData, setCustomerFormData] = useState({
+    firstName: '',
+    lastName: '',
+    mobileNumber: '',
+    address: '',
+    city: '',
+    state: ''
+  });
+  const [savingCustomer, setSavingCustomer] = useState(false);
 
   const links = [
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/store-portal/${id}/orders` },
@@ -225,6 +376,35 @@ const StorePortal = () => {
     }
   }, [id, tab]);
 
+  // --- FETCH DATA FOR ADD ORDER MODAL ---
+  useEffect(() => {
+    if (showAddModal) {
+      const fetchModalData = async () => {
+        try {
+          const [custSnap, itemSnap, puSnap] = await Promise.all([
+            getDocs(query(collection(db, 'customers'), orderBy('firstName', 'asc'))),
+            getDocs(query(collection(db, 'items'))),
+            getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc')))
+          ]);
+
+          const fetchedCustomers = custSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          fetchedCustomers.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
+          setOrderCustomers(fetchedCustomers);
+
+          const fetchedItems = itemSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          fetchedItems.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          setOrderItems(fetchedItems);
+
+          setOrderPUnits(puSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (error) {
+          console.error("Error fetching modal data:", error);
+          toast.error("Failed to load customer or item list.");
+        }
+      };
+      fetchModalData();
+    }
+  }, [showAddModal]);
+
   if (!tab) return <Navigate to={`/store-portal/${id}/orders`} replace />;
 
   if (loading) {
@@ -252,6 +432,312 @@ const StorePortal = () => {
       console.error(err);
       toast.error("Failed to update item status");
     }
+  };
+
+  // --- ADD ORDER CART & CHECKOUT OPERATIONS ---
+  const handleItemClickOrder = (item) => {
+    const existing = orderCart.find(c => c.id === item.id);
+    if (item.unit === 'Weight') {
+      setShowOrderWeightModal(item);
+      setOrderWeightInput({
+        weight: existing ? existing.quantity.toString() : '',
+        amount: existing ? existing.total.toString() : '',
+        description: existing ? existing.description || '' : ''
+      });
+    } else {
+      addToCartOrder(item, 1, item.price);
+    }
+  };
+
+  const handleOrderWeightCalc = (type, value, price) => {
+    if (type === 'weight') {
+      const amt = (parseFloat(value) * price).toFixed(2);
+      setOrderWeightInput(prev => ({ ...prev, weight: value, amount: isNaN(amt) ? '' : amt }));
+    } else {
+      const wt = (parseFloat(value) / price).toFixed(3);
+      setOrderWeightInput(prev => ({ ...prev, weight: isNaN(wt) ? '' : wt, amount: value }));
+    }
+  };
+
+  const confirmOrderWeightAdd = () => {
+    if (!orderWeightInput.weight || !orderWeightInput.amount) {
+      toast.error("Please enter weight or amount");
+      return;
+    }
+    addToCartOrder(showOrderWeightModal, orderWeightInput.weight, orderWeightInput.amount, orderWeightInput.description);
+    setShowOrderWeightModal(null);
+  };
+
+  const addToCartOrder = (item, quantity, total, itemDescription = '') => {
+    setOrderCart(prev => {
+      const existingIndex = prev.findIndex(c => c.id === item.id);
+      if (existingIndex > -1) {
+        const newCart = [...prev];
+        if (item.unit !== 'Weight') {
+          newCart[existingIndex].quantity += Number(quantity);
+          newCart[existingIndex].total = newCart[existingIndex].quantity * item.price;
+        } else {
+          newCart[existingIndex].quantity = Number(quantity);
+          newCart[existingIndex].total = Number(total);
+          newCart[existingIndex].description = itemDescription;
+        }
+        return newCart;
+      } else {
+        return [...prev, {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          unit: item.unit,
+          quantity: Number(quantity),
+          total: Number(total),
+          description: itemDescription,
+          mUnitId: item.mUnitId || '',
+          status: 'preparation_started'
+        }];
+      }
+    });
+    toast.success(`${item.name} added`);
+  };
+
+  const updateCartQuantityOrder = (id, delta) => {
+    setOrderCart(prev => prev.map(c => {
+      if (c.id === id) {
+        const newQty = c.quantity + delta;
+        if (newQty < 1) return c;
+        return { ...c, quantity: newQty, total: newQty * c.price };
+      }
+      return c;
+    }));
+  };
+
+  const handleEditCartItemOrder = (item) => {
+    const originalItem = orderItems.find(i => i.id === item.id);
+    if (!originalItem) return;
+    setShowOrderWeightModal(originalItem);
+    setOrderWeightInput({
+      weight: item.quantity.toString(),
+      amount: item.total.toString(),
+      description: item.description || ''
+    });
+  };
+
+  const removeFromCartOrder = (id) => {
+    setOrderCart(prev => prev.filter(c => c.id !== id));
+  };
+
+  const generateOrderId = () => {
+    const now = new Date();
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `ORD${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  };
+
+  const resetFormOrder = () => {
+    setSelectedCustomer('');
+    setSelectedPUnit('');
+    setGlobalDescription('');
+    setMUnitDescription('');
+    setPUnitDescription('');
+    setOrderCart([]);
+    setOrderPaymentMode('Cash');
+    setReceivedAmount('');
+    setDeliveryDate('');
+    setDeliveryTime('');
+    setEditingOrderId(null);
+  };
+
+  const saveOrder = async () => {
+    if (!selectedCustomer) return toast.error("Please select a customer");
+    if (!deliveryDate) return toast.error("Please select a delivery date");
+    if (!deliveryTime) return toast.error("Please select a delivery time");
+    if (orderCart.length === 0) return toast.error("Order cart is empty");
+
+    setSavingOrder(true);
+    try {
+      const orderId = editingOrderId ? orders.find(o => o.id === editingOrderId)?.orderId : generateOrderId();
+      const customer = orderCustomers.find(c => c.id === selectedCustomer);
+      const totalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
+      const recAmtVal = parseFloat(receivedAmount) || 0;
+      let payStatus = 'Pending';
+      if (recAmtVal > 0) {
+        if (recAmtVal >= totalAmt) {
+          payStatus = 'Done';
+        } else {
+          payStatus = 'Partial';
+        }
+      }
+
+      const orderData = {
+        orderId,
+        customerId: selectedCustomer,
+        customerName: `${customer.firstName} ${customer.lastName || ''}`.trim(),
+        customerPhone: customer.mobileNumber,
+        storeId: id,
+        storeName: store?.name || 'Raju Ghee Sweets',
+        pUnitId: selectedPUnit,
+        globalDescription,
+        mUnitDescription,
+        pUnitDescription,
+        items: orderCart,
+        totalAmount: totalAmt,
+        receivedAmount: recAmtVal,
+        paymentStatus: payStatus,
+        paymentMode: orderPaymentMode,
+        deliveryDate,
+        deliveryTime,
+        status: editingOrderId ? (orders.find(o => o.id === editingOrderId)?.status || 'new') : 'new',
+        createdAt: editingOrderId ? (orders.find(o => o.id === editingOrderId)?.createdAt || serverTimestamp()) : serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (editingOrderId) {
+        await updateDoc(doc(db, 'orders', editingOrderId), orderData);
+        toast.success(`Order #${orderId} updated successfully!`);
+      } else {
+        await addDoc(collection(db, 'orders'), orderData);
+        toast.success(`Order #${orderId} placed successfully!`);
+      }
+
+      setShowAddModal(false);
+      resetFormOrder();
+    } catch (error) {
+      console.error("Save Order Error:", error);
+      toast.error("Failed to save customer order");
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const handleOpenCreateCustomer = (searchVal) => {
+    let initialPhone = '';
+    let initialFirstName = '';
+    
+    if (/^\d+$/.test(searchVal)) {
+      initialPhone = searchVal;
+    } else {
+      initialFirstName = searchVal;
+    }
+
+    setCustomerFormData({
+      firstName: initialFirstName,
+      lastName: '',
+      mobileNumber: initialPhone,
+      address: '',
+      city: '',
+      state: ''
+    });
+    setShowCreateCustomerModal(true);
+  };
+
+  const handleSaveCustomer = async (e) => {
+    e.preventDefault();
+    if (!customerFormData.firstName || !customerFormData.lastName || !customerFormData.mobileNumber) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setSavingCustomer(true);
+    try {
+      const docRef = await addDoc(collection(db, 'customers'), {
+        ...customerFormData,
+        createdAt: serverTimestamp()
+      });
+      
+      const newCust = {
+        id: docRef.id,
+        ...customerFormData
+      };
+      
+      setOrderCustomers(prev => [newCust, ...prev].sort((a, b) => a.firstName.localeCompare(b.firstName)));
+      setSelectedCustomer(docRef.id);
+      
+      toast.success("Customer created and selected!");
+      setShowCreateCustomerModal(false);
+    } catch (error) {
+      console.error("Failed to save customer:", error);
+      toast.error("Error creating customer");
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
+
+  const handleEditOrder = (order) => {
+    setSelectedCustomer(order.customerId);
+    setSelectedPUnit(order.pUnitId || '');
+    setGlobalDescription(order.globalDescription || '');
+    setMUnitDescription(order.mUnitDescription || '');
+    setPUnitDescription(order.pUnitDescription || '');
+    setOrderPaymentMode(order.paymentMode || 'Cash');
+    setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
+    setDeliveryDate(order.deliveryDate || '');
+    setDeliveryTime(order.deliveryTime || '');
+    setOrderCart(order.items || []);
+    setEditingOrderId(order.id);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (window.confirm("Are you sure you want to permanently delete this order?")) {
+      try {
+        await deleteDoc(doc(db, 'orders', orderId));
+        toast.success("Order deleted successfully");
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to delete order");
+      }
+    }
+  };
+
+  const handlePrintOrder = (order) => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Order - #${order.orderId}</title>
+          <style>
+            body { font-family: monospace; width: 300px; margin: 0 auto; padding: 20px; color: black; }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { text-align: left; padding: 4px 0; border-bottom: 1px dashed #ccc; font-size: 12px; }
+            .total { margin-top: 10px; text-align: right; font-weight: bold; font-size: 14px; }
+            .divider { border-bottom: 1px dashed black; margin: 10px 0; }
+            @media print {
+              body { width: 100%; margin: 0; padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="center bold" style="font-size: 18px;">Raju Ghee Sweets</div>
+          <div class="center" style="font-size: 12px; margin-bottom: 10px;">${order.storeName}</div>
+          <div>Order: #${order.orderId}</div>
+          <div>Date: ${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : ''}</div>
+          <div>Customer: ${order.customerName}</div>
+          <div>Phone: ${order.customerPhone}</div>
+          <div class="divider"></div>
+          <table>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Amt</th>
+            </tr>
+            ${order.items.map(item => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pcs'}</td>
+                <td>₹${Number(item.total).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </table>
+          <div class="total">Total: ₹${Number(order.totalAmount).toFixed(2)}</div>
+          <div class="divider"></div>
+          <div class="center" style="font-size: 12px;">Thank you for your business!</div>
+        </body>
+      </html>
+    `;
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
   };
 
   // --- POS Billing Logic ---
@@ -669,8 +1155,8 @@ const StorePortal = () => {
   );
 
   const filteredCustomers = customers.filter(cust => 
-    `${cust.firstName} ${cust.lastName}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    cust.mobileNumber.includes(customerSearch)
+    `${cust.firstName} ${cust.lastName || ''}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    (cust.mobileNumber || '').includes(customerSearch)
   );
 
   // Filter bills by the selected date input (defaults to today's date YYYY-MM-DD)
@@ -679,26 +1165,45 @@ const StorePortal = () => {
     return isSameDay(formattedBillDate, billsFilterDate);
   });
 
+  const orderTotalAmount = orderCart.reduce((sum, item) => sum + item.total, 0);
+  const orderRecAmt = parseFloat(receivedAmount) || 0;
+  let orderPaymentStatus = 'Pending';
+  if (orderRecAmt > 0) {
+    if (orderRecAmt >= orderTotalAmount) {
+      orderPaymentStatus = 'Done';
+    } else {
+      orderPaymentStatus = 'Partial';
+    }
+  }
+
   return (
     <PortalLayout title="Store Portal" links={links}>
       <div className="st-portal-content">
         
         {/* --- ORDERS VIEW --- */}
         {tab === 'orders' && (
-          <div className="st-orders-view">
+          <div className="st-orders-view animate-fade-in">
             <div className="st-view-header">
               <div>
                 <h2>Store Orders ({orders.length})</h2>
                 <p className="st-view-desc">Monitor prep status and delivery schedules for this outlet</p>
               </div>
-              <div className="st-search-wrapper">
-                <Search size={18} className="st-search-icon" />
-                <input 
-                  type="text" 
-                  placeholder="Search by Order ID or Customer..." 
-                  value={orderSearch}
-                  onChange={(e) => setOrderSearch(e.target.value)}
-                />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div className="st-search-wrapper">
+                  <Search size={18} className="st-search-icon" />
+                  <input 
+                    type="text" 
+                    placeholder="Search by Order ID or Customer..." 
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                  />
+                </div>
+                <button className="add-order-btn" style={{ height: '42px' }} onClick={() => {
+                  resetFormOrder();
+                  setShowAddModal(true);
+                }}>
+                  <Plus size={20} /> Create New Order
+                </button>
               </div>
             </div>
 
@@ -711,6 +1216,7 @@ const StorePortal = () => {
                     <th>Customer</th>
                     <th>Total Price</th>
                     <th>Overall Status</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -731,11 +1237,18 @@ const StorePortal = () => {
                             {order.status.replace(/_/g, ' ')}
                           </span>
                         </td>
+                        <td>
+                          <div className="ord-actions-cell" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                            <button className="ord-action-btn print" title="Print" style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }} onClick={() => handlePrintOrder(order)}><Printer size={16} /></button>
+                            <button className="ord-action-btn edit" title="Edit" style={{ background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }} onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
+                            <button className="ord-action-btn delete" title="Delete" style={{ background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }} onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
+                          </div>
+                        </td>
                       </tr>
                       
                       {expandedOrders.includes(order.id) && (
                         <tr className="st-accordion-row">
-                          <td colSpan="5" style={{ padding: 0 }}>
+                          <td colSpan="6" style={{ padding: 0 }}>
                             <div className="st-accordion-content">
                               <h4>Order Items & Preparation Status</h4>
                               <table className="st-items-subtable">
@@ -781,7 +1294,7 @@ const StorePortal = () => {
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No orders found.</td>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No orders found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1334,6 +1847,467 @@ const StorePortal = () => {
                   <Printer size={16} /> Print Receipt
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Order Full Screen Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div 
+            className="ord-full-modal"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            style={{ zIndex: 1000 }}
+          >
+            <div className="ord-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <ShoppingBag size={24} color="var(--primary-color)" />
+                <div>
+                  <h2 style={{ fontSize: '20px', fontWeight: '800' }}>{editingOrderId ? 'Edit Customer Order' : 'Create New Customer Order'}</h2>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{editingOrderId ? 'Update customer details and items' : 'Fill in customer details and select items'}</p>
+                </div>
+              </div>
+              <button className="items-close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowAddModal(false)}><X size={24} /></button>
+            </div>
+
+            <div className="ord-modal-content">
+              {/* Left Panel: Form & Selection */}
+              <div className="ord-items-panel" style={{ overflowY: 'auto' }}>
+                <div className="ord-panel-header">
+                  <div className="ord-panel-top" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+                    <CustomDropdown 
+                      label="Select Customer"
+                      options={orderCustomers}
+                      onSelect={setSelectedCustomer}
+                      selectedValue={selectedCustomer}
+                      placeholder="Search name or number..."
+                      icon={User}
+                      onCreateClick={handleOpenCreateCustomer}
+                    />
+                    
+                    {/* Read-Only Non-Editable Selected Store */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>Delivery Store</label>
+                      <div style={{
+                        height: '42px',
+                        padding: '0 12px',
+                        border: '1.5px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        background: '#f1f5f9',
+                        color: '#475569',
+                        fontWeight: '700',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                      }}>
+                        <Store size={18} color="var(--primary-color)" />
+                        <span>{store?.name || 'Loading Store...'}</span>
+                      </div>
+                    </div>
+
+                    <CustomDropdown 
+                      label="Select Packing Unit"
+                      options={orderPUnits}
+                      onSelect={setSelectedPUnit}
+                      selectedValue={selectedPUnit}
+                      placeholder="Optional"
+                      icon={Package}
+                    />
+                  </div>
+
+                  {/* Delivery Date & Time */}
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
+                      <input 
+                        type="date"
+                        required
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        style={{
+                          height: '38px',
+                          padding: '0 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Time *</label>
+                      <input 
+                        type="time"
+                        required
+                        value={deliveryTime}
+                        onChange={(e) => setDeliveryTime(e.target.value)}
+                        style={{
+                          height: '38px',
+                          padding: '0 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Manufacturing & Packing Descriptions */}
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Global Instructions</label>
+                      <textarea 
+                        placeholder="General order instructions..."
+                        value={globalDescription}
+                        onChange={(e) => setGlobalDescription(e.target.value)}
+                        style={{
+                          height: '50px',
+                          padding: '8px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          resize: 'none',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                          width: '100%'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Manufacturing Unit Instructions</label>
+                      <textarea 
+                        placeholder="Special instructions for manufacturing..."
+                        value={mUnitDescription}
+                        onChange={(e) => setMUnitDescription(e.target.value)}
+                        style={{
+                          height: '50px',
+                          padding: '8px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          resize: 'none',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                          width: '100%'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Instructions</label>
+                      <textarea 
+                        placeholder="Packaging and gift wrapping notes..."
+                        value={pUnitDescription}
+                        onChange={(e) => setPUnitDescription(e.target.value)}
+                        style={{
+                          height: '50px',
+                          padding: '8px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          resize: 'none',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                          width: '100%'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ margin: '15px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Package size={18} color="var(--primary-color)" />
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Select Sweets & Products</h3>
+                </div>
+
+                <div className="ord-items-grid" style={{ paddingBottom: '30px' }}>
+                  {orderItems.map(item => (
+                    <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClickOrder(item)}>
+                      <img src={(!item.image || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} alt={item.name} className="ord-item-img" />
+                      <div className="ord-item-details">
+                        <h4>{item.name}</h4>
+                        <div className="ord-price-row">
+                          <span className="price">₹{item.price}</span>
+                          <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Panel: Summary */}
+              <div className="ord-summary-panel">
+                <h2><FileText size={20} /> Order Cart & Summary</h2>
+                
+                <div className="ord-summary-list">
+                  {orderCart.length > 0 ? orderCart.map((item, idx) => (
+                    <div key={idx} className="ord-summary-item">
+                      <div className="ord-item-info">
+                        <h4>{item.name}</h4>
+                        <p>{item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity} pcs`} @ ₹{item.price}</p>
+                        {item.description && <p className="item-note">Note: {item.description}</p>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        {item.unit === 'Weight' ? (
+                          <button onClick={() => handleEditCartItemOrder(item)} className="ord-edit-cart-btn" title="Edit Weight" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)' }}>
+                            <Edit size={14} />
+                          </button>
+                        ) : (
+                          <div className="ord-qty-controls">
+                            <button onClick={() => updateCartQuantityOrder(item.id, -1)}><Minus size={12} /></button>
+                            <span>{item.quantity}</span>
+                            <button onClick={() => updateCartQuantityOrder(item.id, 1)}><Plus size={12} /></button>
+                          </div>
+                        )}
+                        <div className="ord-item-price">
+                          <span className="amt">₹{item.total.toFixed(2)}</span>
+                        </div>
+                        <button onClick={() => removeFromCartOrder(item.id)} style={{ color: 'var(--error-color)', background: 'none', border: 'none', cursor: 'pointer' }} title="Remove Item">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{ textAlign: 'center', padding: '40px 0', opacity: 0.5 }}>
+                      <ShoppingBag size={32} style={{ marginBottom: '10px' }} />
+                      <p>Your order cart is empty</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="ord-summary-totals" style={{ borderTop: 'none', paddingTop: '0' }}>
+                  <div className="ord-total-row">
+                    <span>Total Amount</span>
+                    <span>₹{orderTotalAmount.toFixed(2)}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
+                      <div className="ord-payment-modes" style={{ marginTop: '0' }}>
+                        {['Cash', 'UPI', 'Card'].map(mode => (
+                          <button 
+                            type="button"
+                            key={mode} 
+                            className={`ord-mode-btn ${orderPaymentMode === mode ? 'active' : ''}`}
+                            onClick={() => setOrderPaymentMode(mode)}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Received Amount (₹)</label>
+                        <input 
+                          type="number"
+                          placeholder="0.00"
+                          value={receivedAmount}
+                          onChange={(e) => setReceivedAmount(e.target.value)}
+                          style={{
+                            height: '38px',
+                            padding: '0 12px',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Status</label>
+                        <div style={{ display: 'flex', alignItems: 'center', height: '38px' }}>
+                          <span className={`ord-status-badge ${orderPaymentStatus}`} style={{ fontSize: '11px', padding: '5px 12px' }}>
+                            {orderPaymentStatus}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button className="ord-save-btn" onClick={saveOrder} disabled={savingOrder} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    {savingOrder ? <div className="loader"></div> : 'Confirm & Save Store Order'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Order Weight Modal */}
+      <AnimatePresence>
+        {showOrderWeightModal && (
+          <div className="modal-overlay" style={{ zIndex: 3000 }}>
+            <motion.div 
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box" style={{ background: '#FEF3C7', color: '#D97706' }}>
+                <Scale size={32} />
+              </div>
+              <h3 className="modal-title">Enter Quantity for {showOrderWeightModal.name}</h3>
+              
+              <div className="ord-weight-form">
+                <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '10px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Weight (kg)</label>
+                  <input 
+                    type="number" 
+                    step="0.001" 
+                    placeholder="0.000"
+                    value={orderWeightInput.weight}
+                    onChange={(e) => handleOrderWeightCalc('weight', e.target.value, showOrderWeightModal.price)}
+                    style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                  />
+                </div>
+                <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5, margin: '5px 0' }}>OR</div>
+                <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Amount (₹)</label>
+                  <input 
+                    type="number" 
+                    placeholder="0.00"
+                    value={orderWeightInput.amount}
+                    onChange={(e) => handleOrderWeightCalc('amount', e.target.value, showOrderWeightModal.price)}
+                    style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Item Description / Note</label>
+                  <textarea 
+                    placeholder="e.g. less sugar, extra packing..."
+                    value={orderWeightInput.description}
+                    onChange={(e) => setOrderWeightInput(prev => ({ ...prev, description: e.target.value }))}
+                    style={{ 
+                      height: '60px', 
+                      padding: '10px', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '8px', 
+                      fontSize: '13px', 
+                      resize: 'none',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                <div className="modal-actions" style={{ marginTop: '10px' }}>
+                  <button className="modal-btn cancel" onClick={() => setShowOrderWeightModal(null)}>Cancel</button>
+                  <button 
+                    className="modal-btn confirm" 
+                    style={{ background: 'var(--primary-color)' }}
+                    onClick={confirmOrderWeightAdd}
+                  >
+                    Add to Order
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Customer Creation Modal */}
+      <AnimatePresence>
+        {showCreateCustomerModal && (
+          <div className="modal-overlay" style={{ zIndex: 4000 }}>
+            <motion.div 
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{ width: '450px' }}
+            >
+              <div className="modal-icon-box" style={{ background: '#dcfce7', color: '#16a34a' }}>
+                <User size={32} />
+              </div>
+              <h3 className="modal-title">Register New Customer</h3>
+              
+              <form onSubmit={handleSaveCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', marginTop: '15px' }}>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700' }}>First Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={customerFormData.firstName} 
+                      onChange={(e) => setCustomerFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700' }}>Last Name *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={customerFormData.lastName} 
+                      onChange={(e) => setCustomerFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700' }}>Mobile Number *</label>
+                  <input 
+                    type="tel" 
+                    required 
+                    value={customerFormData.mobileNumber} 
+                    onChange={(e) => setCustomerFormData(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                    style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700' }}>Street Address</label>
+                  <textarea 
+                    value={customerFormData.address} 
+                    onChange={(e) => setCustomerFormData(prev => ({ ...prev, address: e.target.value }))}
+                    style={{ height: '50px', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px', resize: 'none', fontFamily: 'inherit' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700' }}>City</label>
+                    <input 
+                      type="text" 
+                      value={customerFormData.city} 
+                      onChange={(e) => setCustomerFormData(prev => ({ ...prev, city: e.target.value }))}
+                      style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700' }}>State</label>
+                    <input 
+                      type="text" 
+                      value={customerFormData.state} 
+                      onChange={(e) => setCustomerFormData(prev => ({ ...prev, state: e.target.value }))}
+                      style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-actions" style={{ marginTop: '15px' }}>
+                  <button type="button" className="modal-btn cancel" onClick={() => setShowCreateCustomerModal(false)} disabled={savingCustomer}>Cancel</button>
+                  <button type="submit" className="modal-btn confirm" style={{ background: 'var(--primary-color)' }} disabled={savingCustomer}>
+                    {savingCustomer ? <div className="loader"></div> : 'Register Customer'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
