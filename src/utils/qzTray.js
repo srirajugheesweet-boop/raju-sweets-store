@@ -6,6 +6,7 @@
  * 
  * Users must install QZ Tray from: https://qz.io/download/
  */
+import logo from '../assets/logo.png';
 
 const QZ_CDN = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js';
 
@@ -117,6 +118,85 @@ export const listQZPrinters = async () => {
 };
 
 /**
+ * Converts an image URL/DataURI to standard ESC/POS GS v 0 raster bit-image commands.
+ * This runs natively in the browser's Canvas context and works on 100% of ESC/POS printers.
+ * @param {string} logoUrl - Image asset URL
+ * @param {number} targetWidth - Maximum width in dots (must be multiple of 8, e.g. 160)
+ * @returns {Promise<Uint8Array>} Raw ESC/POS byte array
+ */
+export const getLogoESCPOS = (logoUrl, targetWidth = 160) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      // Calculate scaled height to maintain aspect ratio
+      const aspect = img.height / img.width;
+      const targetHeight = Math.round(targetWidth * aspect);
+
+      // Create browser canvas context
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Draw and rasterize
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+      const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+      const pixels = imgData.data;
+
+      // ESC/POS GS v 0 0 horizontal/vertical parameters
+      const xBytes = Math.ceil(targetWidth / 8);
+      const xL = xBytes & 0xFF;
+      const xH = (xBytes >> 8) & 0xFF;
+      const yL = targetHeight & 0xFF;
+      const yH = (targetHeight >> 8) & 0xFF;
+
+      const header = new Uint8Array([
+        0x1D, 0x76, 0x30, 0, // GS v 0 0 command
+        xL, xH,
+        yL, yH
+      ]);
+
+      const dataBytes = new Uint8Array(xBytes * targetHeight);
+
+      // Pack pixels into bit array (1 for black/print, 0 for white/blank)
+      for (let y = 0; y < targetHeight; y++) {
+        for (let xByte = 0; xByte < xBytes; xByte++) {
+          let byteVal = 0;
+          for (let bit = 0; bit < 8; bit++) {
+            const x = xByte * 8 + bit;
+            if (x < targetWidth) {
+              const idx = (y * targetWidth + x) * 4;
+              const r = pixels[idx];
+              const g = pixels[idx + 1];
+              const b = pixels[idx + 2];
+              const a = pixels[idx + 3];
+
+              // Grayscale luminosity threshold
+              const grayscale = 0.299 * r + 0.587 * g + 0.114 * b;
+              if (a > 128 && grayscale < 160) {
+                byteVal |= (1 << (7 - bit)); // Toggle pixel on
+              }
+            }
+          }
+          dataBytes[y * xBytes + xByte] = byteVal;
+        }
+      }
+
+      // Concatenate header + binary pixel raster block
+      const escposBytes = new Uint8Array(header.length + dataBytes.length);
+      escposBytes.set(header, 0);
+      escposBytes.set(dataBytes, header.length);
+      resolve(escposBytes);
+    };
+    img.onerror = () => {
+      resolve(new Uint8Array(0)); // Fail silently with empty array
+    };
+    img.src = logoUrl;
+  });
+};
+
+/**
  * Sends raw ESC/POS byte data to the specified printer via QZ Tray.
  * @param {string} printerName - The printer name from listQZPrinters()
  * @param {Uint8Array} dataArray - Raw ESC/POS byte array
@@ -126,16 +206,51 @@ export const printRawToQZ = async (printerName, dataArray) => {
   const qz = window.qz;
 
   const config = qz.configs.create(printerName);
+  let finalDataArray = dataArray;
 
-  // Convert Uint8Array → Base64 string — most reliable format for binary ESC/POS data
-  const base64 = btoa(String.fromCharCode(...dataArray));
+  // 1. Fetch, compile, and prepend the logo bytes natively in ESC/POS format if possible
+  if (logo) {
+    try {
+      const logoUrl = logo.startsWith('data:') ? logo : (logo.startsWith('http') ? logo : window.location.origin + logo);
+      const logoBytes = await getLogoESCPOS(logoUrl, 160); // 160 dots width fits all thermal papers perfectly
+      
+      if (logoBytes.length > 0) {
+        const centerAlign = new Uint8Array([0x1b, 0x61, 0x01]); // Align center
+        const leftAlign = new Uint8Array([0x1b, 0x61, 0x00]);   // Align left (reset)
+        const lineBreak = new Uint8Array([0x0a]);               // Line feed
 
+        // Combine alignment controls, raster logo bytes, and the bill text array in one continuous buffer
+        const combined = new Uint8Array(
+          centerAlign.length + 
+          logoBytes.length + 
+          lineBreak.length + 
+          leftAlign.length + 
+          dataArray.length
+        );
+
+        let offset = 0;
+        combined.set(centerAlign, offset); offset += centerAlign.length;
+        combined.set(logoBytes, offset); offset += logoBytes.length;
+        combined.set(lineBreak, offset); offset += lineBreak.length;
+        combined.set(leftAlign, offset); offset += leftAlign.length;
+        combined.set(dataArray, offset);
+
+        finalDataArray = combined;
+      }
+    } catch (err) {
+      console.error("Failed to compile or prepend raw logo bytes:", err);
+    }
+  }
+
+  // 2. Encode to Base64 (Standard unified print transaction payload format)
+  const base64Text = btoa(String.fromCharCode(...finalDataArray));
   const data = [{
     type: 'raw',
     format: 'base64',
-    data: base64,
+    data: base64Text,
   }];
 
+  // 3. Print directly to QZ Tray
   await qz.print(config, data);
 };
 
@@ -326,9 +441,9 @@ export const buildOrderESCPOS = (order, charsPerLine = 48) => {
   bytes.push(...encoder.encode(dashedLine));
 
   // Totals
-  const totalStr = `Rs.${Number(order.totalAmount).toFixed(2)}`;
-  const advStr = `Rs.${Number(order.advanceAmount || 0).toFixed(2)}`;
-  const balStr = `Rs.${Number(order.balanceAmount || 0).toFixed(2)}`;
+  const totalStr = `Rs.${Number(order.totalAmount || 0).toFixed(2)}`;
+  const advStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
+  const balStr = `Rs.${(Number(order.totalAmount || 0) - Number(order.receivedAmount || 0)).toFixed(2)}`;
 
   bytes.push(...encoder.encode(justifyLR('TOTAL AMOUNT:', totalStr)));
   bytes.push(...encoder.encode(justifyLR('ADVANCE PAID:', advStr)));

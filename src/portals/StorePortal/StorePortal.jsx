@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
 import { connectQZ, disconnectQZ, listQZPrinters, printRawToQZ, buildBillESCPOS, buildOrderESCPOS } from '../../utils/qzTray';
+import logo from '../../assets/logo.png';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -794,11 +795,14 @@ const StorePortal = () => {
           </style>
         </head>
         <body>
+          <div class="center" style="margin-bottom: 4px;">
+            <img src="${logo}" alt="Logo" style="max-height: 40px; width: auto; object-fit: contain;" />
+          </div>
           <div class="store-name">RAJU GHEE SWEETS</div>
           <div class="store-sub">${order.storeName || 'Store'}</div>
           <div class="store-sub">Quality Sweets & Savouries</div>
           <hr class="divider">
-          <div class="info-row"><span><b>Order#:</b> ${order.orderId}</span><span>${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : '')}</span></div>
+          <div class="info-row"><span><b>Order#:</b> ${order.orderId}</span><span>${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-IN') : '')}</span></div>
           <div class="info-row"><span><b>Customer:</b> ${order.customerName}</span></div>
           <div class="info-row"><span><b>Phone:</b> ${order.customerPhone}</span></div>
           ${order.deliveryDate ? `<div class="info-row"><span><b>Delivery:</b> ${order.deliveryDate} ${order.deliveryTime || ''}</span></div>` : ''}
@@ -824,8 +828,8 @@ const StorePortal = () => {
           </table>
           <hr class="divider">
           <div class="total-row"><span>TOTAL</span><span>Rs.${Number(order.totalAmount).toFixed(2)}</span></div>
-          ${order.receivedAmount > 0 ? `<div class="info-row" style="font-size:11px;"><span>Received:</span><span>Rs.${Number(order.receivedAmount).toFixed(2)}</span></div>` : ''}
-          ${order.receivedAmount > 0 && order.totalAmount > order.receivedAmount ? `<div class="info-row" style="font-size:11px;"><span>Balance Due:</span><span>Rs.${(Number(order.totalAmount) - Number(order.receivedAmount)).toFixed(2)}</span></div>` : ''}
+          <div class="info-row" style="font-size:11px;"><span>Received:</span><span>Rs.${Number(order.receivedAmount || 0).toFixed(2)}</span></div>
+          <div class="info-row" style="font-size:11px; font-weight: bold;"><span>Balance Due:</span><span>Rs.${(Number(order.totalAmount || 0) - Number(order.receivedAmount || 0)).toFixed(2)}</span></div>
           <hr class="divider">
           <div class="footer">Thank you for your business!</div>
           <div class="footer">Please visit again.</div>
