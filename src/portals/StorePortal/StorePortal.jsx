@@ -197,7 +197,7 @@ const StorePortal = () => {
   // Fetch Store Items & Bills for Billing Tab
   useEffect(() => {
     if (tab === 'billing') {
-      const itemsQ = query(collection(db, 'store_items'), orderBy('name', 'asc'));
+      const itemsQ = query(collection(db, 'items'), orderBy('name', 'asc'));
       const itemsUnsubscribe = onSnapshot(itemsQ, (snapshot) => {
         setStoreItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });

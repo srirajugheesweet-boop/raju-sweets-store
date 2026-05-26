@@ -120,7 +120,7 @@ const StoreDetails = () => {
 
   // Fetch Store Items
   useEffect(() => {
-    const q = query(collection(db, 'store_items'), orderBy('name', 'asc'));
+    const q = query(collection(db, 'items'), orderBy('name', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setStoreItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });

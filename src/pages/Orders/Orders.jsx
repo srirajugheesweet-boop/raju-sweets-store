@@ -168,7 +168,7 @@ const Orders = () => {
         const [custSnap, storeSnap, itemSnap, muSnap, puSnap] = await Promise.all([
           getDocs(query(collection(db, 'customers'), orderBy('firstName', 'asc'))),
           getDocs(query(collection(db, 'stores'), orderBy('name', 'asc'))),
-          getDocs(query(collection(db, 'customer_items'), orderBy('name', 'asc'))),
+          getDocs(query(collection(db, 'items'), orderBy('name', 'asc'))),
           getDocs(query(collection(db, 'manufacturing_units'), orderBy('name', 'asc'))),
           getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc')))
         ]);

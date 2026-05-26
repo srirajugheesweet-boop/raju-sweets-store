@@ -3,18 +3,12 @@ import {
   Plus, 
   Search, 
   Package, 
-  Building2, 
-  MoreVertical, 
   Edit, 
   Trash2, 
   X,
   Image as ImageIcon,
-  ChevronRight,
   Scale,
-  IndianRupee,
-  Factory,
-  ShoppingBag,
-  Store
+  Factory
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -40,7 +34,6 @@ const DEFAULT_ITEM_IMAGE = logo;
 
 
 const Items = () => {
-  const [activeTab, setActiveTab] = useState('customer'); // 'customer' or 'store'
   const [items, setItems] = useState([]);
   const [mUnits, setMUnits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,11 +64,10 @@ const Items = () => {
     fetchMUnits();
   }, []);
 
-  // Fetch Items based on Active Tab
+  // Fetch Global Items
   useEffect(() => {
     setLoading(true);
-    const collectionName = activeTab === 'customer' ? 'customer_items' : 'store_items';
-    const q = query(collection(db, collectionName), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'items'), orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const itemData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -84,7 +76,7 @@ const Items = () => {
     });
     
     return () => unsubscribe();
-  }, [activeTab]);
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -125,7 +117,6 @@ const Items = () => {
     }
 
     setSubmitting(true);
-    const collectionName = activeTab === 'customer' ? 'customer_items' : 'store_items';
     
     try {
       let finalImageUrl = DEFAULT_ITEM_IMAGE;
@@ -154,12 +145,12 @@ const Items = () => {
         updatedAt: serverTimestamp()
       };
 
-      console.log("Saving to Firestore collection:", collectionName);
+      console.log("Saving to Firestore collection: items");
       if (editingItem) {
-        await updateDoc(doc(db, collectionName, editingItem.id), finalData);
+        await updateDoc(doc(db, 'items', editingItem.id), finalData);
         toast.success("Item updated successfully");
       } else {
-        await addDoc(collection(db, collectionName), {
+        await addDoc(collection(db, 'items'), {
           ...finalData,
           createdAt: serverTimestamp()
         });
@@ -196,9 +187,8 @@ const Items = () => {
   const handleDelete = async () => {
     if (!showDeleteModal) return;
     setIsDeleting(true);
-    const collectionName = activeTab === 'customer' ? 'customer_items' : 'store_items';
     try {
-      await deleteDoc(doc(db, collectionName, showDeleteModal));
+      await deleteDoc(doc(db, 'items', showDeleteModal));
       toast.success("Item removed successfully");
       setShowDeleteModal(null);
     } catch (error) {
@@ -227,28 +217,13 @@ const Items = () => {
         )}
       </div>
 
-      <div className="items-tabs-row">
-        <button 
-          className={`items-tab-btn ${activeTab === 'customer' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('customer'); resetForm(); }}
-        >
-          <ShoppingBag size={18} /> Customer Items
-        </button>
-        <button 
-          className={`items-tab-btn ${activeTab === 'store' ? 'active' : ''}`}
-          onClick={() => { setActiveTab('store'); resetForm(); }}
-        >
-          <Store size={18} /> Store Items
-        </button>
-      </div>
-
       <div className="items-content-layout">
         <div className={`items-list-section ${showAddForm ? 'shrink' : 'full'}`}>
           <div className="items-search-bar">
             <Search size={18} className="items-search-icon" />
             <input 
               type="text" 
-              placeholder={`Search ${activeTab} items...`}
+              placeholder="Search items..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -289,7 +264,7 @@ const Items = () => {
                   <Package size={32} />
                 </div>
                 <h3>No Items Found</h3>
-                <p>You haven't added any {activeTab} items yet. Click the button above to start building your inventory.</p>
+                <p>You haven't added any items yet. Click the button above to start building your inventory.</p>
               </div>
             )}
           </div>
@@ -304,7 +279,7 @@ const Items = () => {
               exit={{ x: 400, opacity: 0 }}
             >
               <div className="items-sidebar-header">
-                <h2>{editingItem ? 'Edit Item' : `Add ${activeTab === 'customer' ? 'Customer' : 'Store'} Item`}</h2>
+                <h2>{editingItem ? 'Edit Item' : 'Add New Item'}</h2>
                 <button onClick={resetForm} className="items-close-btn"><X size={20} /></button>
               </div>
 
