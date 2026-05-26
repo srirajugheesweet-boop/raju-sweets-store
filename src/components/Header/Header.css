@@ -177,10 +177,38 @@
   background: #FFF5F5;
 }
 
+.header-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  padding: 8px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+  margin-right: 5px;
+}
+
+.header-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 1024px) {
+  .header-menu-btn {
+    display: flex;
+  }
+}
+
 @media (max-width: 768px) {
   .header {
-    padding: 0 20px;
-    height: 120px;
+    padding: 0 15px;
+    height: 64px;
+  }
+  
+  .header-logo-img {
+    height: 40px;
   }
 }
 

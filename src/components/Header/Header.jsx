@@ -1,13 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Star } from 'lucide-react';
+import { Star, Menu, X } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import './Header.css';
 
-const Header = () => {
+const Header = ({ toggleSidebar, isSidebarOpen }) => {
   return (
     <header className="header">
       <div className="header-left">
+        <button 
+          className="header-menu-btn" 
+          onClick={toggleSidebar}
+          aria-label="Toggle Navigation Sidebar"
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
         <Link to="/" className="header-logo">
           <img src={logo} alt="Raju Ghee Sweets" className="header-logo-img" />
         </Link>

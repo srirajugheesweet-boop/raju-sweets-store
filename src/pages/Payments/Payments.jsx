@@ -359,20 +359,41 @@ const Payments = ({ storeId = null }) => {
           </button>
         </div>
 
+        {/* Mobile Tab Dropdown Filter */}
+        <div className="pay-tabs-dropdown-wrapper">
+          <label htmlFor="pay-tab-select" className="pay-dropdown-label">Filter Payments</label>
+          <select 
+            id="pay-tab-select" 
+            className="pay-tab-select"
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+          >
+            <option value="pending">
+              Pending Payments ({orders.filter(o => (o.paymentStatus || 'Pending') === 'Pending').length})
+            </option>
+            <option value="partial">
+              Partial Installments ({orders.filter(o => (o.paymentStatus || 'Pending') === 'Partial').length})
+            </option>
+            <option value="completed">
+              Completed Payments ({orders.filter(o => (o.paymentStatus || 'Pending') === 'Done').length})
+            </option>
+          </select>
+        </div>
+
         {/* Table View */}
         <div className="pay-table-wrapper">
           <table className="pay-table">
             <thead>
               <tr>
-                <th>Order ID</th>
-                <th>Customer</th>
-                {!storeId && <th>Store Location</th>}
-                <th>Total Bill</th>
-                <th>Paid So Far</th>
-                <th>Remaining Balance</th>
-                <th>Status</th>
-                <th>Order Date</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
+                <th className="col-id">Order ID</th>
+                <th className="col-customer">Customer</th>
+                {!storeId && <th className="col-store">Store Location</th>}
+                <th className="col-total">Total Bill</th>
+                <th className="col-paid">Paid So Far</th>
+                <th className="col-remaining">Remaining Balance</th>
+                <th className="col-status">Status</th>
+                <th className="col-date">Order Date</th>
+                <th className="col-actions" style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -401,23 +422,23 @@ const Payments = ({ storeId = null }) => {
                             #{order.orderId}
                           </div>
                         </td>
-                        <td>
+                        <td className="customer-cell">
                           <div className="cust-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>
                             <span className="name">{order.customerName}</span>
                             <span className="phone"><Smartphone size={12} style={{ marginRight: '4px' }} />{order.customerPhone}</span>
                           </div>
                         </td>
                         {!storeId && <td className="store-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>{order.storeName}</td>}
-                        <td className="amount-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>₹{order.totalAmount.toFixed(2)}</td>
-                        <td className="amount-cell paid" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>₹{paid.toFixed(2)}</td>
-                        <td className="amount-cell remaining" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>₹{remaining.toFixed(2)}</td>
-                        <td style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>
+                        <td className="amount-cell total-bill-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>₹{order.totalAmount.toFixed(2)}</td>
+                        <td className="amount-cell paid-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>₹{paid.toFixed(2)}</td>
+                        <td className="amount-cell remaining-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>₹{remaining.toFixed(2)}</td>
+                        <td className="status-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>
                           <span className={`pay-status-badge ${getPaymentStatusClass(order.paymentStatus || 'Pending')}`}>
                             {getPaymentStatusText(order.paymentStatus || 'Pending')}
                           </span>
                         </td>
                         <td className="date-cell" style={{ cursor: 'pointer' }} onClick={() => toggleAccordion(order.id)}>{orderDate}</td>
-                        <td>
+                        <td className="actions-cell">
                           <div style={{ display: 'flex', justifyContent: 'center' }}>
                             {order.paymentStatus !== 'Done' ? (
                               <button 

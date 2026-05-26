@@ -198,6 +198,10 @@
   color: white;
 }
 
+.pay-tabs-dropdown-wrapper {
+  display: none;
+}
+
 /* Table */
 .pay-table-wrapper {
   width: 100%;
@@ -508,304 +512,500 @@
 .pay-group input:focus {
   border-color: var(--primary-color);
 }
-
-/* Payment Mode Grid */
-.pay-mode-selector {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  height: 44px;
-}
-
-.pay-mode-selector .mode-btn {
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pay-mode-selector .mode-btn:hover {
-  background: #f8fafc;
-  color: var(--text-primary);
-}
-
-.pay-mode-selector .mode-btn.active {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.pay-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
-}
-
-.pay-modal-footer .btn-cancel {
-  padding: 12px 20px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: white;
-  font-weight: 700;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.pay-modal-footer .btn-save {
-  padding: 12px 25px;
-  border-radius: 10px;
-  border: none;
-  background: var(--primary-color);
-  font-weight: 700;
-  color: white;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(249, 212, 35, 0.3);
-}
-
-.pay-modal-footer .btn-save:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-/* Timeline Layout */
-.pay-timeline-section {
-  border-left: 1px solid var(--border-color);
-  padding-left: 25px;
-  display: flex;
-  flex-direction: column;
-}
-
-.pay-timeline-section h3 {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0 0 15px 0;
-  display: flex;
-  align-items: center;
-}
-
-.pay-timeline-container {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 380px;
-}
-
-.timeline-empty {
-  text-align: center;
-  padding: 40px 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-.pay-timeline {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  padding-left: 15px;
-}
-
-.pay-timeline::before {
-  content: '';
-  position: absolute;
-  top: 5px;
-  left: 3px;
-  width: 2px;
-  height: calc(100% - 15px);
-  background: #e2e8f0;
-}
-
-.timeline-item {
-  position: relative;
-  margin-bottom: 20px;
-}
-
-.timeline-item:last-child {
-  margin-bottom: 0;
-}
-
-.timeline-badge {
-  position: absolute;
-  top: 5px;
-  left: -15px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary-color);
-  border: 2px solid white;
-  box-shadow: 0 0 0 2px var(--primary-color);
-}
-
-.timeline-body {
-  background: #f8fafc;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 10px 14px;
-}
-
-.timeline-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.timeline-header .mode {
-  font-size: 11px;
-  font-weight: 800;
-  color: #475569;
-  background: #e2e8f0;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.timeline-header .amt {
-  font-size: 13px;
-  font-weight: 800;
-  color: #10b981;
-}
-
-.timeline-body .notes {
-  font-size: 12px;
-  color: var(--text-primary);
-  margin: 0 0 6px 0;
-  font-weight: 500;
-}
-
-.timeline-body .time {
-  font-size: 10px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-/* Accordion Styling */
-.pay-accordion-row {
-  background: #f8fafc;
-}
-
-.pay-row.row-expanded {
-  background: #f8fafc;
-}
-
-.pay-row.row-expanded td {
-  border-bottom: none;
-}
-
-.pay-history-accordion-content {
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 18px 24px;
-  margin-top: 5px;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-  animation: slideDown 0.2s ease-out;
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.pay-history-accordion-content .accordion-title {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.accordion-loading, .accordion-empty {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-style: italic;
-  padding: 10px 0;
-}
-
-.accordion-timeline {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 15px;
-  position: relative;
-}
-
-.accordion-timeline-item {
-  background: #f8fafc;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 12px 16px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  transition: all 0.2s ease;
-  padding-left: 28px;
-}
-
-.accordion-timeline-item:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-}
-
-.accordion-timeline-item .timeline-dot {
-  position: absolute;
-  top: 18px;
-  left: 12px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 3px #d1fae5;
-}
-
-.accordion-timeline-item .timeline-info {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.accordion-timeline-item .timeline-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  gap: 10px;
-}
-
-.accordion-timeline-item .timeline-meta .mode {
-  font-size: 10px;
-  font-weight: 800;
-  color: #475569;
-  background: #e2e8f0;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.accordion-timeline-item .timeline-meta .date {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.accordion-timeline-item .timeline-amt {
-  font-size: 15px;
-  font-weight: 800;
-  color: #10b981;
-  margin-bottom: 4px;
-}
-
 .accordion-timeline-item .notes {
   font-size: 12px;
   color: var(--text-primary);
   margin: 0;
   font-weight: 500;
   word-break: break-word;
+}
+
+/* ==========================================================================
+   Responsive Media Queries for Payments Module (Premium Optimization)
+   ========================================================================== */
+
+/* Tablet Viewports (up to 1024px) */
+@media (max-width: 1024px) {
+  .pay-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* Progressive Table Hiding for Tablets */
+  .col-store, .store-cell,
+  .col-date, .date-cell {
+    display: none !important;
+  }
+
+  .pay-table th, .pay-table td {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}
+
+/* Medium Tablets & Form Stacking (up to 850px) */
+@media (max-width: 850px) {
+  .pay-modal {
+    width: 92%;
+    max-height: 90vh;
+  }
+
+  .pay-modal-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .pay-timeline-section {
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+    padding-left: 0;
+    padding-top: 20px;
+  }
+  
+  .pay-timeline-container {
+    max-height: 250px;
+  }
+}
+
+/* Small Tablets & Large Phones (up to 768px) */
+@media (max-width: 768px) {
+  .pay-container {
+    padding: 16px;
+  }
+
+  .pay-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .pay-card-header h1 {
+    font-size: 20px;
+  }
+
+  .pay-actions-wrapper {
+    width: 100%;
+  }
+
+  .pay-search-box {
+    width: 100%;
+    height: 42px;
+  }
+
+  /* Progressively hide more columns on small tablets */
+  .col-total, .total-bill-cell,
+  .col-paid, .paid-cell {
+    display: none !important;
+  }
+
+  .pay-table th, .pay-table td {
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .pay-add-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  
+  .pay-paid-btn {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+}
+
+/* Mobile Devices & Visual Enhancements (up to 600px) */
+@media (max-width: 600px) {
+  .pay-container {
+    padding: 12px;
+  }
+
+  /* 1. Swipeable Horizontal Statistics Cards */
+  .pay-summary-grid {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    scrollbar-width: none; /* Hide firefox scrollbar */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pay-summary-grid::-webkit-scrollbar {
+    display: none; /* Hide Chrome/Safari scrollbar */
+  }
+
+  .pay-summary-card {
+    flex: 0 0 250px;
+    height: 80px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 0;
+  }
+
+  .pay-summary-card:hover {
+    transform: none;
+  }
+
+  .pay-summary-card .card-info .title {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  .pay-summary-card .card-info .value {
+    font-size: 18px;
+    margin-bottom: 0;
+  }
+
+  /* Hide long card description to save height */
+  .pay-summary-card .card-info .desc {
+    display: none;
+  }
+
+  .pay-summary-card .card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .pay-summary-card .card-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* 2. Ledger Card Header Optimization */
+  .pay-card-header {
+    padding: 16px 16px 12px 16px;
+    border-bottom: none;
+  }
+
+  .pay-card-header p {
+    display: none; /* Hide long paragraph on mobile */
+  }
+
+  /* 3. Dropdown Selector for Mobile Tabs */
+  .pay-tabs {
+    display: none !important;
+  }
+
+  .pay-tabs-dropdown-wrapper {
+    display: block !important;
+    padding: 0 16px 16px 16px;
+    box-sizing: border-box;
+  }
+
+  .pay-dropdown-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .pay-tab-select {
+    width: 100%;
+    height: 44px;
+    padding: 0 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background-color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary-color);
+    outline: none;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    appearance: none; /* remove default arrow */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A2A1B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 16px;
+    padding-right: 40px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .pay-tab-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(10, 42, 27, 0.08);
+  }
+
+  /* 4. Beautiful Card Deck Layout for Table Rows */
+  .pay-table-wrapper {
+    padding: 0 12px 12px 12px;
+    overflow-x: hidden;
+  }
+
+  .pay-table {
+    display: block;
+    width: 100%;
+  }
+
+  .pay-table thead {
+    display: none; /* Hide table headers completely */
+  }
+
+  .pay-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  /* Beautiful card view for empty list state */
+  .pay-table tbody tr:not(.pay-row):not(.pay-accordion-row) {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 4px !important;
+    box-sizing: border-box;
+  }
+
+  .pay-table tbody tr:not(.pay-row):not(.pay-accordion-row) td.pay-table-empty {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 40px 20px !important;
+    background: #FFFFFF !important;
+    border: 2px dashed var(--border-color) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01) !important;
+    color: var(--text-secondary) !important;
+    box-sizing: border-box;
+  }
+
+  .pay-table tbody tr:not(.pay-row):not(.pay-accordion-row) td.pay-table-empty svg {
+    color: var(--primary-color) !important;
+    margin-bottom: 12px !important;
+    opacity: 0.8;
+  }
+
+  .pay-table tbody tr:not(.pay-row):not(.pay-accordion-row) td.pay-table-empty p {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: var(--text-secondary) !important;
+    margin: 0 !important;
+    text-align: center;
+  }
+
+  /* Stunning cards for items list with dynamic status color borders */
+  .pay-row {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "id status"
+      "cust cust"
+      "bal action";
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 14px 14px 14px 16px; /* offset left slightly for border spacing */
+    gap: 12px;
+    margin-bottom: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01);
+    width: 100% !important;
+    box-sizing: border-box;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Dynamic Left status accent stripes using modern CSS :has() selector */
+  .pay-row:has(.status-completed) {
+    border-left: 4px solid var(--success-color) !important;
+  }
+  .pay-row:has(.status-partial) {
+    border-left: 4px solid var(--accent-color) !important;
+  }
+  .pay-row:has(.status-pending) {
+    border-left: 4px solid var(--error-color) !important;
+  }
+
+  .pay-row:hover {
+    background: #FFFFFF;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+  }
+
+  /* Row Cells Mapping to Card Grid Areas */
+  .order-id-cell {
+    grid-area: id;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+
+  .status-cell {
+    grid-area: status;
+    padding: 0 !important;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .customer-cell {
+    grid-area: cust;
+    padding: 10px 0 !important;
+    border-top: 1px dashed #f1f5f9;
+    border-bottom: 1px dashed #f1f5f9;
+    margin: 2px 0;
+  }
+
+  .cust-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .cust-cell .name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .cust-cell .phone {
+    margin-top: 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .amount-cell.remaining-cell {
+    grid-area: bal;
+    display: flex;
+    flex-direction: column;
+    font-size: 16px;
+    font-weight: 800;
+    color: #ef4444;
+    padding: 0 !important;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .amount-cell.remaining-cell::before {
+    content: "Balance Due";
+    font-size: 9px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
+  }
+
+  .actions-cell {
+    grid-area: action;
+    padding: 0 !important;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .pay-add-btn, .pay-paid-btn {
+    padding: 8px 14px;
+    font-size: 11px;
+    border-radius: 8px;
+    width: auto;
+    font-weight: 700;
+  }
+
+  /* Unused cells hidden on mobile cards */
+  .store-cell, .total-bill-cell, .paid-cell, .date-cell {
+    display: none !important;
+  }
+
+  /* Collapsible Accordion Box Integration */
+  .pay-accordion-row {
+    display: block !important;
+    margin-top: -12px;
+    margin-bottom: 12px;
+    padding: 0 12px 12px 12px !important;
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  }
+
+  .pay-row.row-expanded {
+    border-bottom: none !important;
+    border-radius: 14px 14px 0 0 !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+  }
+
+  .pay-history-accordion-content {
+    background: #f8fafc;
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-top: 0;
+  }
+
+  .pay-history-accordion-content .accordion-title {
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+
+  .accordion-timeline {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .accordion-timeline-item {
+    padding: 8px 10px 8px 22px;
+    border-radius: 8px;
+  }
+
+  .accordion-timeline-item .timeline-dot {
+    top: 14px;
+    left: 8px;
+  }
+
+  .accordion-timeline-item .timeline-meta .date {
+    font-size: 10px;
+  }
+
+  .accordion-timeline-item .timeline-amt {
+    font-size: 13px;
+  }
+}
+
+/* Ultra Small Devices Optimization (up to 480px) */
+@media (max-width: 480px) {
+  .pay-modal-header h2 {
+    font-size: 16px;
+  }
+
+  .pay-mode-selector {
+    grid-template-columns: repeat(2, 1fr);
+    height: auto;
+    gap: 8px;
+  }
+
+  .pay-mode-selector .mode-btn {
+    padding: 8px 0;
+    height: 38px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+  
+  .pay-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 15px;
+  }
+  
+  .pay-overview-grid .mini-card {
+    padding: 8px 12px;
+  }
 }
