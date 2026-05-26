@@ -178,6 +178,9 @@
   border-radius: 20px;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
 }
 
 .usrm-modal-header {
@@ -204,6 +207,21 @@
 
 .usrm-modal-body {
   padding: 25px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.usrm-modal-body::-webkit-scrollbar {
+  width: 1px;
+}
+
+.usrm-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.usrm-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 .usrm-form-row {

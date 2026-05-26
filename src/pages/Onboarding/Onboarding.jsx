@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Factory, Package, LogOut } from 'lucide-react';
+import { Store, Factory, Package, LogOut, Users } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -138,6 +138,20 @@ const Onboarding = () => {
             <p>Packing Portal</p>
           </motion.div>
         ))}
+
+        {profile.access?.employees && (
+          <motion.div 
+            key="employee-portal" 
+            className="onb-card employee" 
+            onClick={() => navigate('/employee-portal')}
+            whileHover={{ y: -5 }}
+            style={{ borderLeft: '6px solid #8b5cf6' }}
+          >
+            <div className="icon-box" style={{ background: '#f5f3ff', color: '#8b5cf6' }}><Users size={32} /></div>
+            <h3>Employee Operations</h3>
+            <p>Employees & Timesheet Portal</p>
+          </motion.div>
+        )}
       </div>
     </div>
   );

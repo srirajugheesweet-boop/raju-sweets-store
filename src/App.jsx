@@ -24,6 +24,7 @@ import Onboarding from './pages/Onboarding/Onboarding';
 import MUnitPortal from './portals/MUnitPortal/MUnitPortal';
 import PUnitPortal from './portals/PUnitPortal/PUnitPortal';
 import StorePortal from './portals/StorePortal/StorePortal';
+import EmployeePortal from './portals/EmployeePortal/EmployeePortal';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -75,6 +76,8 @@ function App() {
           <Route path="/punit-portal/:id/:tab" element={<ProtectedRoute><PUnitPortal /></ProtectedRoute>} />
           <Route path="/store-portal/:id" element={<ProtectedRoute><StorePortal /></ProtectedRoute>} />
           <Route path="/store-portal/:id/:tab" element={<ProtectedRoute><StorePortal /></ProtectedRoute>} />
+          <Route path="/employee-portal" element={<ProtectedRoute><EmployeePortal /></ProtectedRoute>} />
+          <Route path="/employee-portal/:tab" element={<ProtectedRoute><EmployeePortal /></ProtectedRoute>} />
 
           {/* Super Admin Module Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />

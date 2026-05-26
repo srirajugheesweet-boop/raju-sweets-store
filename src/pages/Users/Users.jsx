@@ -48,6 +48,7 @@ const Users = () => {
   const [selectedPUnits, setSelectedPUnits] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [employeeAccess, setEmployeeAccess] = useState(false);
 
   useEffect(() => {
     // Fetch users
@@ -79,6 +80,7 @@ const Users = () => {
     setSelectedStores([]);
     setSelectedMUnits([]);
     setSelectedPUnits([]);
+    setEmployeeAccess(false);
     setEditingId(null);
   };
 
@@ -104,7 +106,8 @@ const Users = () => {
         access: {
           stores: selectedStores,
           mUnits: selectedMUnits,
-          pUnits: selectedPUnits
+          pUnits: selectedPUnits,
+          employees: employeeAccess
         },
         updatedAt: serverTimestamp()
       };
@@ -134,6 +137,7 @@ const Users = () => {
     setSelectedStores(user.access?.stores || []);
     setSelectedMUnits(user.access?.mUnits || []);
     setSelectedPUnits(user.access?.pUnits || []);
+    setEmployeeAccess(user.access?.employees || false);
     setEditingId(user.id);
     setShowAddModal(true);
   };
@@ -327,6 +331,25 @@ const Users = () => {
                             <span>{unit.name}</span>
                           </label>
                         )) : <div className="no-data">No packing units</div>}
+                      </div>
+                    </div>
+
+                    {/* Employee Operations Portal */}
+                    <div className="usrm-access-card" style={{ background: '#faf5ff', border: '1.5px dashed #c084fc' }}>
+                      <div className="usrm-acard-header" style={{ background: '#f3e8ff', color: '#6b21a8' }}>
+                        <ShieldCheck size={18} />
+                        <h4>Staff & Timesheets</h4>
+                      </div>
+                      <div className="usrm-acard-list" style={{ padding: '15px' }}>
+                        <label className="usrm-checkbox-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={employeeAccess}
+                            onChange={() => setEmployeeAccess(!employeeAccess)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '600', color: '#5b21b6' }}>Allow view-only staff list & attendance logging</span>
+                        </label>
                       </div>
                     </div>
                   </div>
