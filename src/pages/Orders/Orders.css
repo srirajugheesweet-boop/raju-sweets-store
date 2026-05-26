@@ -734,3 +734,94 @@ tr.row-expanded > td {
     border-top: 1px solid var(--border-color);
   }
 }
+
+/* Bluetooth Connection Styles */
+.st-compact-bluetooth {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.st-compact-bluetooth:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.st-compact-bluetooth svg.connected {
+  color: #10b981;
+  animation: btPulse 1.5s infinite ease-in-out;
+}
+
+.st-compact-bluetooth svg.disconnected {
+  color: #64748b;
+}
+
+@keyframes btPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.st-bluetooth-scan-modal {
+  width: 440px;
+  max-width: 90vw;
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scan-radar {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 50%;
+}
+
+.scan-radar svg {
+  z-index: 2;
+  animation: btPulse 2s infinite ease-in-out;
+}
+
+.devices-container::-webkit-scrollbar {
+  width: 3px;
+}
+
+.devices-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.device-list-row:hover {
+  border-color: #2563eb !important;
+  background: #eff6ff !important;
+}
+
+.device-list-row:hover .row-connect-btn {
+  background: #2563eb !important;
+  color: white !important;
+  border-color: #2563eb !important;
+}
+
+.device-list-row.connecting {
+  border-color: #2563eb !important;
+  background: #eff6ff !important;
+}
+
+.device-list-row.connecting .row-connect-btn {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border-color: #93c5fd !important;
+  cursor: wait;
+}

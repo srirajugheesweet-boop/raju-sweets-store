@@ -43,7 +43,8 @@ import {
   Trash2,
   Edit,
   Store,
-  Package
+  Package,
+  Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -173,6 +174,7 @@ const StorePortal = () => {
   const [orders, setOrders] = useState([]);
   const [orderSearch, setOrderSearch] = useState('');
   const [expandedOrders, setExpandedOrders] = useState([]);
+  const [previewOrder, setPreviewOrder] = useState(null);
 
   // Customers State
   const [customers, setCustomers] = useState([]);
@@ -438,6 +440,11 @@ const StorePortal = () => {
     if (hasProgressed) return 'In Progress';
     
     return 'new';
+  };
+
+  const getStatusLabel = (status) => {
+    if (!status) return 'NEW';
+    return status.replace(/_/g, ' ').toUpperCase();
   };
 
   const updateItemStatus = async (orderId, itemIndex, newStatus) => {
@@ -718,7 +725,7 @@ const StorePortal = () => {
     }
   };
 
-  const handlePrintOrder = (order) => {
+  const handlePrintOrderReceipt = (order) => {
     const printContent = `
       <html>
         <head>
@@ -761,6 +768,7 @@ const StorePortal = () => {
           <div class="total">Total: ₹${Number(order.totalAmount).toFixed(2)}</div>
           <div class="divider"></div>
           <div class="center" style="font-size: 12px;">Thank you for your business!</div>
+          <div class="center" style="font-size: 12px; margin-top: 4px;">Please visit again.</div>
         </body>
       </html>
     `;
@@ -770,6 +778,114 @@ const StorePortal = () => {
     printWindow.focus();
     printWindow.print();
     printWindow.close();
+  };
+
+  const printOrderDirectToBluetooth = async (order) => {
+    if (!printerCharacteristicRef.current) {
+      toast.error("Printer connection does not support direct writing. Opening standard printer fallback...");
+      handlePrintOrderReceipt(order);
+      return;
+    }
+
+    toast.loading("Sending order directly to Bluetooth thermal printer...", { id: 'bt-order-print-job' });
+
+    try {
+      const encoder = new TextEncoder();
+      
+      // ESC/POS Commands
+      const INIT = new Uint8Array([0x1b, 0x40]);
+      const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
+      const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
+      const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
+      const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
+      const BOLD_ON = new Uint8Array([0x1b, 0x45, 0x01]);
+      const BOLD_OFF = new Uint8Array([0x1b, 0x45, 0x00]);
+      
+      let bytes = [];
+      
+      bytes.push(...INIT);
+      
+      // Header
+      bytes.push(...CENTER);
+      bytes.push(...DOUBLE_SIZE);
+      bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
+      bytes.push(...NORMAL_SIZE);
+      bytes.push(...encoder.encode(`${order.storeName || 'Outlet Store'}\n`));
+      bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Order Details
+      bytes.push(...LEFT);
+      bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+      bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
+      bytes.push(...encoder.encode(`Phone: ${order.customerPhone}\n`));
+      bytes.push(...encoder.encode(`Date: ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '')}\n`));
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Table Header
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("Item            Qty      Total  \n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Items list
+      order.items.forEach(item => {
+        const qtyPart = (item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`).padEnd(8, ' ');
+        const pricePart = `Rs.${Number(item.total).toFixed(0)}`.padStart(8, ' ');
+        
+        if (item.name.length > 14) {
+          bytes.push(...encoder.encode(`${item.name}\n`));
+          const spacesPart = "".padEnd(14, ' ');
+          bytes.push(...encoder.encode(`${spacesPart} ${qtyPart} ${pricePart}\n`));
+        } else {
+          const namePart = item.name.padEnd(14, ' ');
+          bytes.push(...encoder.encode(`${namePart} ${qtyPart} ${pricePart}\n`));
+        }
+      });
+      
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Total
+      bytes.push(...BOLD_ON);
+      const grandTotalStr = `Rs.${Number(order.totalAmount).toFixed(2)}`;
+      bytes.push(...encoder.encode(`TOTAL AMOUNT: ${grandTotalStr.padStart(18, ' ')}\n`));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Footer
+      bytes.push(...CENTER);
+      bytes.push(...encoder.encode("Thank you for your business!\n"));
+      bytes.push(...encoder.encode("Please visit again.\n\n"));
+      
+      const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
+      bytes.push(...CUT);
+
+      const dataArray = new Uint8Array(bytes);
+      
+      // BLE write chunking
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+        await printerCharacteristicRef.current.writeValue(chunk);
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      
+      toast.dismiss('bt-order-print-job');
+      toast.success("Order receipt printed successfully!");
+    } catch (err) {
+      console.error("Direct BLE order print error: ", err);
+      toast.dismiss('bt-order-print-job');
+      toast.error("Failed to print directly. Opening system print fallback...");
+      handlePrintOrderReceipt(order);
+    }
+  };
+
+  const handlePrintOrder = (order) => {
+    if (bluetoothConnected && printerCharacteristicRef.current) {
+      printOrderDirectToBluetooth(order);
+    } else {
+      handlePrintOrderReceipt(order);
+    }
   };
 
   // --- POS Billing Logic ---
@@ -1230,6 +1346,30 @@ const StorePortal = () => {
                     onChange={(e) => setOrderSearch(e.target.value)}
                   />
                 </div>
+                <button 
+                  className="st-compact-bluetooth" 
+                  onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: bluetoothConnected ? '#f0fdf4' : '#f1f5f9',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid ' + (bluetoothConnected ? '#bbf7d0' : '#cbd5e1'),
+                    color: bluetoothConnected ? '#16a34a' : '#475569',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    height: '42px',
+                    boxSizing: 'border-box'
+                  }}
+                  title={bluetoothConnected ? `Connected to ${connectedDevice}. Click to disconnect.` : 'Connect Bluetooth Thermal Printer'}
+                >
+                  <Bluetooth size={16} className={bluetoothConnected ? 'connected' : 'disconnected'} />
+                  <span>{bluetoothConnected ? 'Printer Connected' : 'Connect Printer'}</span>
+                </button>
                 <button className="add-order-btn" style={{ height: '42px' }} onClick={() => {
                   resetFormOrder();
                   setShowAddModal(true);
@@ -1239,15 +1379,18 @@ const StorePortal = () => {
               </div>
             </div>
 
-            <div className="st-table-wrapper">
-              <table className="st-table">
+            <div className="ord-table-wrapper">
+              <table className="ord-list-table">
                 <thead>
                   <tr>
                     <th>Order ID</th>
-                    <th>Date</th>
                     <th>Customer</th>
-                    <th>Total Price</th>
-                    <th>Overall Status</th>
+                    <th>Store</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Date</th>
                     <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
@@ -1255,41 +1398,63 @@ const StorePortal = () => {
                   {filteredOrders.map(order => (
                     <React.Fragment key={order.id}>
                       <tr className={expandedOrders.includes(order.id) ? "row-expanded" : ""}>
-                        <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
+                        <td className="ord-id-cell">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => toggleOrderAccordion(order.id)}>
                             {expandedOrders.includes(order.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             #{order.orderId}
                           </div>
                         </td>
-                        <td>{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</td>
-                        <td>{order.customerName}</td>
+                        <td>
+                          <div className="ord-customer-cell">
+                            <span className="name">{order.customerName}</span>
+                            <span className="phone">{order.customerPhone}</span>
+                          </div>
+                        </td>
+                        <td>{order.storeName}</td>
+                        <td>{order.items.length} Items</td>
                         <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
                         <td>
-                          <span className={`status-badge ${(order.status || 'new').toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px' }}>
-                            {order.status || 'new'}
+                          <span className={`ord-status-badge ${order.paymentStatus || 'Pending'}`}>
+                            {order.paymentStatus || 'Pending'}
                           </span>
                         </td>
                         <td>
+                          <span className={`ord-status-badge ${(order.status || 'new').toLowerCase().replace(/_/g, '-').replace(/\s+/g, '-')}`}>
+                            {getStatusLabel(order.status)}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {order.deliveryDate ? (
+                            <div>
+                              <strong style={{ color: 'var(--text-primary)' }}>{new Date(order.deliveryDate).toLocaleDateString()}</strong>
+                              <div style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '600', marginTop: '2px' }}>{order.deliveryTime || ''}</div>
+                            </div>
+                          ) : (
+                            order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'
+                          )}
+                        </td>
+                        <td>
                           <div className="ord-actions-cell" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                            <button className="ord-action-btn print" title="Print" style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }} onClick={() => handlePrintOrder(order)}><Printer size={16} /></button>
-                            <button className="ord-action-btn edit" title="Edit" style={{ background: '#eff6ff', color: '#2563eb', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }} onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
-                            <button className="ord-action-btn delete" title="Delete" style={{ background: '#fef2f2', color: '#ef4444', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }} onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
+                            <button className="ord-action-btn view" title="Preview" onClick={() => setPreviewOrder(order)}><Eye size={16} /></button>
+                            <button className="ord-action-btn print" title="Print" onClick={() => handlePrintOrder(order)}><Printer size={16} /></button>
+                            <button className="ord-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
+                            <button className="ord-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
                           </div>
                         </td>
                       </tr>
                       
                       {expandedOrders.includes(order.id) && (
-                        <tr className="st-accordion-row">
-                          <td colSpan="6" style={{ padding: 0 }}>
-                            <div className="st-accordion-content">
-                              <h4>Order Items & Preparation Status</h4>
-                              <table className="st-items-subtable">
+                        <tr className="ord-accordion-row">
+                          <td colSpan="9" style={{ padding: 0 }}>
+                            <div className="ord-accordion-content">
+                              <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items & Preparation Status</h4>
+                              <table className="ord-items-subtable">
                                 <thead>
                                   <tr>
                                     <th>Item Name</th>
                                     <th>Description</th>
                                     <th>Quantity</th>
-                                    <th>Price Total</th>
+                                    <th>Amount</th>
                                     <th>Status Action</th>
                                   </tr>
                                 </thead>
@@ -1297,12 +1462,12 @@ const StorePortal = () => {
                                   {order.items.map((item, idx) => (
                                     <tr key={idx}>
                                       <td style={{ fontWeight: '700' }}>{item.name}</td>
-                                      <td style={{ color: '#64748b', fontSize: '12px' }}>{item.description || '-'}</td>
+                                      <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
                                       <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
                                       <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
                                       <td>
                                         <select 
-                                          className="st-item-status-select"
+                                          className="ord-item-status-select"
                                           value={item.status || 'preparation_started'}
                                           onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
                                         >
@@ -1326,7 +1491,7 @@ const StorePortal = () => {
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No orders found.</td>
+                      <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No orders found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -2340,6 +2505,101 @@ const StorePortal = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {previewOrder && (
+          <div className="modal-overlay" style={{ zIndex: 4000 }}>
+            <motion.div 
+              className="custom-modal ord-preview-modal"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{ maxWidth: '600px', width: '90%' }}
+            >
+              <div className="ord-preview-header">
+                <h2>Invoice Details</h2>
+                <button className="items-close-btn" onClick={() => setPreviewOrder(null)}><X size={24} /></button>
+              </div>
+              
+              <div className="ord-preview-body">
+                <div className="ord-preview-top" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '25px', fontSize: '13px', textAlign: 'left' }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <h3 style={{ fontSize: '16px', color: 'var(--primary-color)', marginBottom: '5px' }}>Raju Ghee Sweets</h3>
+                    <p>{previewOrder.storeName}</p>
+                    <p style={{ marginTop: '10px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
+                    <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
+                    {previewOrder.deliveryDate && (
+                      <p style={{ color: 'var(--primary-color)', fontWeight: '700' }}>
+                        <strong>Delivery Target:</strong> {new Date(previewOrder.deliveryDate).toLocaleDateString()} at {previewOrder.deliveryTime || ''}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <h3 style={{ fontSize: '16px', color: 'var(--primary-color)', marginBottom: '5px' }}>Bill To</h3>
+                    <p><strong>{previewOrder.customerName}</strong></p>
+                    <p>{previewOrder.customerPhone}</p>
+                  </div>
+                </div>
+
+                <div className="ord-preview-desc" style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', marginBottom: '20px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left' }}>
+                  {previewOrder.globalDescription && <p><strong>Global Note:</strong> {previewOrder.globalDescription}</p>}
+                  {previewOrder.mUnitDescription && <p><strong>Mfg Note:</strong> {previewOrder.mUnitDescription}</p>}
+                  {previewOrder.pUnitDescription && <p><strong>Pack Note:</strong> {previewOrder.pUnitDescription}</p>}
+                </div>
+
+                <table className="ord-preview-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '25px' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px' }}>Item Description</th>
+                      <th style={{ padding: '10px', textAlign: 'center', borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px' }}>Qty</th>
+                      <th style={{ padding: '10px', textAlign: 'right', borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewOrder.items.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'left' }}>
+                          <div style={{ fontWeight: '700' }}>{item.name}</div>
+                          {item.description && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.description}</div>}
+                        </td>
+                        <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center' }}>
+                          {item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pcs`}
+                        </td>
+                        <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'right', fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="ord-preview-total" style={{ width: '250px', marginLeft: 'auto', fontSize: '14px' }}>
+                  <div className="row" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+                    <span>Payment Mode</span>
+                    <span>{previewOrder.paymentMode}</span>
+                  </div>
+                  <div className="row total" style={{ display: 'flex', justifyContent: 'space-between', padding: '15px 0 8px 0', borderTop: '2px solid var(--border-color)', fontWeight: '800', fontSize: '16px', color: 'var(--primary-color)', marginTop: '10px' }}>
+                    <span>Total Amount</span>
+                    <span>₹{previewOrder.totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
+                <button className="modal-btn cancel" onClick={() => setPreviewOrder(null)}>Close</button>
+                <button 
+                  className="modal-btn confirm" 
+                  style={{ background: 'var(--primary-color)' }}
+                  onClick={() => {
+                    handlePrintOrder(previewOrder);
+                  }}
+                >
+                  <Printer size={16} /> Print Bill
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

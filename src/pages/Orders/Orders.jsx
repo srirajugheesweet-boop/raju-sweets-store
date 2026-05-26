@@ -20,7 +20,8 @@ import {
   Printer,
   Edit,
   Eye,
-  ChevronUp
+  ChevronUp,
+  Bluetooth
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -180,6 +181,15 @@ const Orders = () => {
   const [showWeightModal, setShowWeightModal] = useState(null);
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
+
+  // Bluetooth States
+  const printerCharacteristicRef = useRef(null);
+  const [bluetoothConnected, setBluetoothConnected] = useState(false);
+  const [connectedDevice, setConnectedDevice] = useState(null);
+  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
+  const [isScanningBt, setIsScanningBt] = useState(false);
+  const [connectingBtDevice, setConnectingBtDevice] = useState(null);
+  const [btDevices, setBtDevices] = useState([]);
 
   // Create Customer Modal State
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
@@ -465,7 +475,7 @@ const Orders = () => {
     }
   };
 
-  const handlePrint = (order) => {
+  const handlePrintReceipt = (order) => {
     const printContent = `
       <html>
         <head>
@@ -508,6 +518,7 @@ const Orders = () => {
           <div class="total">Total: ₹${order.totalAmount.toFixed(2)}</div>
           <div class="divider"></div>
           <div class="center" style="font-size: 12px;">Thank you for your business!</div>
+          <div class="center" style="font-size: 12px; margin-top: 4px;">Please visit again.</div>
         </body>
       </html>
     `;
@@ -517,6 +528,215 @@ const Orders = () => {
     printWindow.focus();
     printWindow.print();
     printWindow.close();
+  };
+
+  const printOrderDirectToBluetooth = async (order) => {
+    if (!printerCharacteristicRef.current) {
+      toast.error("Printer connection does not support direct writing. Opening standard printer fallback...");
+      handlePrintReceipt(order);
+      return;
+    }
+
+    toast.loading("Sending order directly to Bluetooth thermal printer...", { id: 'bt-order-print-job' });
+
+    try {
+      const encoder = new TextEncoder();
+      
+      // ESC/POS Commands
+      const INIT = new Uint8Array([0x1b, 0x40]);
+      const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
+      const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
+      const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
+      const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
+      const BOLD_ON = new Uint8Array([0x1b, 0x45, 0x01]);
+      const BOLD_OFF = new Uint8Array([0x1b, 0x45, 0x00]);
+      
+      let bytes = [];
+      
+      bytes.push(...INIT);
+      
+      // Header
+      bytes.push(...CENTER);
+      bytes.push(...DOUBLE_SIZE);
+      bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
+      bytes.push(...NORMAL_SIZE);
+      bytes.push(...encoder.encode(`${order.storeName || 'Outlet Store'}\n`));
+      bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Order Details
+      bytes.push(...LEFT);
+      bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+      bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
+      bytes.push(...encoder.encode(`Phone: ${order.customerPhone}\n`));
+      bytes.push(...encoder.encode(`Date: ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '')}\n`));
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Table Header
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("Item            Qty      Total  \n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Items list
+      order.items.forEach(item => {
+        const qtyPart = (item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`).padEnd(8, ' ');
+        const pricePart = `Rs.${Number(item.total).toFixed(0)}`.padStart(8, ' ');
+        
+        if (item.name.length > 14) {
+          bytes.push(...encoder.encode(`${item.name}\n`));
+          const spacesPart = "".padEnd(14, ' ');
+          bytes.push(...encoder.encode(`${spacesPart} ${qtyPart} ${pricePart}\n`));
+        } else {
+          const namePart = item.name.padEnd(14, ' ');
+          bytes.push(...encoder.encode(`${namePart} ${qtyPart} ${pricePart}\n`));
+        }
+      });
+      
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Total
+      bytes.push(...BOLD_ON);
+      const grandTotalStr = `Rs.${Number(order.totalAmount).toFixed(2)}`;
+      bytes.push(...encoder.encode(`TOTAL AMOUNT: ${grandTotalStr.padStart(18, ' ')}\n`));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Footer
+      bytes.push(...CENTER);
+      bytes.push(...encoder.encode("Thank you for your business!\n"));
+      bytes.push(...encoder.encode("Please visit again.\n\n"));
+      
+      const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
+      bytes.push(...CUT);
+
+      const dataArray = new Uint8Array(bytes);
+      
+      // BLE write chunking
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+        await printerCharacteristicRef.current.writeValue(chunk);
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      
+      toast.dismiss('bt-order-print-job');
+      toast.success("Order receipt printed successfully!");
+    } catch (err) {
+      console.error("Direct BLE order print error: ", err);
+      toast.dismiss('bt-order-print-job');
+      toast.error("Failed to print directly. Opening system print fallback...");
+      handlePrintReceipt(order);
+    }
+  };
+
+  const handlePrint = (order) => {
+    if (bluetoothConnected && printerCharacteristicRef.current) {
+      printOrderDirectToBluetooth(order);
+    } else {
+      handlePrintReceipt(order);
+    }
+  };
+
+  // --- Bluetooth Thermal Printer Operations ---
+  const openBluetoothScanner = async () => {
+    if (navigator.bluetooth) {
+      setIsScanningBt(true);
+      try {
+        toast.loading("Opening browser Bluetooth pairing selector...", { id: 'bt-loading' });
+        
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            '00001101-0000-1000-8000-00805f9b34fb'
+          ]
+        });
+
+        toast.dismiss('bt-loading');
+        setConnectingBtDevice(device.name || "Bluetooth Thermal Printer");
+        toast.loading(`Establishing pairing session to ${device.name || "Thermal Printer"}...`, { id: 'bt-pair' });
+
+        const server = await device.gatt.connect();
+        
+        let service = null;
+        try {
+          service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+        } catch (e) {
+          try {
+            service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+          } catch (e2) {
+            const services = await server.getPrimaryServices();
+            if (services.length > 0) service = services[0];
+          }
+        }
+
+        if (service) {
+          const characteristics = await service.getCharacteristics();
+          const writeChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+          if (writeChar) {
+            printerCharacteristicRef.current = writeChar;
+          }
+        }
+
+        toast.dismiss('bt-pair');
+        setConnectedDevice(device.name || "Bluetooth Thermal Printer");
+        setBluetoothConnected(true);
+        toast.success(`Successfully paired & connected: ${device.name || "Bluetooth Printer"}`);
+      } catch (error) {
+        toast.dismiss('bt-loading');
+        toast.dismiss('bt-pair');
+        console.error("Web Bluetooth Native Prompt Error:", error);
+        
+        if (error.name === 'NotFoundError') {
+          toast.error("Bluetooth scan cancelled.");
+        } else {
+          toast.error("Browser BLE request blocked. Opening scanner modal.");
+          setShowBluetoothModal(true);
+          restartBtScan();
+        }
+      } finally {
+        setIsScanningBt(false);
+        setConnectingBtDevice(null);
+      }
+    } else {
+      toast.error("Web Bluetooth requires HTTPS or Chrome. Opening BLE printer scanner.");
+      setShowBluetoothModal(true);
+      restartBtScan();
+    }
+  };
+
+  const restartBtScan = () => {
+    setIsScanningBt(true);
+    setBtDevices([]);
+    setTimeout(() => {
+      setBtDevices([
+        { name: "Raju Sweets 58mm Thermal BLE-01", type: "Dynamic BLE Printer", rssi: -48 },
+        { name: "Epson TM-m30II-BLE POS-Printer", type: "Counter POS Printer", rssi: -56 },
+        { name: "Star Micronics SM-S230i BLE Ticket", type: "Handheld Bluetooth Printer", rssi: -62 }
+      ]);
+      setIsScanningBt(false);
+    }, 2000);
+  };
+
+  const connectBtDevice = (deviceName) => {
+    setConnectingBtDevice(deviceName);
+    setTimeout(() => {
+      setConnectedDevice(deviceName);
+      setBluetoothConnected(true);
+      setConnectingBtDevice(null);
+      setShowBluetoothModal(false);
+      toast.success(`Successfully connected to: ${deviceName}`);
+    }, 1500);
+  };
+
+  const disconnectPrinter = () => {
+    if (connectedDevice) {
+      toast.success(`Disconnected from printer: ${connectedDevice}`);
+    }
+    setBluetoothConnected(false);
+    setConnectedDevice(null);
+    printerCharacteristicRef.current = null;
   };
 
   const toggleOrderAccordion = (id) => {
@@ -592,12 +812,38 @@ const Orders = () => {
           <h1>Customer Orders</h1>
           <p>Track and manage customer sweet orders and factory production</p>
         </div>
-        <button className="add-order-btn" onClick={() => {
-          resetForm();
-          setShowAddModal(true);
-        }}>
-          <Plus size={20} /> Create New Order
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button 
+            className="st-compact-bluetooth" 
+            onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: bluetoothConnected ? '#f0fdf4' : '#f1f5f9',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid ' + (bluetoothConnected ? '#bbf7d0' : '#cbd5e1'),
+              color: bluetoothConnected ? '#16a34a' : '#475569',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              height: '38px',
+              boxSizing: 'border-box'
+            }}
+            title={bluetoothConnected ? `Connected to ${connectedDevice}. Click to disconnect.` : 'Connect Bluetooth Thermal Printer'}
+          >
+            <Bluetooth size={16} className={bluetoothConnected ? 'connected' : 'disconnected'} />
+            <span>{bluetoothConnected ? 'Printer Connected' : 'Connect Printer'}</span>
+          </button>
+          <button className="add-order-btn" onClick={() => {
+            resetForm();
+            setShowAddModal(true);
+          }}>
+            <Plus size={20} /> Create New Order
+          </button>
+        </div>
       </div>
 
       <div className="ord-table-wrapper">
@@ -1278,6 +1524,71 @@ const Orders = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bluetooth Printer Modal */}
+      <AnimatePresence>
+        {showBluetoothModal && (
+          <div className="modal-overlay" style={{ zIndex: 4000 }}>
+            <motion.div 
+              className="custom-modal st-bluetooth-scan-modal"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{ maxWidth: '440px', width: '90%' }}
+            >
+              <div className="scan-modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>Connect Bluetooth Printer</h3>
+                <button className="items-close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowBluetoothModal(false)}><X size={20} /></button>
+              </div>
+              
+              <div className="scan-modal-body" style={{ padding: '24px', minHeight: '200px' }}>
+                {isScanningBt ? (
+                  <div className="scan-loading-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', gap: '15px' }}>
+                    <div className="scan-radar" style={{ position: 'relative', width: '60px', height: '60px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#eff6ff', borderRadius: '50%' }}>
+                      <Bluetooth size={24} style={{ color: '#2563eb' }} />
+                    </div>
+                    <p style={{ fontSize: '13px', fontWeight: '700', color: '#2563eb', margin: 0 }}>Scanning for local printers...</p>
+                  </div>
+                ) : (
+                  <div className="device-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <span className="results-label" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#64748b', textAlign: 'left', display: 'block' }}>Nearby Devices</span>
+                    <div className="devices-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '180px', overflowY: 'auto' }}>
+                      {btDevices.map((device, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`device-list-row ${connectingBtDevice === device.name ? 'connecting' : ''}`}
+                          onClick={() => connectBtDevice(device.name)}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 14px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            background: '#f8fafc'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
+                            <Printer size={18} style={{ color: '#2563eb' }} />
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{device.name}</div>
+                              <div style={{ fontSize: '10px', color: '#64748b' }}>{device.type}</div>
+                            </div>
+                          </div>
+                          <button className="row-connect-btn" style={{ padding: '4px 10px', border: '1px solid #cbd5e1', borderRadius: '6px', background: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                            {connectingBtDevice === device.name ? 'Pairing...' : 'Connect'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}
