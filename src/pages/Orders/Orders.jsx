@@ -41,7 +41,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './Orders.css';
 
 // --- Custom Searchable Dropdown ---
-const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon }) => {
+const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef(null);
@@ -112,7 +112,33 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
                   </div>
                 ))
               ) : (
-                <div style={{ padding: '15px', textAlign: 'center', fontSize: '13px', color: 'var(--text-secondary)' }}>No results found</div>
+                <div style={{ padding: '15px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>No results found</div>
+                  {onCreateClick && (
+                    <button 
+                      type="button"
+                      className="ord-create-customer-dropdown-btn"
+                      onClick={() => {
+                        onCreateClick(search);
+                        setIsOpen(false);
+                        setSearch('');
+                      }}
+                      style={{
+                        background: 'var(--primary-color)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      + Create Customer
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </motion.div>
@@ -145,12 +171,79 @@ const Orders = () => {
   const [mUnitDescription, setMUnitDescription] = useState('');
   const [pUnitDescription, setPUnitDescription] = useState('');
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const [receivedAmount, setReceivedAmount] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
   const [cart, setCart] = useState([]);
 
   // Modals
   const [showWeightModal, setShowWeightModal] = useState(null);
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
+
+  // Create Customer Modal State
+  const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
+  const [customerFormData, setCustomerFormData] = useState({
+    firstName: '',
+    lastName: '',
+    mobileNumber: '',
+    address: '',
+    city: '',
+    state: ''
+  });
+  const [savingCustomer, setSavingCustomer] = useState(false);
+
+  const handleOpenCreateCustomer = (searchVal) => {
+    let initialPhone = '';
+    let initialFirstName = '';
+    
+    if (/^\d+$/.test(searchVal)) {
+      initialPhone = searchVal;
+    } else {
+      initialFirstName = searchVal;
+    }
+
+    setCustomerFormData({
+      firstName: initialFirstName,
+      lastName: '',
+      mobileNumber: initialPhone,
+      address: '',
+      city: '',
+      state: ''
+    });
+    setShowCreateCustomerModal(true);
+  };
+
+  const handleSaveCustomer = async (e) => {
+    e.preventDefault();
+    if (!customerFormData.firstName || !customerFormData.lastName || !customerFormData.mobileNumber) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setSavingCustomer(true);
+    try {
+      const docRef = await addDoc(collection(db, 'customers'), {
+        ...customerFormData,
+        createdAt: serverTimestamp()
+      });
+      
+      const newCust = {
+        id: docRef.id,
+        ...customerFormData
+      };
+      
+      setCustomers(prev => [newCust, ...prev].sort((a, b) => a.firstName.localeCompare(b.firstName)));
+      setSelectedCustomer(docRef.id);
+      
+      toast.success("Customer created and selected!");
+      setShowCreateCustomerModal(false);
+    } catch (error) {
+      console.error("Failed to save customer:", error);
+      toast.error("Error creating customer");
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
@@ -267,6 +360,8 @@ const Orders = () => {
   const saveOrder = async () => {
     if (!selectedCustomer) return toast.error("Please select a customer");
     if (!selectedStore) return toast.error("Please select a store");
+    if (!deliveryDate) return toast.error("Please select a delivery date");
+    if (!deliveryTime) return toast.error("Please select a delivery time");
     if (cart.length === 0) return toast.error("Cart is empty");
 
     setSubmitting(true);
@@ -274,6 +369,17 @@ const Orders = () => {
       const orderId = generateOrderId();
       const customer = customers.find(c => c.id === selectedCustomer);
       const store = stores.find(s => s.id === selectedStore);
+
+      const totalAmt = cart.reduce((sum, item) => sum + item.total, 0);
+      const recAmtVal = parseFloat(receivedAmount) || 0;
+      let payStatus = 'Pending';
+      if (recAmtVal > 0) {
+        if (recAmtVal >= totalAmt) {
+          payStatus = 'Done';
+        } else {
+          payStatus = 'Partial';
+        }
+      }
 
       const orderData = {
         orderId,
@@ -287,8 +393,12 @@ const Orders = () => {
         mUnitDescription,
         pUnitDescription,
         items: cart,
-        totalAmount: cart.reduce((sum, item) => sum + item.total, 0),
+        totalAmount: totalAmt,
+        receivedAmount: recAmtVal,
+        paymentStatus: payStatus,
         paymentMode,
+        deliveryDate,
+        deliveryTime,
         status: 'new', // new, moved_to_manufacturing, etc.
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -321,6 +431,9 @@ const Orders = () => {
     setPUnitDescription('');
     setCart([]);
     setPaymentMode('Cash');
+    setReceivedAmount('');
+    setDeliveryDate('');
+    setDeliveryTime('');
     setEditingOrderId(null);
   };
 
@@ -332,6 +445,9 @@ const Orders = () => {
     setMUnitDescription(order.mUnitDescription || '');
     setPUnitDescription(order.pUnitDescription || '');
     setPaymentMode(order.paymentMode || 'Cash');
+    setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
+    setDeliveryDate(order.deliveryDate || '');
+    setDeliveryTime(order.deliveryTime || '');
     setCart(order.items || []);
     setEditingOrderId(order.id);
     setShowAddModal(true);
@@ -425,6 +541,17 @@ const Orders = () => {
     return status.replace(/_/g, ' ').toUpperCase();
   };
 
+  const totalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+  const recAmt = parseFloat(receivedAmount) || 0;
+  let paymentStatus = 'Pending';
+  if (recAmt > 0) {
+    if (recAmt >= totalAmount) {
+      paymentStatus = 'Done';
+    } else {
+      paymentStatus = 'Partial';
+    }
+  }
+
   return (
     <div className="orders-container">
       <div className="orders-header">
@@ -461,6 +588,7 @@ const Orders = () => {
               <th>Store</th>
               <th>Items</th>
               <th>Total</th>
+              <th>Payment</th>
               <th>Status</th>
               <th>Date</th>
               <th style={{ textAlign: 'center' }}>Actions</th>
@@ -468,7 +596,7 @@ const Orders = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" style={{ textAlign: 'center', padding: '100px' }}><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '100px' }}><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></td></tr>
             ) : orders.length > 0 ? (
               orders.filter(o => 
                 o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -492,12 +620,24 @@ const Orders = () => {
                     <td>{order.items.length} Items</td>
                     <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
                     <td>
+                      <span className={`ord-status-badge ${order.paymentStatus || 'Pending'}`}>
+                        {order.paymentStatus || 'Pending'}
+                      </span>
+                    </td>
+                    <td>
                       <span className={`ord-status-badge ${order.status}`}>
                         {getStatusLabel(order.status)}
                       </span>
                     </td>
                     <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'}
+                      {order.deliveryDate ? (
+                        <div>
+                          <strong style={{ color: 'var(--text-primary)' }}>{new Date(order.deliveryDate).toLocaleDateString()}</strong>
+                          <div style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '600', marginTop: '2px' }}>{order.deliveryTime || ''}</div>
+                        </div>
+                      ) : (
+                        order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'
+                      )}
                     </td>
                     <td>
                       <div className="ord-actions-cell">
@@ -511,7 +651,7 @@ const Orders = () => {
                   
                   {expandedOrders.includes(order.id) && (
                     <tr className="ord-accordion-row">
-                      <td colSpan="8" style={{ padding: 0 }}>
+                      <td colSpan="9" style={{ padding: 0 }}>
                         <div className="ord-accordion-content">
                           <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
                           <table className="ord-items-subtable">
@@ -556,7 +696,7 @@ const Orders = () => {
                 </React.Fragment>
               ))
             ) : (
-              <tr><td colSpan="7" className="ord-orders-empty">No orders found. Click "Create New Order" to start.</td></tr>
+              <tr><td colSpan="9" className="ord-orders-empty">No orders found. Click "Create New Order" to start.</td></tr>
             )}
           </tbody>
         </table>
@@ -595,6 +735,7 @@ const Orders = () => {
                       selectedValue={selectedCustomer}
                       placeholder="Search name or number..."
                       icon={User}
+                      onCreateClick={handleOpenCreateCustomer}
                     />
                     <CustomDropdown 
                       label="Select Delivery Store"
@@ -612,6 +753,88 @@ const Orders = () => {
                       placeholder="Optional"
                       icon={Package}
                     />
+                  </div>
+
+                  {/* Delivery Date & Time */}
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
+                      <input 
+                        type="date"
+                        required
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        style={{
+                          height: '38px',
+                          padding: '0 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Time *</label>
+                      <input 
+                        type="time"
+                        required
+                        value={deliveryTime}
+                        onChange={(e) => setDeliveryTime(e.target.value)}
+                        style={{
+                          height: '38px',
+                          padding: '0 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Manufacturing & Packing Descriptions */}
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Manufacturing Unit Description</label>
+                      <textarea 
+                        placeholder="Special instructions for manufacturing..."
+                        value={mUnitDescription}
+                        onChange={(e) => setMUnitDescription(e.target.value)}
+                        style={{
+                          height: '50px',
+                          padding: '8px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          resize: 'none',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                          width: '100%'
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Description</label>
+                      <textarea 
+                        placeholder="Packaging and gift wrapping notes..."
+                        value={pUnitDescription}
+                        onChange={(e) => setPUnitDescription(e.target.value)}
+                        style={{
+                          height: '50px',
+                          padding: '8px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          resize: 'none',
+                          boxSizing: 'border-box',
+                          fontFamily: 'inherit',
+                          width: '100%'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -676,41 +899,58 @@ const Orders = () => {
                   )}
                 </div>
 
-                <div className="ord-desc-fields">
-                  <div className="ord-desc-group">
-                    <label>Manufacturing Unit Description</label>
-                    <textarea 
-                      placeholder="Special instructions for manufacturing..."
-                      value={mUnitDescription}
-                      onChange={(e) => setMUnitDescription(e.target.value)}
-                    />
-                  </div>
-                  <div className="ord-desc-group">
-                    <label>Packing Unit Description</label>
-                    <textarea 
-                      placeholder="Packaging and gift wrapping notes..."
-                      value={pUnitDescription}
-                      onChange={(e) => setPUnitDescription(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="ord-summary-totals">
+                <div className="ord-summary-totals" style={{ borderTop: 'none', paddingTop: '0' }}>
                   <div className="ord-total-row">
                     <span>Total Amount</span>
-                    <span>₹{cart.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span>
+                    <span>₹{totalAmount.toFixed(2)}</span>
                   </div>
                   
-                  <div className="ord-payment-modes">
-                    {['Cash', 'UPI', 'Card'].map(mode => (
-                      <button 
-                        key={mode} 
-                        className={`ord-mode-btn ${paymentMode === mode ? 'active' : ''}`}
-                        onClick={() => setPaymentMode(mode)}
-                      >
-                        {mode}
-                      </button>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
+                      <div className="ord-payment-modes" style={{ marginTop: '0' }}>
+                        {['Cash', 'UPI', 'Card'].map(mode => (
+                          <button 
+                            type="button"
+                            key={mode} 
+                            className={`ord-mode-btn ${paymentMode === mode ? 'active' : ''}`}
+                            onClick={() => setPaymentMode(mode)}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Received Amount (₹)</label>
+                        <input 
+                          type="number"
+                          placeholder="0.00"
+                          value={receivedAmount}
+                          onChange={(e) => setReceivedAmount(e.target.value)}
+                          style={{
+                            height: '38px',
+                            padding: '0 12px',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Status</label>
+                        <div style={{ display: 'flex', alignItems: 'center', height: '38px' }}>
+                          <span className={`ord-status-badge ${paymentStatus}`} style={{ fontSize: '11px', padding: '5px 12px' }}>
+                            {paymentStatus}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <button className="ord-save-btn" onClick={saveOrder} disabled={submitting}>
@@ -823,6 +1063,11 @@ const Orders = () => {
                     <p>{previewOrder.storeName}</p>
                     <p style={{ marginTop: '10px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
                     <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
+                    {previewOrder.deliveryDate && (
+                      <p style={{ color: 'var(--primary-color)', fontWeight: '700' }}>
+                        <strong>Delivery Target:</strong> {new Date(previewOrder.deliveryDate).toLocaleDateString()} at {previewOrder.deliveryTime || ''}
+                      </p>
+                    )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <h3>Bill To</h3>
@@ -885,6 +1130,121 @@ const Orders = () => {
                   <Printer size={16} /> Print Bill
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Customer Modal */}
+      <AnimatePresence>
+        {showCreateCustomerModal && (
+          <div className="modal-overlay" style={{ zIndex: 3000 }}>
+            <motion.div 
+              className="custom-modal"
+              style={{ maxWidth: '500px', width: '90%' }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box" style={{ background: '#E0F2FE', color: '#0284C7' }}>
+                <User size={32} />
+              </div>
+              <h3 className="modal-title" style={{ marginBottom: '5px' }}>Create New Customer</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '20px' }}>Fill in customer details to save and select automatically</p>
+              
+              <form onSubmit={handleSaveCustomer} className="ord-weight-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>First Name *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="First Name"
+                      value={customerFormData.firstName}
+                      onChange={(e) => setCustomerFormData({ ...customerFormData, firstName: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Last Name *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Last Name"
+                      value={customerFormData.lastName}
+                      onChange={(e) => setCustomerFormData({ ...customerFormData, lastName: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Mobile Number *</label>
+                  <input 
+                    type="tel" 
+                    required
+                    placeholder="10-digit mobile number"
+                    value={customerFormData.mobileNumber}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, mobileNumber: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Full Address</label>
+                  <textarea 
+                    placeholder="Enter street address..."
+                    value={customerFormData.address}
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, address: e.target.value })}
+                    style={{ 
+                      width: '100%', 
+                      height: '60px', 
+                      padding: '10px', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '8px', 
+                      fontSize: '14px', 
+                      resize: 'none',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>City</label>
+                    <input 
+                      type="text" 
+                      placeholder="City"
+                      value={customerFormData.city}
+                      onChange={(e) => setCustomerFormData({ ...customerFormData, city: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>State</label>
+                    <input 
+                      type="text" 
+                      placeholder="State"
+                      value={customerFormData.state}
+                      onChange={(e) => setCustomerFormData({ ...customerFormData, state: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-actions" style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button type="button" className="modal-btn cancel" onClick={() => setShowCreateCustomerModal(false)} disabled={savingCustomer}>Cancel</button>
+                  <button 
+                    type="submit" 
+                    className="modal-btn confirm" 
+                    style={{ background: 'var(--primary-color)' }}
+                    disabled={savingCustomer}
+                  >
+                    {savingCustomer ? <div className="loader" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Save & Select'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

@@ -111,8 +111,8 @@ const MUnitPortal = () => {
   const getWorksheetItems = (statusType) => {
     const groups = {};
     orders.forEach(order => {
-      // Filter orders matching the selected date
-      const orderDateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '';
+      // Filter orders matching the selected date (Target Delivery Date, fallback to Creation Date)
+      const orderDateStr = order.deliveryDate || (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '');
       if (!isSameDay(orderDateStr, worksheetDate)) return;
 
       if (order.items) {

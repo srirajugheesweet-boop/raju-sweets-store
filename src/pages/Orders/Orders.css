@@ -115,6 +115,10 @@
 .ord-status-badge.pickup_confirmed { background: #DBEAFE; color: #1E40AF; }
 .ord-status-badge.delivered { background: #ECFDF5; color: #065F46; }
 
+.ord-status-badge.Pending { background: #FEE2E2; color: #991B1B; }
+.ord-status-badge.Partial { background: #FEF3C7; color: #92400E; }
+.ord-status-badge.Done { background: #D1FAE5; color: #065F46; }
+
 /* Order Actions */
 .ord-actions-cell {
   display: flex;
