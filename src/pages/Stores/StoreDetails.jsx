@@ -120,9 +120,14 @@ const StoreDetails = () => {
 
   // Fetch Store Items
   useEffect(() => {
-    const q = query(collection(db, 'items'), orderBy('name', 'asc'));
+    const q = query(collection(db, 'items'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setStoreItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort items alphabetically locally
+      fetchedItems.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setStoreItems(fetchedItems);
+    }, (error) => {
+      console.error("Firestore items sub error in StoreDetails:", error);
     });
     return () => unsubscribe();
   }, []);

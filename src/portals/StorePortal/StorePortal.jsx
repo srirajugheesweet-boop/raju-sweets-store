@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
 import { db } from '../../config/firebase';
@@ -48,6 +48,7 @@ const DEFAULT_ITEM_IMAGE = 'https://images.unsplash.com/photo-1587314168485-3236
 const StorePortal = () => {
   const { id, tab } = useParams();
   const navigate = useNavigate();
+  const printerCharacteristicRef = useRef(null);
 
   // Store metadata
   const [store, setStore] = useState(null);
@@ -197,14 +198,24 @@ const StorePortal = () => {
   // Fetch Store Items & Bills for Billing Tab
   useEffect(() => {
     if (tab === 'billing') {
-      const itemsQ = query(collection(db, 'items'), orderBy('name', 'asc'));
+      console.log("Subscribing to global items in StorePortal...");
+      const itemsQ = query(collection(db, 'items'));
       const itemsUnsubscribe = onSnapshot(itemsQ, (snapshot) => {
-        setStoreItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Sort items alphabetically by name locally to avoid Firestore indexing drops
+        fetchedItems.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        console.log("Fetched items in StorePortal:", fetchedItems.length);
+        setStoreItems(fetchedItems);
+      }, (error) => {
+        console.error("Firestore items sub error in StorePortal:", error);
+        toast.error("Failed to load catalog items.");
       });
 
       const billsQ = query(collection(db, 'stores', id, 'bills'), orderBy('createdAt', 'desc'));
       const billsUnsubscribe = onSnapshot(billsQ, (snapshot) => {
         setBills(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => {
+        console.error("Firestore bills sub error in StorePortal:", error);
       });
 
       return () => {
@@ -339,11 +350,6 @@ const StorePortal = () => {
       await addDoc(collection(db, 'stores', id, 'bills'), billData);
       toast.success(`Bill settled successfully: ${billId}`);
       
-      // If Bluetooth Printer is connected, issue print feedback
-      if (bluetoothConnected) {
-        toast.success(`Sent receipt invoice to bluetooth thermal printer: ${connectedDevice}`);
-      }
-
       setCart([]);
       setSelectedReceiptBill(billData);
     } catch (error) {
@@ -440,6 +446,116 @@ const StorePortal = () => {
     }, 500);
   };
 
+  const handlePrintTrigger = (bill) => {
+    if (bluetoothConnected && printerCharacteristicRef.current) {
+      printDirectToBluetooth(bill);
+    } else {
+      handlePrintReceipt(bill);
+    }
+  };
+
+  const printDirectToBluetooth = async (bill) => {
+    if (!printerCharacteristicRef.current) {
+      toast.error("Printer connection does not support direct writing. Opening standard printer fallback...");
+      handlePrintReceipt(bill);
+      return;
+    }
+
+    toast.loading("Sending receipt directly to Bluetooth thermal printer...", { id: 'bt-print-job' });
+
+    try {
+      const encoder = new TextEncoder();
+      
+      // ESC/POS Commands
+      const INIT = new Uint8Array([0x1b, 0x40]);
+      const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
+      const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
+      const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
+      const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
+      const BOLD_ON = new Uint8Array([0x1b, 0x45, 0x01]);
+      const BOLD_OFF = new Uint8Array([0x1b, 0x45, 0x00]);
+      
+      let bytes = [];
+      
+      bytes.push(...INIT);
+      
+      // Header
+      bytes.push(...CENTER);
+      bytes.push(...DOUBLE_SIZE);
+      bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
+      bytes.push(...NORMAL_SIZE);
+      bytes.push(...encoder.encode(`${bill.storeName || 'Outlet Store'}\n`));
+      bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Meta
+      bytes.push(...LEFT);
+      bytes.push(...encoder.encode(`Bill ID: ${bill.billId}\n`));
+      bytes.push(...encoder.encode(`Date: ${bill.date || new Date().toLocaleDateString()}\n`));
+      bytes.push(...encoder.encode(`Payment: ${bill.paymentMode || 'Cash'}\n`));
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Table Header
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("Item            Qty      Total  \n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Items list
+      bill.items.forEach(item => {
+        const qtyPart = (item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`).padEnd(8, ' ');
+        const pricePart = `Rs.${Number(item.total).toFixed(0)}`.padStart(8, ' ');
+        
+        if (item.name.length > 14) {
+          // Print full name on its own line
+          bytes.push(...encoder.encode(`${item.name}\n`));
+          // Print quantity and price total aligned on the next line
+          const spacesPart = "".padEnd(14, ' ');
+          bytes.push(...encoder.encode(`${spacesPart} ${qtyPart} ${pricePart}\n`));
+        } else {
+          // Print name, quantity and price total aligned on a single line
+          const namePart = item.name.padEnd(14, ' ');
+          bytes.push(...encoder.encode(`${namePart} ${qtyPart} ${pricePart}\n`));
+        }
+      });
+      
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Grand Total
+      bytes.push(...BOLD_ON);
+      const grandTotalStr = `Rs.${Number(bill.totalAmount).toFixed(2)}`;
+      bytes.push(...encoder.encode(`GRAND TOTAL: ${grandTotalStr.padStart(19, ' ')}\n`));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode("--------------------------------\n"));
+      
+      // Footer
+      bytes.push(...CENTER);
+      bytes.push(...encoder.encode("Thank you for shopping!\n"));
+      bytes.push(...encoder.encode("Please visit again.\n\n"));
+      
+      const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
+      bytes.push(...CUT);
+
+      const dataArray = new Uint8Array(bytes);
+      
+      // BLE write chunking
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+        await printerCharacteristicRef.current.writeValue(chunk);
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      
+      toast.dismiss('bt-print-job');
+      toast.success("Receipt printed successfully!");
+    } catch (err) {
+      console.error("Direct BLE receipt print error: ", err);
+      toast.dismiss('bt-print-job');
+      toast.error("Failed to print directly. Opening system print fallback...");
+      handlePrintReceipt(bill);
+    }
+  };
+
   // --- Bluetooth Thermal Printer Native & Fallback Operations ---
   const openBluetoothScanner = async () => {
     if (navigator.bluetooth) {
@@ -463,6 +579,26 @@ const StorePortal = () => {
         // Connect dynamically to the BLE GATT Server
         const server = await device.gatt.connect();
         
+        let service = null;
+        try {
+          service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+        } catch (e) {
+          try {
+            service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+          } catch (e2) {
+            const services = await server.getPrimaryServices();
+            if (services.length > 0) service = services[0];
+          }
+        }
+
+        if (service) {
+          const characteristics = await service.getCharacteristics();
+          const writeChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+          if (writeChar) {
+            printerCharacteristicRef.current = writeChar;
+          }
+        }
+
         toast.dismiss('bt-pair');
         setConnectedDevice(device.name || "Bluetooth Thermal Printer");
         setBluetoothConnected(true);
@@ -522,6 +658,7 @@ const StorePortal = () => {
     }
     setBluetoothConnected(false);
     setConnectedDevice(null);
+    printerCharacteristicRef.current = null;
   };
 
 
@@ -737,6 +874,64 @@ const StorePortal = () => {
               </div>
             </div>
 
+            {/* Bluetooth Thermal Printer Banner */}
+            <div className="pu-bt-banner animate-fade-in" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 16px', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className={`pu-bt-indicator ${bluetoothConnected ? 'connected' : 'disconnected'}`} style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: bluetoothConnected ? '#22c55e' : '#cbd5e1',
+                  boxShadow: bluetoothConnected ? '0 0 8px #22c55e' : 'none'
+                }}></div>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                  {bluetoothConnected ? `Thermal Printer: Connected to ${connectedDevice}` : 'Bluetooth Thermal Printer: Disconnected'}
+                </span>
+              </div>
+              <div>
+                {bluetoothConnected ? (
+                  <button 
+                    type="button" 
+                    onClick={disconnectPrinter} 
+                    style={{
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button 
+                    type="button" 
+                    onClick={openBluetoothScanner} 
+                    style={{
+                      background: 'var(--primary-color)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Bluetooth size={14} /> Connect Printer
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* --- SUB TAB 1: POS BILLING FUNCTIONALITY --- */}
             {billingSubTab === 'pos' && (
               <div className="st-pos-layout">
@@ -939,7 +1134,7 @@ const StorePortal = () => {
                           <td style={{ textAlign: 'center' }}>
                             <button 
                               className="st-mini-print-btn" 
-                              onClick={() => handlePrintReceipt(bill)}
+                              onClick={() => handlePrintTrigger(bill)}
                               title="Print Invoice Receipt"
                             >
                               <Printer size={15} /> Print Receipt
@@ -1135,7 +1330,7 @@ const StorePortal = () => {
 
               <div className="receipt-modal-footer">
                 <button className="modal-btn cancel" onClick={() => setSelectedReceiptBill(null)}>Close</button>
-                <button className="st-print-invoice-btn" onClick={() => handlePrintReceipt(selectedReceiptBill)}>
+                <button className="st-print-invoice-btn" onClick={() => handlePrintTrigger(selectedReceiptBill)}>
                   <Printer size={16} /> Print Receipt
                 </button>
               </div>

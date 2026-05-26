@@ -351,7 +351,7 @@ const PackingUnitDetails = () => {
         
         bytes.push(...CENTER);
         bytes.push(...encoder.encode(`Packed by Unit: ${id || 'Facility'}\n`));
-        bytes.push(...encoder.encode("Thank you for your order!\n\n\n\n\n"));
+        bytes.push(...encoder.encode("Thank you for your order!\n\n"));
         
         const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
         bytes.push(...CUT);
