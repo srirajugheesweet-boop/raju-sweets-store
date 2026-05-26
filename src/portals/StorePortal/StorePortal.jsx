@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
+import { connectQZ, disconnectQZ, listQZPrinters, printRawToQZ, buildBillESCPOS, buildOrderESCPOS } from '../../utils/qzTray';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -44,7 +45,11 @@ import {
   Edit,
   Store,
   Package,
-  Eye
+  Eye,
+  Usb,
+  RefreshCw,
+  CheckCircle2,
+  WifiOff
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -202,6 +207,17 @@ const StorePortal = () => {
   const [isScanningBt, setIsScanningBt] = useState(false);
   const [connectingBtDevice, setConnectingBtDevice] = useState(null);
   const [btDevices, setBtDevices] = useState([]);
+
+  // QZ Tray USB Printer States
+  const [qzConnected, setQzConnected] = useState(false);
+  const [qzPrinters, setQzPrinters] = useState([]);
+  const [selectedQZPrinter, setSelectedQZPrinter] = useState('');
+  const [showQZModal, setShowQZModal] = useState(false);
+  const [qzConnecting, setQzConnecting] = useState(false);
+  const [qzPrinting, setQzPrinting] = useState(false);
+  const [showQZSetupGuide, setShowQZSetupGuide] = useState(false);
+  const [qzConnectTimer, setQzConnectTimer] = useState(0);
+  const qzTimerRef = useRef(null);
 
   // --- ADD ORDER FUNCTIONALITY STATES ---
   const [showAddModal, setShowAddModal] = useState(false);
@@ -736,58 +752,95 @@ const StorePortal = () => {
   };
 
   const handlePrintOrderReceipt = (order) => {
+    const divider = '--------------------------------';
     const printContent = `
       <html>
         <head>
           <title>Order - #${order.orderId}</title>
           <style>
-            body { font-family: monospace; width: 300px; margin: 0 auto; padding: 20px; color: black; }
+            @page {
+              size: 80mm auto;
+              margin: 4mm 3mm;
+            }
+            * { box-sizing: border-box; }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 12px;
+              width: 72mm;
+              max-width: 72mm;
+              margin: 0 auto;
+              padding: 0;
+              color: #000;
+              background: #fff;
+            }
             .center { text-align: center; }
+            .right { text-align: right; }
             .bold { font-weight: bold; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { text-align: left; padding: 4px 0; border-bottom: 1px dashed #ccc; font-size: 12px; }
-            .total { margin-top: 10px; text-align: right; font-weight: bold; font-size: 14px; }
-            .divider { border-bottom: 1px dashed black; margin: 10px 0; }
+            .store-name { font-size: 16px; font-weight: bold; text-align: center; margin: 4px 0 2px; }
+            .store-sub { font-size: 11px; text-align: center; margin-bottom: 6px; }
+            .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+            .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 1px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+            th { font-size: 11px; font-weight: bold; text-align: left; padding: 2px 1px; border-bottom: 1px dashed #000; }
+            th.right, td.right { text-align: right; }
+            td { font-size: 11px; padding: 2px 1px; border-bottom: 1px dashed #eee; vertical-align: top; }
+            .total-section { margin-top: 6px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; padding: 3px 0; border-top: 1px solid #000; }
+            .footer { text-align: center; font-size: 11px; margin-top: 8px; }
             @media print {
-              body { width: 100%; margin: 0; padding: 0; }
+              body { width: 72mm; }
+              .no-print { display: none; }
             }
           </style>
         </head>
         <body>
-          <div class="center bold" style="font-size: 18px;">Raju Ghee Sweets</div>
-          <div class="center" style="font-size: 12px; margin-bottom: 10px;">${order.storeName}</div>
-          <div>Order: #${order.orderId}</div>
-          <div>Date: ${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : ''}</div>
-          <div>Customer: ${order.customerName}</div>
-          <div>Phone: ${order.customerPhone}</div>
-          <div class="divider"></div>
+          <div class="store-name">RAJU GHEE SWEETS</div>
+          <div class="store-sub">${order.storeName || 'Store'}</div>
+          <div class="store-sub">Quality Sweets & Savouries</div>
+          <hr class="divider">
+          <div class="info-row"><span><b>Order#:</b> ${order.orderId}</span><span>${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : '')}</span></div>
+          <div class="info-row"><span><b>Customer:</b> ${order.customerName}</span></div>
+          <div class="info-row"><span><b>Phone:</b> ${order.customerPhone}</span></div>
+          ${order.deliveryDate ? `<div class="info-row"><span><b>Delivery:</b> ${order.deliveryDate} ${order.deliveryTime || ''}</span></div>` : ''}
+          <hr class="divider">
           <table>
-            <tr>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Amt</th>
-            </tr>
-            ${order.items.map(item => `
+            <thead>
               <tr>
-                <td>${item.name}</td>
-                <td>${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pcs'}</td>
-                <td>₹${Number(item.total).toFixed(2)}</td>
+                <th style="width:50%">Item</th>
+                <th class="right" style="width:25%">Qty</th>
+                <th class="right" style="width:25%">Amt</th>
               </tr>
-            `).join('')}
+            </thead>
+            <tbody>
+              ${order.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td class="right">${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pc'}</td>
+                  <td class="right">Rs.${Number(item.total).toFixed(0)}</td>
+                </tr>
+                ${item.description ? `<tr><td colspan="3" style="font-size:10px;color:#555;padding-left:4px;">  ${item.description}</td></tr>` : ''}
+              `).join('')}
+            </tbody>
           </table>
-          <div class="total">Total: ₹${Number(order.totalAmount).toFixed(2)}</div>
-          <div class="divider"></div>
-          <div class="center" style="font-size: 12px;">Thank you for your business!</div>
-          <div class="center" style="font-size: 12px; margin-top: 4px;">Please visit again.</div>
+          <hr class="divider">
+          <div class="total-row"><span>TOTAL</span><span>Rs.${Number(order.totalAmount).toFixed(2)}</span></div>
+          ${order.receivedAmount > 0 ? `<div class="info-row" style="font-size:11px;"><span>Received:</span><span>Rs.${Number(order.receivedAmount).toFixed(2)}</span></div>` : ''}
+          ${order.receivedAmount > 0 && order.totalAmount > order.receivedAmount ? `<div class="info-row" style="font-size:11px;"><span>Balance Due:</span><span>Rs.${(Number(order.totalAmount) - Number(order.receivedAmount)).toFixed(2)}</span></div>` : ''}
+          <hr class="divider">
+          <div class="footer">Thank you for your business!</div>
+          <div class="footer">Please visit again.</div>
+          <br>
         </body>
       </html>
     `;
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    const printWindow = window.open('', '_blank', 'width=420,height=700');
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 400);
   };
 
   const printOrderDirectToBluetooth = async (order) => {
@@ -890,12 +943,20 @@ const StorePortal = () => {
     }
   };
 
-  const handlePrintOrder = (order) => {
+  const handlePrintOrder = async (order) => {
+    // Priority 1: Bluetooth BLE direct
     if (bluetoothConnected && printerCharacteristicRef.current) {
       printOrderDirectToBluetooth(order);
-    } else {
-      handlePrintOrderReceipt(order);
+      return;
     }
+    // Priority 2: QZ Tray USB
+    if (qzConnected && selectedQZPrinter) {
+      const bytes = buildOrderESCPOS(order);
+      const success = await printViaQZTray(bytes);
+      if (success) return;
+    }
+    // Priority 3: System print dialog (80mm HTML)
+    handlePrintOrderReceipt(order);
   };
 
   // --- POS Billing Logic ---
@@ -1015,72 +1076,77 @@ const StorePortal = () => {
         <head>
           <title>Invoice - ${bill.billId}</title>
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #333; }
-            .receipt-header { text-align: center; border-bottom: 2px solid #16a34a; padding-bottom: 15px; margin-bottom: 25px; }
-            .receipt-header h1 { margin: 0; color: #15803d; font-size: 24px; }
-            .receipt-header p { margin: 4px 0 0 0; color: #64748b; font-size: 13px; }
-            .meta-section { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
-            .meta-column h4 { margin: 0 0 6px 0; color: #1e293b; }
-            .meta-column p { margin: 2px 0; color: #64748b; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th { background: #f8fafc; padding: 10px; font-size: 11px; text-align: left; color: #475569; border-bottom: 2px solid #e2e8f0; }
-            td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-            .number-cell { text-align: right; }
-            .total-row { font-weight: bold; background: #f0fdf4; font-size: 15px; }
-            .total-row td { color: #16a34a; border-top: 2px solid #bbf7d0; }
-            .receipt-footer { text-align: center; margin-top: 40px; font-size: 11px; color: #94a3b8; border-top: 1px dashed #e2e8f0; padding-top: 15px; }
+            @page {
+              size: 80mm auto;
+              margin: 4mm 3mm;
+            }
+            * { box-sizing: border-box; }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 12px;
+              width: 72mm;
+              max-width: 72mm;
+              margin: 0 auto;
+              padding: 0;
+              color: #000;
+              background: #fff;
+            }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .store-name { font-size: 16px; font-weight: bold; text-align: center; margin: 4px 0 2px; }
+            .store-sub { font-size: 11px; text-align: center; margin-bottom: 3px; }
+            .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+            .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 1px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+            th { font-size: 11px; font-weight: bold; text-align: left; padding: 2px 1px; border-bottom: 1px dashed #000; }
+            th.right, td.right { text-align: right; }
+            td { font-size: 11px; padding: 2px 1px; border-bottom: 1px dashed #eee; }
+            .total-row { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; padding: 4px 0; border-top: 1px solid #000; margin-top: 4px; }
+            .footer { text-align: center; font-size: 11px; margin-top: 6px; }
+            @media print {
+              body { width: 72mm; }
+            }
           </style>
         </head>
         <body>
-          <div class="receipt-header">
-            <h1>Raju Ghee Sweets</h1>
-            <p>${bill.storeName || 'Outlet Store'}</p>
-          </div>
-          <div class="meta-section">
-            <div class="meta-column">
-              <h4>Invoice Details</h4>
-              <p>Bill ID: <strong>${bill.billId}</strong></p>
-              <p>Date: ${bill.date}</p>
-            </div>
-            <div class="meta-column" style="text-align: right;">
-              <h4>Payment Info</h4>
-              <p>Mode: ${bill.paymentMode}</p>
-              <p>Status: Paid</p>
-            </div>
-          </div>
+          <div class="store-name">RAJU GHEE SWEETS</div>
+          <div class="store-sub">${bill.storeName || 'Outlet Store'}</div>
+          <div class="store-sub">Quality Sweets & Savouries</div>
+          <hr class="divider">
+          <div class="info-row"><span><b>Bill#:</b> ${bill.billId}</span><span>${bill.date}</span></div>
+          <div class="info-row"><span><b>Payment:</b> ${bill.paymentMode}</span><span><b>Status:</b> Paid</span></div>
+          <hr class="divider">
           <table>
             <thead>
               <tr>
-                <th>Product Description</th>
-                <th class="number-cell">Rate</th>
-                <th class="number-cell">Quantity</th>
-                <th class="number-cell">Total Amount</th>
+                <th style="width:50%">Item</th>
+                <th class="right" style="width:15%">Qty</th>
+                <th class="right" style="width:17%">Rate</th>
+                <th class="right" style="width:18%">Amt</th>
               </tr>
             </thead>
             <tbody>
               ${bill.items.map(item => `
                 <tr>
-                  <td style="font-weight: 600;">${item.name}</td>
-                  <td class="number-cell">₹${Number(item.price).toFixed(2)}</td>
-                  <td class="number-cell">${item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
-                  <td class="number-cell" style="font-weight: 700;">₹${Number(item.total).toFixed(2)}</td>
+                  <td>${item.name}</td>
+                  <td class="right">${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pc'}</td>
+                  <td class="right">Rs.${Number(item.price).toFixed(0)}</td>
+                  <td class="right">Rs.${Number(item.total).toFixed(0)}</td>
                 </tr>
               `).join('')}
-              <tr class="total-row">
-                <td colspan="3">Grand Total</td>
-                <td class="number-cell">₹${Number(bill.totalAmount).toFixed(2)}</td>
-              </tr>
             </tbody>
           </table>
-          <div class="receipt-footer">
-            <p>Thank you for shopping at Raju Ghee Sweets!</p>
-            <p>Please visit again.</p>
-          </div>
+          <hr class="divider">
+          <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(bill.totalAmount).toFixed(2)}</span></div>
+          <hr class="divider">
+          <div class="footer">Thank you for shopping!</div>
+          <div class="footer">Please visit again.</div>
+          <br>
         </body>
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=600,height=800');
+    const printWindow = window.open('', '_blank', 'width=420,height=700');
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
@@ -1090,12 +1156,20 @@ const StorePortal = () => {
     }, 500);
   };
 
-  const handlePrintTrigger = (bill) => {
+  const handlePrintTrigger = async (bill) => {
+    // Priority 1: Bluetooth BLE direct
     if (bluetoothConnected && printerCharacteristicRef.current) {
       printDirectToBluetooth(bill);
-    } else {
-      handlePrintReceipt(bill);
+      return;
     }
+    // Priority 2: QZ Tray USB
+    if (qzConnected && selectedQZPrinter) {
+      const bytes = buildBillESCPOS(bill);
+      const success = await printViaQZTray(bytes);
+      if (success) return;
+    }
+    // Priority 3: System print dialog (80mm HTML)
+    handlePrintReceipt(bill);
   };
 
   const printDirectToBluetooth = async (bill) => {
@@ -1305,6 +1379,69 @@ const StorePortal = () => {
     printerCharacteristicRef.current = null;
   };
 
+  // --- QZ Tray USB Printer Operations ---
+  const connectQZTray = async () => {
+    setQzConnecting(true);
+    setQzConnectTimer(0);
+    // Tick a counter every second so the user sees progress (not a frozen spinner)
+    qzTimerRef.current = setInterval(() => {
+      setQzConnectTimer(prev => prev + 1);
+    }, 1000);
+    try {
+      await connectQZ();
+      const printers = await listQZPrinters();
+      setQzPrinters(printers);
+      setQzConnected(true);
+      const thermal = printers.find(p =>
+        /thermal|pos|receipt|58mm|80mm|epson|star|citizen|bixolon|xprinter/i.test(p)
+      );
+      setSelectedQZPrinter(thermal || printers[0] || '');
+      setShowQZModal(true);
+      toast.success(`QZ Tray connected! Found ${printers.length} printer(s).`);
+    } catch (err) {
+      console.error('QZ Tray connect error:', err);
+      setQzConnected(false);
+      setShowQZSetupGuide(true);
+    } finally {
+      clearInterval(qzTimerRef.current);
+      setQzConnecting(false);
+      setQzConnectTimer(0);
+    }
+  };
+
+  const disconnectQZTray = async () => {
+    try {
+      await disconnectQZ();
+    } catch (_) {}
+    setQzConnected(false);
+    setQzPrinters([]);
+    setSelectedQZPrinter('');
+    toast.success('USB printer disconnected.');
+  };
+
+  const printViaQZTray = async (dataArray) => {
+    if (!selectedQZPrinter) {
+      toast.error('No USB printer selected. Please select a printer first.');
+      setShowQZModal(true);
+      return false;
+    }
+    setQzPrinting(true);
+    try {
+      toast.loading('Sending to USB thermal printer...', { id: 'qz-print-job' });
+      await printRawToQZ(selectedQZPrinter, dataArray);
+      toast.dismiss('qz-print-job');
+      toast.success(`Printed to: ${selectedQZPrinter}`);
+      return true;
+    } catch (err) {
+      console.error('QZ print error:', err);
+      toast.dismiss('qz-print-job');
+      toast.error('USB print failed. Check QZ Tray is running and printer is connected.');
+      return false;
+    } finally {
+      setQzPrinting(false);
+    }
+  };
+
 
   // --- Filtering Methods ---
   const filteredOrders = orders.filter(ord => 
@@ -1356,29 +1493,43 @@ const StorePortal = () => {
                     onChange={(e) => setOrderSearch(e.target.value)}
                   />
                 </div>
+                {/* Bluetooth Printer Button */}
                 <button 
                   className="st-compact-bluetooth" 
                   onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
                     background: bluetoothConnected ? '#f0fdf4' : '#f1f5f9',
-                    padding: '8px 14px',
-                    borderRadius: '10px',
+                    padding: '8px 14px', borderRadius: '10px',
                     border: '1px solid ' + (bluetoothConnected ? '#bbf7d0' : '#cbd5e1'),
                     color: bluetoothConnected ? '#16a34a' : '#475569',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    height: '42px',
-                    boxSizing: 'border-box'
+                    fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                    transition: 'all 0.2s ease', height: '42px', boxSizing: 'border-box'
                   }}
-                  title={bluetoothConnected ? `Connected to ${connectedDevice}. Click to disconnect.` : 'Connect Bluetooth Thermal Printer'}
+                  title={bluetoothConnected ? `BT Connected: ${connectedDevice}. Click to disconnect.` : 'Connect Bluetooth Thermal Printer'}
                 >
                   <Bluetooth size={16} className={bluetoothConnected ? 'connected' : 'disconnected'} />
-                  <span>{bluetoothConnected ? 'Printer Connected' : 'Connect Printer'}</span>
+                  <span>{bluetoothConnected ? 'BT Connected' : 'BT Printer'}</span>
+                </button>
+                {/* QZ Tray USB Printer Button */}
+                <button
+                  onClick={qzConnected ? () => setShowQZModal(true) : connectQZTray}
+                  disabled={qzConnecting}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    background: qzConnected ? '#eff6ff' : qzConnecting ? '#fefce8' : '#f1f5f9',
+                    padding: '8px 14px', borderRadius: '10px',
+                    border: '1px solid ' + (qzConnected ? '#bfdbfe' : qzConnecting ? '#fde68a' : '#cbd5e1'),
+                    color: qzConnected ? '#2563eb' : qzConnecting ? '#b45309' : '#475569',
+                    fontSize: '12px', fontWeight: '700',
+                    cursor: qzConnecting ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease', height: '42px', boxSizing: 'border-box',
+                    opacity: qzConnecting ? 0.85 : 1
+                  }}
+                  title={qzConnected ? `USB: ${selectedQZPrinter || 'No printer selected'}` : 'Connect USB Thermal Printer via QZ Tray'}
+                >
+                  {qzConnecting ? <RefreshCw size={15} className="spin-icon" /> : <Usb size={15} />}
+                  <span>{qzConnecting ? `Connecting... ${qzConnectTimer}s` : qzConnected ? 'USB Connected' : 'USB Printer'}</span>
                 </button>
                 <button className="add-order-btn" style={{ height: '42px' }} onClick={() => {
                   resetFormOrder();
@@ -1601,59 +1752,50 @@ const StorePortal = () => {
               </div>
             </div>
 
-            {/* Bluetooth Thermal Printer Banner */}
-            <div className="pu-bt-banner animate-fade-in" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 16px', borderRadius: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div className={`pu-bt-indicator ${bluetoothConnected ? 'connected' : 'disconnected'}`} style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: bluetoothConnected ? '#22c55e' : '#cbd5e1',
-                  boxShadow: bluetoothConnected ? '0 0 8px #22c55e' : 'none'
-                }}></div>
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
-                  {bluetoothConnected ? `Thermal Printer: Connected to ${connectedDevice}` : 'Bluetooth Thermal Printer: Disconnected'}
-                </span>
+            {/* Printer Connection Banner */}
+            <div className="pu-bt-banner animate-fade-in" style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 16px', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {/* Bluetooth Status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: bluetoothConnected ? '#22c55e' : '#cbd5e1', boxShadow: bluetoothConnected ? '0 0 8px #22c55e' : 'none', flexShrink: 0 }}></div>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                    BT: {bluetoothConnected ? connectedDevice : 'Not Connected'}
+                  </span>
+                </div>
+                {/* Divider */}
+                <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }}></div>
+                {/* QZ USB Status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: qzConnected ? '#3b82f6' : '#cbd5e1', boxShadow: qzConnected ? '0 0 8px #3b82f6' : 'none', flexShrink: 0 }}></div>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                    USB: {qzConnected ? (selectedQZPrinter || 'No printer selected') : 'Not Connected'}
+                  </span>
+                </div>
               </div>
-              <div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {/* BT Button */}
                 {bluetoothConnected ? (
-                  <button 
-                    type="button" 
-                    onClick={disconnectPrinter} 
-                    style={{
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    Disconnect
+                  <button type="button" onClick={disconnectPrinter}
+                    style={{ background: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Bluetooth size={12} /> Disconnect BT
                   </button>
                 ) : (
-                  <button 
-                    type="button" 
-                    onClick={openBluetoothScanner} 
-                    style={{
-                      background: 'var(--primary-color)',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <Bluetooth size={14} /> Connect Printer
+                  <button type="button" onClick={openBluetoothScanner}
+                    style={{ background: 'var(--primary-color)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Bluetooth size={12} /> Connect BT
+                  </button>
+                )}
+                {/* QZ USB Button */}
+                {qzConnected ? (
+                  <button type="button" onClick={() => setShowQZModal(true)}
+                    style={{ background: '#2563eb', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Usb size={12} /> Change USB Printer
+                  </button>
+                ) : (
+                  <button type="button" onClick={connectQZTray} disabled={qzConnecting}
+                    style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: qzConnecting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '4px', opacity: qzConnecting ? 0.7 : 1 }}>
+                    {qzConnecting ? <RefreshCw size={12} className="spin-icon" /> : <Usb size={12} />}
+                    {qzConnecting ? 'Connecting...' : 'Connect USB'}
                   </button>
                 )}
               </div>
@@ -1727,23 +1869,39 @@ const StorePortal = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h3>Current Shopping Cart</h3>
                       
-                      {/* Bluetooth Status Trigger */}
-                      <div className="st-compact-bluetooth" onClick={openBluetoothScanner} style={{ cursor: 'pointer' }}>
-                        <Bluetooth size={14} className={bluetoothConnected ? "connected" : "disconnected"} />
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: bluetoothConnected ? '#10b981' : '#64748b' }}>
-                          {bluetoothConnected ? `Connected` : "Connect Printer"}
-                        </span>
+                      {/* Printer Status Triggers */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div className="st-compact-bluetooth" onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner} style={{ cursor: 'pointer' }}>
+                          <Bluetooth size={13} className={bluetoothConnected ? 'connected' : 'disconnected'} />
+                          <span style={{ fontSize: '10px', fontWeight: '700', color: bluetoothConnected ? '#10b981' : '#64748b' }}>
+                            {bluetoothConnected ? 'BT On' : 'BT'}
+                          </span>
+                        </div>
+                        <div className="st-compact-bluetooth"
+                          onClick={qzConnected ? () => setShowQZModal(true) : connectQZTray}
+                          style={{ cursor: qzConnecting ? 'wait' : 'pointer', background: qzConnected ? '#eff6ff' : undefined, border: qzConnected ? '1px solid #bfdbfe' : undefined }}>
+                          {qzConnecting ? <RefreshCw size={12} className="spin-icon" /> : <Usb size={12} style={{ color: qzConnected ? '#2563eb' : '#64748b' }} />}
+                          <span style={{ fontSize: '10px', fontWeight: '700', color: qzConnected ? '#2563eb' : '#64748b' }}>
+                            {qzConnecting ? '...' : qzConnected ? 'USB On' : 'USB'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Bluetooth Connected Banner */}
-                    {bluetoothConnected && (
-                      <div className="st-bluetooth-banner">
+                    {/* Active Printer Banner */}
+                    {(bluetoothConnected || qzConnected) && (
+                      <div className="st-bluetooth-banner" style={{ background: bluetoothConnected ? '#f0fdf4' : '#eff6ff', borderColor: bluetoothConnected ? '#bbf7d0' : '#bfdbfe' }}>
                         <div className="st-banner-left">
-                          <Check size={12} />
-                          <span>Connected to: <strong>{connectedDevice}</strong></span>
+                          {bluetoothConnected ? <Bluetooth size={12} color="#16a34a" /> : <Usb size={12} color="#2563eb" />}
+                          <span style={{ color: bluetoothConnected ? '#16a34a' : '#2563eb' }}>
+                            {bluetoothConnected ? `BT: ${connectedDevice}` : `USB: ${selectedQZPrinter || 'No printer'}`}
+                          </span>
                         </div>
-                        <button onClick={disconnectPrinter} className="st-banner-disconnect-btn">Disconnect</button>
+                        <button
+                          onClick={bluetoothConnected ? disconnectPrinter : disconnectQZTray}
+                          className="st-banner-disconnect-btn">
+                          Disconnect
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1981,7 +2139,192 @@ const StorePortal = () => {
         )}
       </AnimatePresence>
 
+      {/* QZ Tray USB Printer Selection Modal */}
+      <AnimatePresence>
+        {showQZModal && (
+          <div className="modal-overlay" style={{ zIndex: 5100 }}>
+            <motion.div
+              className="st-bluetooth-scan-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="scan-modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Usb size={22} color="#2563eb" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>USB Thermal Printer (QZ Tray)</h3>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>{qzPrinters.length} printer(s) found on your system</p>
+                  </div>
+                </div>
+                <button className="close-btn" onClick={() => setShowQZModal(false)}><X size={18} /></button>
+              </div>
+
+              <div className="scan-modal-body">
+                {qzPrinters.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px 20px', color: '#64748b' }}>
+                    <WifiOff size={36} style={{ marginBottom: '10px', opacity: 0.4 }} />
+                    <p style={{ margin: 0, fontWeight: '700' }}>No printers found</p>
+                    <p style={{ margin: '6px 0 0', fontSize: '12px' }}>Make sure QZ Tray is running and a printer is connected.</p>
+                  </div>
+                ) : (
+                  <div className="device-results-list">
+                    <span className="results-label">Select a Printer to Use</span>
+                    <div className="devices-container">
+                      {qzPrinters.map((printer, idx) => (
+                        <div
+                          key={idx}
+                          className={`device-list-row ${selectedQZPrinter === printer ? 'connecting' : ''}`}
+                          onClick={() => setSelectedQZPrinter(printer)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="device-avatar-icon"><Printer size={16} /></div>
+                            <div>
+                              <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '13px' }}>{printer}</div>
+                              <span style={{ fontSize: '10px', color: '#64748b' }}>USB / Network Printer</span>
+                            </div>
+                          </div>
+                          {selectedQZPrinter === printer && (
+                            <CheckCircle2 size={18} color="#2563eb" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="scan-modal-footer">
+                <button className="modal-btn cancel" onClick={disconnectQZTray}>Disconnect QZ</button>
+                <button
+                  className="modal-btn cancel"
+                  style={{ background: '#f1f5f9', color: '#475569' }}
+                  onClick={async () => {
+                    try {
+                      const printers = await listQZPrinters();
+                      setQzPrinters(printers);
+                      toast.success('Printer list refreshed');
+                    } catch (e) {
+                      toast.error('Failed to refresh');
+                    }
+                  }}
+                >
+                  <RefreshCw size={13} /> Refresh
+                </button>
+                <button
+                  className="st-print-invoice-btn"
+                  style={{ background: selectedQZPrinter ? '#2563eb' : '#94a3b8', cursor: selectedQZPrinter ? 'pointer' : 'not-allowed' }}
+                  onClick={() => {
+                    if (selectedQZPrinter) {
+                      setShowQZModal(false);
+                      toast.success(`Active printer: ${selectedQZPrinter}`);
+                    }
+                  }}
+                  disabled={!selectedQZPrinter}
+                >
+                  Use This Printer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* QZ Tray Setup Guide Modal */}
+      <AnimatePresence>
+        {showQZSetupGuide && (
+          <div className="modal-overlay" style={{ zIndex: 5200 }}>
+            <motion.div
+              className="st-bluetooth-scan-modal"
+              style={{ maxWidth: '480px' }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="scan-modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Usb size={22} color="#dc2626" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#0f172a' }}>QZ Tray Not Detected</h3>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>USB printing requires QZ Tray running locally</p>
+                  </div>
+                </div>
+                <button className="close-btn" onClick={() => setShowQZSetupGuide(false)}><X size={18} /></button>
+              </div>
+
+              <div className="scan-modal-body" style={{ padding: '20px 24px' }}>
+                <p style={{ margin: '0 0 16px', fontSize: '12px', color: '#475569', lineHeight: '1.6' }}>
+                  QZ Tray is a free local app that lets this browser communicate directly with any USB or network printer using raw ESC/POS commands. Follow these steps:
+                </p>
+
+                {/* Step 1 */}
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '14px', alignItems: 'flex-start' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', flexShrink: 0 }}>1</div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>Download &amp; Install QZ Tray</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px' }}>Free, open-source. Windows / Mac / Linux supported.</div>
+                    <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#2563eb', color: 'white', padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
+                      Download QZ Tray →
+                    </a>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '14px', alignItems: 'flex-start' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', flexShrink: 0 }}>2</div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>Start QZ Tray</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>Launch QZ Tray from your Start Menu / Applications. You should see the QZ Tray icon in the system tray (bottom-right taskbar).</div>
+                  </div>
+                </div>
+
+                {/* Step 3 — Certificate trust (most commonly missed!) */}
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '14px', alignItems: 'flex-start' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#dc2626', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', flexShrink: 0 }}>3</div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#dc2626', marginBottom: '2px' }}>⚠️ Trust the QZ Tray Certificate (Required!)</div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px', lineHeight: '1.6' }}>
+                      Your browser blocks QZ Tray's self-signed certificate by default. You must visit this URL <strong>once</strong> and click <strong>"Advanced → Proceed"</strong> to trust it:
+                    </div>
+                    <a href="https://localhost:8181" target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textDecoration: 'none' }}>
+                      Open https://localhost:8181 →
+                    </a>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#16a34a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', flexShrink: 0 }}>4</div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', marginBottom: '2px' }}>Come back &amp; click "Retry Connect"</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>Once QZ Tray is running and the certificate is trusted, click Retry below.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="scan-modal-footer">
+                <button className="modal-btn cancel" onClick={() => setShowQZSetupGuide(false)}>Close</button>
+                <button
+                  className="st-print-invoice-btn"
+                  style={{ background: '#2563eb' }}
+                  onClick={async () => {
+                    setShowQZSetupGuide(false);
+                    await connectQZTray();
+                  }}
+                >
+                  <RefreshCw size={13} /> Retry Connect
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Bill Receipt Preview Modal */}
+
       <AnimatePresence>
         {selectedReceiptBill && (
           <div className="modal-overlay" style={{ zIndex: 4000 }}>
