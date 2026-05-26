@@ -315,13 +315,48 @@ const MUnitPortal = () => {
 
                           <div className="mu-card-orders-breakdown">
                             <span className="mu-breakdown-title">Source Orders:</span>
-                            <div className="mu-breakdown-pills">
-                              {groupedItem.linkedOrders.map((link, lIdx) => (
-                                <div key={lIdx} className="mu-breakdown-pill" title={`Customer: ${link.customerName}`}>
-                                  <span className="bold">#{link.orderId}</span> - {link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}
-                                </div>
-                              ))}
-                            </div>
+                            {worksheetSubTab === 'pending' ? (
+                              <div className="mu-breakdown-pills">
+                                {groupedItem.linkedOrders.map((link, lIdx) => (
+                                  <div key={lIdx} className="mu-breakdown-pill" title={`Customer: ${link.customerName}`}>
+                                    <span className="bold">#{link.orderId}</span> - {link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                                {groupedItem.linkedOrders.map((link, lIdx) => {
+                                  const actualOrder = orders.find(o => o.id === link.orderDocId);
+                                  const actualItem = actualOrder?.items?.[link.itemIndex];
+                                  const currentStatus = actualItem?.status || 'preparation_complete';
+
+                                  return (
+                                    <div key={lIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '6px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', gap: '10px' }}>
+                                      <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                        <div>
+                                          <span className="bold" style={{ color: 'var(--primary-color)', marginRight: '5px' }}>#{link.orderId}</span>
+                                          <span>({link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'})</span>
+                                        </div>
+                                        <span style={{ color: '#64748b', fontSize: '10px' }}>{link.customerName}</span>
+                                      </div>
+                                      <select
+                                        className="mu-select-status"
+                                        style={{ padding: '4px 6px', fontSize: '11px', height: '30px', width: 'auto', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white' }}
+                                        value={currentStatus}
+                                        onChange={(e) => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, e.target.value)}
+                                      >
+                                        <option value="preparation_started">Prep Started</option>
+                                        <option value="preparation_complete">Prep Completed</option>
+                                        <option value="moved_to_packing">Moved to Packing</option>
+                                        <option value="packing_complete">Packing Completed</option>
+                                        <option value="moved_to_store">Moved to Store</option>
+                                        <option value="delivered">Delivered</option>
+                                      </select>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -334,7 +369,7 @@ const MUnitPortal = () => {
                               <CheckCircle2 size={16} /> Mark as Done
                             </button>
                           ) : (
-                            <div className="mu-completed-stamp">
+                            <div className="mu-completed-stamp" style={{ background: '#DCFCE7', color: '#166534' }}>
                               <CheckCircle2 size={16} /> Preparation Completed
                             </div>
                           )}
