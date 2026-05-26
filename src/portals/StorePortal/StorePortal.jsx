@@ -50,6 +50,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './StorePortal.css';
 import '../../pages/Orders/Orders.css';
+import Payments from '../../pages/Payments/Payments';
 
 // --- Custom Searchable Dropdown ---
 const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick }) => {
@@ -241,6 +242,7 @@ const StorePortal = () => {
   const links = [
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/store-portal/${id}/orders` },
     { label: 'Customers', icon: <Users size={20} />, path: `/store-portal/${id}/customers` },
+    { label: 'Payments', icon: <CreditCard size={20} />, path: `/store-portal/${id}/payments` },
     { label: 'Billing & POS', icon: <CreditCard size={20} />, path: `/store-portal/${id}/billing` }
   ];
 
@@ -632,7 +634,15 @@ const StorePortal = () => {
         await updateDoc(doc(db, 'orders', editingOrderId), orderData);
         toast.success(`Order #${orderId} updated successfully!`);
       } else {
-        await addDoc(collection(db, 'orders'), orderData);
+        const orderRef = await addDoc(collection(db, 'orders'), orderData);
+        if (recAmtVal > 0) {
+          await addDoc(collection(db, 'orders', orderRef.id, 'installments'), {
+            amount: recAmtVal,
+            paymentMode: orderPaymentMode,
+            notes: 'Initial Down Payment',
+            createdAt: serverTimestamp()
+          });
+        }
         toast.success(`Order #${orderId} placed successfully!`);
       }
 
@@ -1497,6 +1507,13 @@ const StorePortal = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* --- PAYMENTS VIEW --- */}
+        {tab === 'payments' && (
+          <div className="animate-fade-in">
+            <Payments storeId={id} />
           </div>
         )}
 

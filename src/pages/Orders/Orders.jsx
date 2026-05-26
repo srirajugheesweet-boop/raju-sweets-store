@@ -418,7 +418,15 @@ const Orders = () => {
         await updateDoc(doc(db, 'orders', editingOrderId), orderData);
         toast.success(`Order #${orderId} updated successfully!`);
       } else {
-        await addDoc(collection(db, 'orders'), orderData);
+        const orderRef = await addDoc(collection(db, 'orders'), orderData);
+        if (recAmtVal > 0) {
+          await addDoc(collection(db, 'orders', orderRef.id, 'installments'), {
+            amount: recAmtVal,
+            paymentMode: paymentMode,
+            notes: 'Initial Down Payment',
+            createdAt: serverTimestamp()
+          });
+        }
         toast.success(`Order #${orderId} saved successfully!`);
       }
       

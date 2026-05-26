@@ -20,6 +20,7 @@ import CustomerDetails from './pages/Customers/CustomerDetails';
 import Orders from './pages/Orders/Orders';
 import ManufacturingUnitDetails from './pages/ManufacturingUnits/ManufacturingUnitDetails';
 import Users from './pages/Users/Users';
+import Payments from './pages/Payments/Payments';
 import Onboarding from './pages/Onboarding/Onboarding';
 import MUnitPortal from './portals/MUnitPortal/MUnitPortal';
 import PUnitPortal from './portals/PUnitPortal/PUnitPortal';
@@ -101,7 +102,7 @@ function App() {
           <Route path="/reports" element={<ProtectedRoute><PlaceholderPage title="Reports" /></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><Layout><Support /></Layout></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" /></ProtectedRoute>} />
-          <Route path="/payments" element={<ProtectedRoute><PlaceholderPage title="Payments" /></ProtectedRoute>} />
+          <Route path="/payments" element={<ProtectedRoute><Layout><Payments /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><PlaceholderPage title="Settings" /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><PlaceholderPage title="Notifications" /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><PlaceholderPage title="Documents" /></ProtectedRoute>} />
