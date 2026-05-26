@@ -420,13 +420,45 @@ const StorePortal = () => {
     setExpandedOrders(prev => prev.includes(orderId) ? prev.filter(oId => oId !== orderId) : [...prev, orderId]);
   };
 
+  const calculateOverallOrderStatus = (items) => {
+    if (!items || items.length === 0) return 'new';
+    
+    const getStatus = (item) => (item.status || 'preparation_started').toLowerCase().trim();
+    
+    // Check if ALL items are delivered
+    const allDelivered = items.every(item => getStatus(item) === 'delivered');
+    if (allDelivered) return 'Delivered';
+    
+    // Check if ANY item has progressed beyond preparation_started (or new/empty status)
+    const hasProgressed = items.some(item => {
+      const st = getStatus(item);
+      return st !== 'preparation_started' && st !== 'new' && st !== '';
+    });
+    
+    if (hasProgressed) return 'In Progress';
+    
+    return 'new';
+  };
+
   const updateItemStatus = async (orderId, itemIndex, newStatus) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       const order = orders.find(o => o.id === orderId);
-      const newItems = [...order.items];
-      newItems[itemIndex].status = newStatus;
-      await updateDoc(orderRef, { items: newItems });
+      if (!order) return;
+      
+      const newItems = order.items.map((item, idx) => {
+        if (idx === itemIndex) {
+          return { ...item, status: newStatus };
+        }
+        return { ...item };
+      });
+      
+      const overallStatus = calculateOverallOrderStatus(newItems);
+      
+      await updateDoc(orderRef, { 
+        items: newItems,
+        status: overallStatus
+      });
       toast.success("Item preparation status updated!");
     } catch (err) {
       console.error(err);
@@ -584,7 +616,7 @@ const StorePortal = () => {
         paymentMode: orderPaymentMode,
         deliveryDate,
         deliveryTime,
-        status: editingOrderId ? (orders.find(o => o.id === editingOrderId)?.status || 'new') : 'new',
+        status: calculateOverallOrderStatus(orderCart),
         createdAt: editingOrderId ? (orders.find(o => o.id === editingOrderId)?.createdAt || serverTimestamp()) : serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -1233,8 +1265,8 @@ const StorePortal = () => {
                         <td>{order.customerName}</td>
                         <td style={{ fontWeight: '700' }}>₹{order.totalAmount.toFixed(2)}</td>
                         <td>
-                          <span className={`status-badge ${order.status}`} style={{ fontSize: '10px' }}>
-                            {order.status.replace(/_/g, ' ')}
+                          <span className={`status-badge ${(order.status || 'new').toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px' }}>
+                            {order.status || 'new'}
                           </span>
                         </td>
                         <td>

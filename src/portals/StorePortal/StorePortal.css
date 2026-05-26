@@ -1183,7 +1183,41 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: #f8fafc;
 }
 
+/* Overall Order Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 
+.status-badge.created,
+.status-badge.new {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid #bae6fd;
+}
+
+.status-badge.in-progress,
+.status-badge.moved_to_manufacturing,
+.status-badge.preparation_started,
+.status-badge.preparation_complete,
+.status-badge.moved_to_packing,
+.status-badge.packing_complete,
+.status-badge.moved_to_store {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #fde68a;
+}
+
+.status-badge.delivered,
+.status-badge.pickup_confirmed {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #a7f3d0;
+}

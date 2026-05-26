@@ -107,6 +107,7 @@
 }
 
 .ord-status-badge.new { background: #E0F2FE; color: #0369A1; }
+.ord-status-badge.in-progress { background: #FEF3C7; color: #92400E; }
 .ord-status-badge.moved_to_manufacturing { background: #FEF3C7; color: #92400E; }
 .ord-status-badge.preparation_complete { background: #DCFCE7; color: #166534; }
 .ord-status-badge.moved_to_packing { background: #F3E8FF; color: #6B21A8; }

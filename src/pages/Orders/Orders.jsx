@@ -399,7 +399,7 @@ const Orders = () => {
         paymentMode,
         deliveryDate,
         deliveryTime,
-        status: 'new', // new, moved_to_manufacturing, etc.
+        status: calculateOverallOrderStatus(cart), // new, In Progress, Delivered, etc.
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -523,13 +523,45 @@ const Orders = () => {
     setExpandedOrders(prev => prev.includes(id) ? prev.filter(oId => oId !== id) : [...prev, id]);
   };
 
+  const calculateOverallOrderStatus = (items) => {
+    if (!items || items.length === 0) return 'new';
+    
+    const getStatus = (item) => (item.status || 'preparation_started').toLowerCase().trim();
+    
+    // Check if ALL items are delivered
+    const allDelivered = items.every(item => getStatus(item) === 'delivered');
+    if (allDelivered) return 'Delivered';
+    
+    // Check if ANY item has progressed beyond preparation_started (or new/empty status)
+    const hasProgressed = items.some(item => {
+      const st = getStatus(item);
+      return st !== 'preparation_started' && st !== 'new' && st !== '';
+    });
+    
+    if (hasProgressed) return 'In Progress';
+    
+    return 'new';
+  };
+
   const updateItemStatus = async (orderId, itemIndex, newStatus) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
       const order = orders.find(o => o.id === orderId);
-      const newItems = [...order.items];
-      newItems[itemIndex].status = newStatus;
-      await updateDoc(orderRef, { items: newItems });
+      if (!order) return;
+      
+      const newItems = order.items.map((item, idx) => {
+        if (idx === itemIndex) {
+          return { ...item, status: newStatus };
+        }
+        return { ...item };
+      });
+      
+      const overallStatus = calculateOverallOrderStatus(newItems);
+      
+      await updateDoc(orderRef, { 
+        items: newItems,
+        status: overallStatus
+      });
       toast.success("Item status updated");
     } catch (err) {
       console.error(err);
@@ -538,6 +570,7 @@ const Orders = () => {
   };
 
   const getStatusLabel = (status) => {
+    if (!status) return 'NEW';
     return status.replace(/_/g, ' ').toUpperCase();
   };
 
@@ -625,7 +658,7 @@ const Orders = () => {
                       </span>
                     </td>
                     <td>
-                      <span className={`ord-status-badge ${order.status}`}>
+                      <span className={`ord-status-badge ${(order.status || 'new').toLowerCase().replace(/_/g, '-').replace(/\s+/g, '-')}`}>
                         {getStatusLabel(order.status)}
                       </span>
                     </td>
