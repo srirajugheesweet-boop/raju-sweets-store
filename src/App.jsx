@@ -22,6 +22,7 @@ import ManufacturingUnitDetails from './pages/ManufacturingUnits/ManufacturingUn
 import Users from './pages/Users/Users';
 import Payments from './pages/Payments/Payments';
 import Onboarding from './pages/Onboarding/Onboarding';
+import Categories from './pages/Categories/Categories';
 import MUnitPortal from './portals/MUnitPortal/MUnitPortal';
 import PUnitPortal from './portals/PUnitPortal/PUnitPortal';
 import StorePortal from './portals/StorePortal/StorePortal';
@@ -86,7 +87,7 @@ function App() {
           <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
           <Route path="/customers/:id" element={<ProtectedRoute><Layout><CustomerDetails /></Layout></ProtectedRoute>} />
           <Route path="/items" element={<ProtectedRoute><Layout><Items /></Layout></ProtectedRoute>} />
-          <Route path="/categories" element={<ProtectedRoute><PlaceholderPage title="Categories" /></ProtectedRoute>} />
+          <Route path="/categories" element={<ProtectedRoute><Layout><Categories /></Layout></ProtectedRoute>} />
           <Route path="/stores" element={<ProtectedRoute><Layout><Stores /></Layout></ProtectedRoute>} />
           <Route path="/stores/:id" element={<ProtectedRoute><Layout><StoreDetails /></Layout></ProtectedRoute>} />
 
