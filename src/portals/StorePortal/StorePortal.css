@@ -1242,3 +1242,120 @@
   animation: pulse-scale 1s ease-in-out infinite;
 }
 
+
+/* Store Worksheet Portal styles */
+.st-worksheet-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ws-unit-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: inline-block;
+}
+
+.ws-unit-badge.weight {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.ws-unit-badge.piece {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.ws-qty-input {
+  margin: 0;
+  padding: 6px 12px;
+  height: 38px;
+  width: 130px;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ws-qty-input:focus {
+  border-color: var(--accent-color) !important;
+  background: white !important;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15) !important;
+}
+
+.ws-history-card {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.01);
+}
+
+.ws-history-card:hover {
+  background: white !important;
+  border-color: var(--accent-color) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.08);
+}
+
+.ws-history-card .date-text {
+  font-weight: 800;
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ws-history-card .count-label {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.ws-history-card .count-val {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+/* Worksheet Preview inside Modal */
+.ws-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1.5px solid #e2e8f0;
+  padding-top: 16px;
+  margin-top: 12px;
+}
+
+.ws-preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ws-preview-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.ws-preview-qty {
+  font-weight: 800;
+  color: #b45309; /* Warm brown/gold */
+  font-size: 13px;
+}
+

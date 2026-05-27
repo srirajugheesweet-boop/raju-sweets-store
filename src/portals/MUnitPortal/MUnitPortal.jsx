@@ -16,7 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { db } from '../../config/firebase';
-import { collection, onSnapshot, query, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc, getDocs, where, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './MUnitPortal.css';
@@ -30,6 +30,55 @@ const MUnitPortal = () => {
   // Today Worksheet states
   const [worksheetSubTab, setWorksheetSubTab] = useState('pending'); // 'pending' or 'completed'
   const [worksheetDate, setWorksheetDate] = useState(new Date().toISOString().split('T')[0]); // defaults to today's YYYY-MM-DD
+
+  // Store Worksheet states
+  const [mUnitWorksheetDate, setMUnitWorksheetDate] = useState(new Date().toISOString().split('T')[0]);
+  const [mUnitWorksheetData, setMUnitWorksheetData] = useState(null);
+  const [mUnitStores, setMUnitStores] = useState([]);
+  const [mUnitItems, setMUnitItems] = useState([]);
+  const [mUnitWorksheetLoading, setMUnitWorksheetLoading] = useState(false);
+
+  // Fetch items & stores on mount / tab change
+  useEffect(() => {
+    if (tab === 'store-worksheet') {
+      const fetchStoresAndItems = async () => {
+        try {
+          const [storesSnap, itemsSnap] = await Promise.all([
+            getDocs(query(collection(db, 'stores'), orderBy('name', 'asc'))),
+            getDocs(query(collection(db, 'items'), orderBy('name', 'asc')))
+          ]);
+          setMUnitStores(storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          setMUnitItems(itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (err) {
+          console.error("Error fetching stores or items in MUnitPortal:", err);
+          toast.error("Failed to load metadata.");
+        }
+      };
+      fetchStoresAndItems();
+    }
+  }, [tab]);
+
+  // Fetch/subscribe to the store worksheets for the selected date
+  useEffect(() => {
+    if (tab === 'store-worksheet' && mUnitWorksheetDate) {
+      setMUnitWorksheetLoading(true);
+      const q = query(collection(db, 'store_worksheets'), where('date', '==', mUnitWorksheetDate));
+      
+      const unsubscribe = onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          setMUnitWorksheetData(snap.docs[0].data());
+        } else {
+          setMUnitWorksheetData(null);
+        }
+        setMUnitWorksheetLoading(false);
+      }, (err) => {
+        console.error("Error loading store worksheets in MUnitPortal:", err);
+        setMUnitWorksheetLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [tab, mUnitWorksheetDate]);
 
   useEffect(() => {
     const q = query(collection(db, 'orders'));
@@ -47,6 +96,7 @@ const MUnitPortal = () => {
 
   const links = [
     { label: 'Today Worksheet', icon: <ClipboardList size={20} />, path: `/munit-portal/${id}/worksheet` },
+    { label: 'Store Worksheet', icon: <ClipboardList size={20} />, path: `/munit-portal/${id}/store-worksheet` },
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/munit-portal/${id}/orders` },
     { label: 'Analytics', icon: <BarChart3 size={20} />, path: `/munit-portal/${id}/analytics` }
   ];
@@ -214,6 +264,44 @@ const MUnitPortal = () => {
   const completedWorksheetItems = getWorksheetItems('completed');
   const activeWorksheetItems = worksheetSubTab === 'pending' ? pendingWorksheetItems : completedWorksheetItems;
   const assignedOrders = getAssignedOrders();
+
+  const getMUnitWorksheetItems = () => {
+    if (!mUnitWorksheetData || !mUnitWorksheetData.quantities) return [];
+    
+    const parsed = [];
+    const globalQuantities = mUnitWorksheetData.quantities;
+
+    mUnitItems.forEach(item => {
+      if (item.mUnitId === id) {
+        const allocations = globalQuantities[item.id] || {};
+        const storeAllocations = [];
+        let total = 0;
+
+        Object.entries(allocations).forEach(([storeId, qty]) => {
+          if (qty > 0) {
+            const storeName = mUnitStores.find(s => s.id === storeId)?.name || 'Unknown Store';
+            storeAllocations.push({ storeId, storeName, qty });
+            total += Number(qty);
+          }
+        });
+
+        if (total > 0) {
+          parsed.push({
+            id: item.id,
+            name: item.name,
+            unit: item.unit,
+            unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs',
+            total,
+            storeAllocations
+          });
+        }
+      }
+    });
+
+    return parsed;
+  };
+
+  const mUnitWorksheetItems = getMUnitWorksheetItems();
 
   return (
     <PortalLayout title="Manufacturing Portal" links={links}>
@@ -494,6 +582,86 @@ const MUnitPortal = () => {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* --- STORE WORKSHEET TAB --- */}
+            {tab === 'store-worksheet' && (
+              <div className="mu-store-worksheet-view animate-fade-in">
+                <div className="mu-view-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                    <div>
+                      <h2>Store Wise Worksheet</h2>
+                      <p className="mu-subtitle">Production targets allocated across retail store outlets</p>
+                    </div>
+                  </div>
+
+                  <div className="mu-date-filter-bar">
+                    <div className="mu-filter-left">
+                      <Calendar size={18} className="mu-filter-cal-icon" />
+                      <span className="mu-filter-label">Worksheet Date:</span>
+                      <input 
+                        type="date" 
+                        className="mu-date-picker-input"
+                        value={mUnitWorksheetDate} 
+                        onChange={(e) => setMUnitWorksheetDate(e.target.value)} 
+                      />
+                    </div>
+                    <button 
+                      className="mu-today-reset-btn"
+                      onClick={() => setMUnitWorksheetDate(new Date().toISOString().split('T')[0])}
+                    >
+                      Select Today
+                    </button>
+                  </div>
+                </div>
+
+                {mUnitWorksheetLoading ? (
+                  <div className="mu-loading-container" style={{ textAlign: 'center', padding: '60px 0' }}>
+                    <div className="loader" style={{ margin: '0 auto 15px auto' }}></div>
+                    <p style={{ color: '#64748b' }}>Loading worksheet...</p>
+                  </div>
+                ) : mUnitWorksheetItems.length > 0 ? (
+                  <div className="mu-worksheet-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
+                    {mUnitWorksheetItems.map((item, idx) => (
+                      <motion.div 
+                        key={item.id}
+                        className="mu-worksheet-card"
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: idx * 0.05 }}
+                        style={{ background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}
+                      >
+                        <div className="mu-card-body">
+                          <div className="mu-card-main-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 className="mu-item-title" style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>{item.name}</h3>
+                            <span className="mu-item-qty" style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                              {item.total.toFixed(item.unit === 'Weight' ? 2 : 0)} {item.unitLabel}
+                            </span>
+                          </div>
+
+                          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Store Breakdown:</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {item.storeAllocations.map(sa => (
+                                <div key={sa.storeId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>{sa.storeName}</span>
+                                  <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)' }}>{sa.qty} {item.unitLabel}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mu-empty-state">
+                    <ClipboardList size={48} className="mu-empty-icon" style={{ color: '#94a3b8', margin: '0 auto 15px auto', display: 'block' }} />
+                    <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>No Production Targets Scheduled</h3>
+                    <p style={{ color: '#64748b' }}>No store-wise allocations have been saved for {new Date(mUnitWorksheetDate).toLocaleDateString()} yet.</p>
                   </div>
                 )}
               </div>

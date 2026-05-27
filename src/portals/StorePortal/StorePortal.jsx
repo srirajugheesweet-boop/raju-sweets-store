@@ -51,7 +51,11 @@ import {
   Usb,
   RefreshCw,
   CheckCircle2,
-  WifiOff
+  WifiOff,
+  ClipboardList,
+  Save,
+  History,
+  ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -205,10 +209,30 @@ const StorePortal = () => {
   // Shared Global Printer Connections
   const {
     bluetoothConnected,
+    connectedDevice,
     qzConnected,
+    qzPrinters,
     selectedQZPrinter,
+    isScanningBt,
+    btDevices,
+    connectingBtDevice,
+    showBluetoothModal,
+    showQZModal,
+    qzConnecting,
+    setShowBluetoothModal,
+    setShowQZModal,
+    handleBluetoothConnect,
+    restartBtScan,
+    connectBtDevice,
+    disconnectPrinter,
+    connectQZTray,
+    confirmQZPrinter,
+    disconnectQZTray,
     printRawBLE,
-    printRawUSB
+    printRawUSB,
+    setSelectedQZPrinter,
+    showQZSetupGuide,
+    setShowQZSetupGuide
   } = usePrinter();
 
   // --- ADD ORDER FUNCTIONALITY STATES ---
@@ -247,10 +271,173 @@ const StorePortal = () => {
   });
   const [savingCustomer, setSavingCustomer] = useState(false);
 
+  // Store Worksheet tab states
+  const [wsTab, setWsTab] = useState('active'); // 'active' or 'history'
+  const [wsDate, setWsDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const year = tomorrow.getFullYear();
+    const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const day = String(tomorrow.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+  const [wsQuantities, setWsQuantities] = useState({}); // { [itemId]: quantity }
+  const [wsHistory, setWsHistory] = useState([]);
+  const [wsItems, setWsItems] = useState([]);
+  const [wsLoading, setWsLoading] = useState(false);
+  const [wsHistoryLoading, setWsHistoryLoading] = useState(false);
+  const [wsSaving, setWsSaving] = useState(false);
+  const [wsPreviewSheet, setWsPreviewSheet] = useState(null);
+
+  // Store Worksheet - Fetch Items on tab active
+  useEffect(() => {
+    if (tab === 'worksheet') {
+      const fetchItemsForWorksheet = async () => {
+        setWsLoading(true);
+        try {
+          const itemsSnap = await getDocs(query(collection(db, 'items'), orderBy('name', 'asc')));
+          const fetchedItems = itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setWsItems(fetchedItems);
+        } catch (err) {
+          console.error("Error fetching items for worksheet:", err);
+          toast.error("Failed to load catalog items.");
+        } finally {
+          setWsLoading(false);
+        }
+      };
+      fetchItemsForWorksheet();
+    }
+  }, [tab]);
+
+  // Fetch/subscribe to the worksheet for the selected date
+  useEffect(() => {
+    if (tab === 'worksheet' && wsDate) {
+      const fetchSelectedWorksheet = async () => {
+        try {
+          const q = query(collection(db, 'store_worksheets'), where('date', '==', wsDate));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const sheet = snap.docs[0].data();
+            const globalQuantities = sheet.quantities || {};
+            const storeQuantities = {};
+            Object.entries(globalQuantities).forEach(([itemId, storeQtyMap]) => {
+              if (storeQtyMap && storeQtyMap[id] !== undefined) {
+                storeQuantities[itemId] = storeQtyMap[id];
+              }
+            });
+            setWsQuantities(storeQuantities);
+            toast.success(`Loaded saved allocations for ${wsDate}`);
+          } else {
+            setWsQuantities({});
+          }
+        } catch (err) {
+          console.error("Error loading worksheet for date:", err);
+        }
+      };
+      fetchSelectedWorksheet();
+    }
+  }, [tab, wsDate, id]);
+
+  // Fetch worksheet history for this store
+  const fetchWorksheetHistory = async () => {
+    setWsHistoryLoading(true);
+    try {
+      const q = query(collection(db, 'store_worksheets'), orderBy('date', 'desc'));
+      const snap = await getDocs(q);
+      const allHistory = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const filteredHistory = allHistory.filter(sheet => {
+        const globalQuantities = sheet.quantities || {};
+        return Object.values(globalQuantities).some(storeQtyMap => storeQtyMap && storeQtyMap[id] > 0);
+      });
+      setWsHistory(filteredHistory);
+    } catch (err) {
+      console.error("Error fetching worksheet history:", err);
+      toast.error("Failed to load history.");
+    } finally {
+      setWsHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'worksheet' && wsTab === 'history') {
+      fetchWorksheetHistory();
+    }
+  }, [tab, wsTab]);
+
+  const handleWorksheetQtyChange = (itemId, value) => {
+    const val = value === '' ? '' : parseFloat(value);
+    setWsQuantities(prev => ({
+      ...prev,
+      [itemId]: val
+    }));
+  };
+
+  const handleSaveWorksheet = async () => {
+    if (!wsDate) {
+      toast.error("Please select a date.");
+      return;
+    }
+
+    setWsSaving(true);
+    try {
+      const q = query(collection(db, 'store_worksheets'), where('date', '==', wsDate));
+      const snap = await getDocs(q);
+      
+      let mergedQuantities = {};
+      let docId = null;
+
+      if (!snap.empty) {
+        docId = snap.docs[0].id;
+        mergedQuantities = snap.docs[0].data().quantities || {};
+      }
+
+      wsItems.forEach(item => {
+        const qty = wsQuantities[item.id];
+        
+        if (qty === '' || qty === 0 || isNaN(qty) || qty === undefined) {
+          if (mergedQuantities[item.id]) {
+            delete mergedQuantities[item.id][id];
+            if (Object.keys(mergedQuantities[item.id]).length === 0) {
+              delete mergedQuantities[item.id];
+            }
+          }
+        } else {
+          if (!mergedQuantities[item.id]) {
+            mergedQuantities[item.id] = {};
+          }
+          mergedQuantities[item.id][id] = Number(qty);
+        }
+      });
+
+      const worksheetPayload = {
+        date: wsDate,
+        quantities: mergedQuantities,
+        updatedAt: serverTimestamp()
+      };
+
+      if (docId) {
+        await updateDoc(doc(db, 'store_worksheets', docId), worksheetPayload);
+        toast.success(`Store worksheet for ${wsDate} updated successfully!`);
+      } else {
+        await addDoc(collection(db, 'store_worksheets'), {
+          ...worksheetPayload,
+          createdAt: serverTimestamp()
+        });
+        toast.success(`Store worksheet for ${wsDate} saved successfully!`);
+      }
+    } catch (err) {
+      console.error("Error saving store worksheet:", err);
+      toast.error("Failed to save worksheet.");
+    } finally {
+      setWsSaving(false);
+    }
+  };
+
   const links = [
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/store-portal/${id}/orders` },
     { label: 'Customers', icon: <Users size={20} />, path: `/store-portal/${id}/customers` },
     { label: 'Payments', icon: <CreditCard size={20} />, path: `/store-portal/${id}/payments` },
+    { label: 'Store Worksheet', icon: <ClipboardList size={20} />, path: `/store-portal/${id}/worksheet` },
     { label: 'Billing & POS', icon: <CreditCard size={20} />, path: `/store-portal/${id}/billing` }
   ];
 
@@ -1309,7 +1496,7 @@ const StorePortal = () => {
                 {/* Bluetooth Printer Button */}
                 <button 
                   className="st-compact-bluetooth" 
-                  onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner}
+                  onClick={bluetoothConnected ? disconnectPrinter : handleBluetoothConnect}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                     background: bluetoothConnected ? '#f0fdf4' : '#f1f5f9',
@@ -1539,6 +1726,158 @@ const StorePortal = () => {
           </div>
         )}
 
+        {/* --- STORE WORKSHEET VIEW --- */}
+        {tab === 'worksheet' && (
+          <div className="st-worksheet-view animate-fade-in">
+            <div className="st-view-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                <div>
+                  <h2>Store Work Sheet</h2>
+                  <p className="st-view-desc">Submit sweet and savory stock requirements for your outlet</p>
+                </div>
+                
+                <div className="st-sub-tabs">
+                  <button 
+                    className={`st-sub-tab-btn ${wsTab === 'active' ? 'active' : ''}`}
+                    onClick={() => setWsTab('active')}
+                  >
+                    <ClipboardList size={16} /> Active Sheet
+                  </button>
+                  <button 
+                    className={`st-sub-tab-btn ${wsTab === 'history' ? 'active' : ''}`}
+                    onClick={() => setWsTab('history')}
+                  >
+                    <History size={16} /> History Log
+                  </button>
+                </div>
+              </div>
+
+              {wsTab === 'active' && (
+                <div className="st-date-filter-bar">
+                  <div className="st-filter-left">
+                    <Calendar size={18} className="st-filter-cal-icon" />
+                    <span className="st-filter-label">Allocation Date:</span>
+                    <input 
+                      type="date" 
+                      className="st-date-picker-input"
+                      value={wsDate} 
+                      onChange={(e) => setWsDate(e.target.value)} 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {wsTab === 'active' ? (
+              wsLoading ? (
+                <div className="st-portal-loading"><div className="loader"></div></div>
+              ) : wsItems.length > 0 ? (
+                <>
+                  <div className="st-table-wrapper" style={{ marginTop: '20px' }}>
+                    <table className="st-table">
+                      <thead>
+                        <tr>
+                          <th>Product Name</th>
+                          <th>Unit Type</th>
+                          <th style={{ width: '220px' }}>Requested Quantity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {wsItems.map(item => {
+                          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pieces';
+                          const unitPlaceholder = item.unit === 'Weight' ? '0.00' : '0';
+                          const itemQty = wsQuantities[item.id] ?? '';
+
+                          return (
+                            <tr key={item.id}>
+                              <td style={{ fontWeight: '700' }}>{item.name}</td>
+                              <td>
+                                <span className={`ws-unit-badge ${item.unit === 'Weight' ? 'weight' : 'piece'}`}>
+                                  {unitLabel}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="ws-qty-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <input
+                                    type="number"
+                                    className="ws-qty-input"
+                                    value={itemQty}
+                                    placeholder={unitPlaceholder}
+                                    onChange={(e) => handleWorksheetQtyChange(item.id, e.target.value)}
+                                    min="0"
+                                    step={item.unit === 'Weight' ? '0.01' : '1'}
+                                  />
+                                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{item.unit === 'Weight' ? 'KG' : 'Pcs'}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '15px' }}>
+                    <button 
+                      onClick={handleSaveWorksheet} 
+                      className="st-print-invoice-btn" 
+                      style={{ background: 'var(--accent-color)', color: 'black', height: '42px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      disabled={wsSaving}
+                    >
+                      <Save size={16} /> {wsSaving ? 'Saving...' : 'Save Allocation Sheet'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="st-empty-state">
+                  <Package size={48} />
+                  <h3>No Products Available</h3>
+                  <p>Register items under the items module in Super Admin to configure requirements.</p>
+                </div>
+              )
+            ) : (
+              /* HISTORY VIEW */
+              wsHistoryLoading ? (
+                <div className="st-portal-loading"><div className="loader"></div></div>
+              ) : wsHistory.length > 0 ? (
+                <div className="st-history-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '20px' }}>
+                  {wsHistory.map(sheet => {
+                    const storeAllocatedCount = Object.entries(sheet.quantities || {}).filter(([_, storeQtyMap]) => storeQtyMap && storeQtyMap[id] > 0).length;
+                    
+                    return (
+                      <div 
+                        key={sheet.id} 
+                        className="ws-history-card" 
+                        onClick={() => {
+                          // Simple preview inside a modal
+                          setWsPreviewSheet(sheet);
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <span className="date-text">
+                            <Calendar size={16} />
+                            {sheet.date}
+                          </span>
+                          <ChevronRight size={16} color="#94a3b8" />
+                        </div>
+                        <div className="count-label">
+                          Products Allocated: <span className="count-val">{storeAllocatedCount}</span> Items
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="st-empty-state">
+                  <ClipboardList size={48} />
+                  <h3>No Past Sheets Found</h3>
+                  <p>Save active stock sheets to view them here in the log.</p>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
         {/* --- BILLING & POS VIEW (WITH SUB TABS) --- */}
         {tab === 'billing' && (
           <div className="st-billing-view">
@@ -1593,7 +1932,7 @@ const StorePortal = () => {
                     <Bluetooth size={12} /> Disconnect BT
                   </button>
                 ) : (
-                  <button type="button" onClick={openBluetoothScanner}
+                  <button type="button" onClick={handleBluetoothConnect}
                     style={{ background: 'var(--primary-color)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Bluetooth size={12} /> Connect BT
                   </button>
@@ -1684,7 +2023,7 @@ const StorePortal = () => {
                       
                       {/* Printer Status Triggers */}
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <div className="st-compact-bluetooth" onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner} style={{ cursor: 'pointer' }}>
+                        <div className="st-compact-bluetooth" onClick={bluetoothConnected ? disconnectPrinter : handleBluetoothConnect} style={{ cursor: 'pointer' }}>
                           <Bluetooth size={13} className={bluetoothConnected ? 'connected' : 'disconnected'} />
                           <span style={{ fontSize: '10px', fontWeight: '700', color: bluetoothConnected ? '#10b981' : '#64748b' }}>
                             {bluetoothConnected ? 'BT On' : 'BT'}
@@ -1878,6 +2217,66 @@ const StorePortal = () => {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Store Worksheet Preview Modal */}
+      <AnimatePresence>
+        {wsPreviewSheet && (() => {
+          const globalQuantities = wsPreviewSheet.quantities || {};
+          const storeQuantities = [];
+          
+          wsItems.forEach(item => {
+            const qty = globalQuantities[item.id]?.[id];
+            if (qty && qty > 0) {
+              storeQuantities.push({
+                name: item.name,
+                qty,
+                unit: item.unit,
+                unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs'
+              });
+            }
+          });
+
+          return (
+            <div className="modal-overlay" style={{ zIndex: 6000 }} onClick={() => setWsPreviewSheet(null)}>
+              <motion.div
+                className="custom-modal"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                style={{ maxWidth: '480px', width: '90%', maxHeight: '80vh', overflowY: 'auto', textAlign: 'left' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-icon-box" style={{ background: 'rgba(212, 175, 55, 0.1)', color: 'var(--accent-color)' }}>
+                  <ClipboardList size={28} />
+                </div>
+                <h3 className="modal-title">Worksheet Preview</h3>
+                <p className="modal-text" style={{ marginBottom: '16px' }}>Allocations for date: <strong>{wsPreviewSheet.date}</strong></p>
+
+                {storeQuantities.length > 0 ? (
+                  <div className="ws-preview-list">
+                    {storeQuantities.map((item, idx) => (
+                      <div key={idx} className="ws-preview-row">
+                        <span className="ws-preview-name">{item.name}</span>
+                        <span className="ws-preview-qty">{item.qty} {item.unitLabel}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8' }}>
+                    No items allocated for this outlet on this date.
+                  </div>
+                )}
+
+                <div className="modal-actions" style={{ marginTop: '24px' }}>
+                  <button className="modal-btn cancel" onClick={() => setWsPreviewSheet(null)}>
+                    Close
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Bluetooth Thermal Printer Scanner Modal */}
