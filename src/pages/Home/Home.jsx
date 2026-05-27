@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
+  ClipboardList,
   Box, 
   Tag, 
   Store, 
@@ -22,6 +23,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard', color: 'purple' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments', color: 'pink' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', color: 'pink' },
+  { id: 'store-worksheet', label: 'Store Work Sheet', icon: <ClipboardList />, path: '/store-worksheet', color: 'teal' },
   { id: 'items', label: 'Items', icon: <Box />, path: '/items', color: 'orange' },
   { id: 'categories', label: 'Categories', icon: <Tag />, path: '/categories', color: 'teal' },
   { id: 'stores', label: 'Stores', icon: <Store />, path: '/stores', color: 'violet' },
