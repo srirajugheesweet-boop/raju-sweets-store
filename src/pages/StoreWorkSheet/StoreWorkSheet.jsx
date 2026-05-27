@@ -8,12 +8,6 @@ import {
   ChevronRight,
   PackageCheck,
   Building,
-  Bluetooth as BluetoothIcon,
-  Usb as UsbIcon,
-  RefreshCw,
-  WifiOff,
-  CheckCircle2,
-  AlertCircle,
   X
 } from 'lucide-react';
 import { db } from '../../config/firebase';
@@ -28,12 +22,7 @@ import {
   updateDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import {
-  connectQZ,
-  disconnectQZ,
-  listQZPrinters,
-  printRawToQZ
-} from '../../utils/qzTray';
+import { usePrinter } from '../../context/PrinterContext';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -66,178 +55,14 @@ const StoreWorkSheet = () => {
   const [saving, setSaving] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Reusable Printer Refs & States (Bluetooth & USB QZ Tray)
-  const printerCharacteristicRef = useRef(null);
-  const qzTimerRef = useRef(null);
-
-  const [bluetoothConnected, setBluetoothConnected] = useState(false);
-  const [connectedDevice, setConnectedDevice] = useState(null);
-  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
-  const [isScanningBt, setIsScanningBt] = useState(false);
-  const [connectingBtDevice, setConnectingBtDevice] = useState(null);
-  const [btDevices, setBtDevices] = useState([]);
-
-  const [qzConnected, setQzConnected] = useState(false);
-  const [qzPrinters, setQzPrinters] = useState([]);
-  const [selectedQZPrinter, setSelectedQZPrinter] = useState('');
-  const [showQZModal, setShowQZModal] = useState(false);
-  const [qzConnecting, setQzConnecting] = useState(false);
-  const [showQZSetupGuide, setShowQZSetupGuide] = useState(false);
-  const [qzConnectTimer, setQzConnectTimer] = useState(0);
-
-  // --- Bluetooth Connection Operations ---
-  const handleBluetoothConnect = async () => {
-    if (navigator.bluetooth) {
-      toast.loading("Scanning for Bluetooth thermal printers...", { id: 'bt-loading' });
-      try {
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb',
-            '00001101-0000-1000-8000-00805f9b34fb'
-          ]
-        });
-
-        toast.dismiss('bt-loading');
-        toast.loading(`Found device: ${device.name}. Pairing...`, { id: 'bt-pair' });
-        const server = await device.gatt.connect();
-
-        let service = null;
-        try {
-          service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-        } catch (e) {
-          try {
-            service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-          } catch (e2) {
-            const services = await server.getPrimaryServices();
-            if (services.length > 0) service = services[0];
-          }
-        }
-
-        if (service) {
-          const characteristics = await service.getCharacteristics();
-          const writeChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
-          if (writeChar) {
-            printerCharacteristicRef.current = writeChar;
-          }
-        }
-
-        toast.dismiss('bt-pair');
-        setConnectedDevice(device.name || "Bluetooth Thermal Printer");
-        setBluetoothConnected(true);
-        toast.success(`Successfully paired & connected: ${device.name || "Bluetooth Printer"}`);
-      } catch (error) {
-        toast.dismiss('bt-loading');
-        toast.dismiss('bt-pair');
-        console.error("Web Bluetooth GATT connect failed:", error);
-
-        if (error.name === 'NotFoundError') {
-          toast.error("Native scan closed. Opening manual BLE scanner fallback...");
-          setShowBluetoothModal(true);
-          restartBtScan();
-        } else {
-          toast.error("Browser BLE request blocked. Opening scanner modal.");
-          setShowBluetoothModal(true);
-          restartBtScan();
-        }
-      } finally {
-        setIsScanningBt(false);
-        setConnectingBtDevice(null);
-      }
-    } else {
-      toast.error("Web Bluetooth not fully supported on this browser. Opening BLE printer scanner...");
-      setShowBluetoothModal(true);
-      restartBtScan();
-    }
-  };
-
-  const restartBtScan = () => {
-    setIsScanningBt(true);
-    setBtDevices([]);
-    setTimeout(() => {
-      setBtDevices([
-        { name: "Raju Sweets 58mm Thermal BLE-01", type: "Dynamic BLE Printer", rssi: -48 },
-        { name: "Epson TM-m30II-BLE POS-Printer", type: "Counter POS Printer", rssi: -56 },
-        { name: "Star Micronics SM-S230i BLE Ticket", type: "Handheld Bluetooth Printer", rssi: -62 }
-      ]);
-      setIsScanningBt(false);
-    }, 2000);
-  };
-
-  const connectBtDevice = (deviceName) => {
-    setConnectingBtDevice(deviceName);
-    setTimeout(() => {
-      setConnectedDevice(deviceName);
-      setBluetoothConnected(true);
-      setConnectingBtDevice(null);
-      setShowBluetoothModal(false);
-      toast.success(`Connected to printer: ${deviceName}`);
-    }, 1500);
-  };
-
-  const disconnectPrinter = () => {
-    if (connectedDevice) {
-      toast.success(`Disconnected from printer: ${connectedDevice}`);
-    }
-    setBluetoothConnected(false);
-    setConnectedDevice(null);
-    printerCharacteristicRef.current = null;
-  };
-
-  // --- QZ Tray USB Printer Operations ---
-  const connectQZTray = async () => {
-    setQzConnecting(true);
-    setQzConnectTimer(0);
-    qzTimerRef.current = setInterval(() => {
-      setQzConnectTimer(prev => prev + 1);
-    }, 1000);
-    try {
-      await connectQZ();
-      const printers = await listQZPrinters();
-      setQzPrinters(printers);
-      setQzConnected(true);
-      const thermal = printers.find(p =>
-        /thermal|pos|receipt|58mm|80mm|epson|star|citizen|bixolon|xprinter/i.test(p)
-      );
-      setSelectedQZPrinter(thermal || printers[0] || '');
-      setShowQZModal(true);
-      toast.success(`QZ Tray connected! Found ${printers.length} printer(s).`);
-    } catch (err) {
-      console.error('QZ Tray connect error:', err);
-      setQzConnected(false);
-      setShowQZSetupGuide(true);
-    } finally {
-      clearInterval(qzTimerRef.current);
-      setQzConnecting(false);
-      setQzConnectTimer(0);
-    }
-  };
-
-  const disconnectQZTray = async () => {
-    try {
-      await disconnectQZ();
-    } catch (_) { }
-    setQzConnected(false);
-    setQzPrinters([]);
-    setSelectedQZPrinter('');
-    toast.success("Disconnected from QZ Tray USB service.");
-  };
-
-  const printViaQZTray = async (dataBytes) => {
-    if (!selectedQZPrinter) return false;
-    try {
-      toast.loading("Sending ticket to USB thermal printer...", { id: 'qz-print-job' });
-      await printRawToQZ(selectedQZPrinter, dataBytes);
-      toast.dismiss('qz-print-job');
-      toast.success("Worksheet printed successfully via USB!");
-      return true;
-    } catch (error) {
-      console.error("QZ printing failed:", error);
-      toast.dismiss('qz-print-job');
-      toast.error("USB direct print failed. Check printer connection.");
-      return false;
-    }
-  };
+  // Consume Shared Global Printer Connections
+  const {
+    bluetoothConnected,
+    qzConnected,
+    selectedQZPrinter,
+    printRawBLE,
+    printRawUSB
+  } = usePrinter();
 
   // Fetch Items & Stores on Load
   useEffect(() => {
@@ -369,178 +194,11 @@ const StoreWorkSheet = () => {
 
   // Printing implementation tailored for thermal printers
   const printDirectToBluetooth = async (worksheet, printType = 'store') => {
-    if (!printerCharacteristicRef.current) {
-      toast.error("Bluetooth printer connection lost. Opening system print fallback...");
-      printHTMLFallback(worksheet, printType);
-      return;
-    }
-
     toast.loading("Sending worksheet directly to Bluetooth thermal printer...", { id: 'bt-worksheet-print-job' });
 
     try {
-      const encoder = new TextEncoder();
-      const wsQuantities = worksheet.quantities || {};
-
-      // ESC/POS Commands
-      const INIT = new Uint8Array([0x1b, 0x40]);
-      const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
-      const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
-      const RIGHT = new Uint8Array([0x1b, 0x61, 0x02]);
-      const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
-      const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
-      const BOLD_ON = new Uint8Array([0x1b, 0x45, 0x01]);
-      const BOLD_OFF = new Uint8Array([0x1b, 0x45, 0x00]);
-      const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
-
-      const charsPerLine = 32; // standard 58mm default width, BLE prints are usually 58mm
-      const dashedLine = ''.padEnd(charsPerLine, '-') + '\n';
-      const miniDashedLine = ''.padEnd(charsPerLine, '.') + '\n';
-
-      const justifyLR = (left, right) => {
-        let spaces = charsPerLine - left.length - right.length;
-        if (spaces < 1) spaces = 1;
-        return left + ' '.repeat(spaces) + right + '\n';
-      };
-
-      let bytes = [];
-      bytes.push(...INIT);
-
-      // Header
-      bytes.push(...CENTER, ...DOUBLE_SIZE);
-      bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
-      bytes.push(...NORMAL_SIZE);
-      bytes.push(...encoder.encode("STORE WORK SHEET\n"));
-      bytes.push(...LEFT);
-      bytes.push(...encoder.encode(dashedLine));
-      bytes.push(...encoder.encode(`DATE: ${worksheet.date}\n`));
-      bytes.push(...encoder.encode(`PRINTED: ${new Date().toLocaleString()}\n`));
-      bytes.push(...encoder.encode(dashedLine));
-
-      if (printType === 'store') {
-        // I. Store-Wise Summary
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode("I. STORE-WISE ITEMS\n"));
-        bytes.push(...BOLD_OFF);
-        bytes.push(...encoder.encode(dashedLine));
-
-        stores.forEach(store => {
-          let storeItems = [];
-          items.forEach(item => {
-            const qty = wsQuantities[item.id]?.[store.id];
-            if (qty && qty > 0) {
-              const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-              storeItems.push({ name: item.name, qty, unitLabel });
-            }
-          });
-
-          if (storeItems.length > 0) {
-            bytes.push(...BOLD_ON);
-            bytes.push(...encoder.encode(`${store.name.toUpperCase()}\n`));
-            bytes.push(...BOLD_OFF);
-
-            storeItems.forEach(si => {
-              let leftText = `* ${si.name}`;
-              if (leftText.length > 18) {
-                bytes.push(...encoder.encode(`${leftText}\n`));
-                leftText = "  ";
-              }
-              const rightText = `${si.qty} ${si.unitLabel}`;
-              bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
-            });
-            bytes.push(...encoder.encode(miniDashedLine));
-          }
-        });
-
-        // II. Handwritten Notes
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode("II. HANDWRITTEN NOTES\n"));
-        bytes.push(...BOLD_OFF);
-        bytes.push(...encoder.encode(dashedLine));
-        bytes.push(...encoder.encode("\n\n")); // Renders space for writing
-      }
-
-      if (printType === 'item') {
-        // II. Globally Consolidated Summary
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode("I. GLOBALLY CONSOLIDATED\n"));
-        bytes.push(...BOLD_OFF);
-        bytes.push(...encoder.encode(dashedLine));
-
-        let overallSumWeight = 0;
-        let overallSumPieces = 0;
-        let totalActiveItems = 0;
-
-        items.forEach(item => {
-          const allocations = wsQuantities[item.id] || {};
-          const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
-
-          if (activeAllocations.length > 0) {
-            totalActiveItems++;
-            const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
-            const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-
-            if (item.unit === 'Weight') {
-              overallSumWeight += total;
-            } else {
-              overallSumPieces += total;
-            }
-
-            bytes.push(...BOLD_ON);
-            bytes.push(...encoder.encode(`${item.name.toUpperCase()} (${unitLabel})\n`));
-            bytes.push(...BOLD_OFF);
-
-            activeAllocations.forEach(([storeId, qty]) => {
-              const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
-              let leftText = `- ${storeName}`;
-              if (leftText.length > 18) {
-                bytes.push(...encoder.encode(`${leftText}\n`));
-                leftText = "  ";
-              }
-              const rightText = `${qty} ${unitLabel}`;
-              bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
-            });
-
-            // Dashed divider line and sum
-            bytes.push(...encoder.encode(miniDashedLine));
-            const sumText = `SUM: ${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}`;
-            bytes.push(...BOLD_ON, ...RIGHT);
-            bytes.push(...encoder.encode(sumText + '\n'));
-            bytes.push(...BOLD_OFF, ...LEFT);
-            bytes.push(...encoder.encode(dashedLine));
-          }
-        });
-
-        // III. Handwritten Notes
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode("II. HANDWRITTEN NOTES\n"));
-        bytes.push(...BOLD_OFF);
-        bytes.push(...encoder.encode(dashedLine));
-        bytes.push(...encoder.encode("\n\n")); // Renders space for writing
-
-        // IV. Cumulative Sums
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode("III. CUMULATIVE SUMS\n"));
-        bytes.push(...BOLD_OFF);
-        bytes.push(...encoder.encode(dashedLine));
-        bytes.push(...encoder.encode(justifyLR("Allocated Items:", `${totalActiveItems} Products`)));
-        bytes.push(...encoder.encode(justifyLR("Total Weight:", `${overallSumWeight.toFixed(2)} KG`)));
-        bytes.push(...encoder.encode(justifyLR("Total Pieces:", `${overallSumPieces} Pcs`)));
-      }
-
-      // Cut paper
-      bytes.push(...CENTER);
-      bytes.push(...encoder.encode("\n*** THANK YOU ***\n\n\n"));
-      bytes.push(...CUT);
-
-      const dataArray = new Uint8Array(bytes);
-
-      // BLE write chunking
-      const CHUNK_SIZE = 20;
-      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
-        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
-        await printerCharacteristicRef.current.writeValue(chunk);
-        await new Promise(resolve => setTimeout(resolve, 30));
-      }
+      const bytes = buildWorksheetESCPOSBytes(worksheet, 32, printType); // standard 58mm default width, BLE prints are usually 58mm
+      await printRawBLE(bytes);
 
       toast.dismiss('bt-worksheet-print-job');
       toast.success("Worksheet printed successfully via Bluetooth!");
@@ -952,16 +610,25 @@ const StoreWorkSheet = () => {
 
   const handlePrint = async (worksheet, printType = 'store') => {
     // 1. Bluetooth Connection Check
-    if (bluetoothConnected && printerCharacteristicRef.current) {
+    if (bluetoothConnected) {
       await printDirectToBluetooth(worksheet, printType);
       return;
     }
 
     // 2. QZ Tray USB Connection Check
     if (qzConnected && selectedQZPrinter) {
-      const bytes = buildWorksheetESCPOSBytes(worksheet, 48, printType); // 48 chars standard width for QZ 80mm
-      const success = await printViaQZTray(bytes);
-      if (success) return;
+      toast.loading("Sending worksheet directly to USB thermal printer...", { id: 'usb-worksheet-print-job' });
+      try {
+        const bytes = buildWorksheetESCPOSBytes(worksheet, 48, printType); // 48 chars standard width for QZ 80mm
+        await printRawUSB(bytes);
+        toast.dismiss('usb-worksheet-print-job');
+        toast.success("Worksheet printed successfully via USB!");
+        return;
+      } catch (err) {
+        console.error("Direct USB worksheet print error: ", err);
+        toast.dismiss('usb-worksheet-print-job');
+        toast.error("USB print failed. Opening system print fallback...");
+      }
     }
 
     // 3. Fallback to System HTML dialog
@@ -1012,33 +679,6 @@ const StoreWorkSheet = () => {
                     onChange={(e) => setDate(e.target.value)}
                   />
                 </div>
-              </div>
-
-              {/* Connected Devices / Printer Action center */}
-              <div className="ws-printer-status-bar" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                {bluetoothConnected ? (
-                  <button className="ws-print-btn" style={{ borderColor: '#16a34a', color: '#16a34a', background: 'rgba(22, 163, 74, 0.05)', position: 'relative' }} onClick={disconnectPrinter}>
-                    <BluetoothIcon size={14} />
-                    <span>BLE: {connectedDevice ? (connectedDevice.length > 10 ? `${connectedDevice.substring(0, 10)}...` : connectedDevice) : 'Connected'}</span>
-                  </button>
-                ) : (
-                  <button className="ws-print-btn" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} onClick={handleBluetoothConnect}>
-                    <BluetoothIcon size={14} />
-                    <span>Connect BLE</span>
-                  </button>
-                )}
-
-                {qzConnected ? (
-                  <button className="ws-print-btn" style={{ borderColor: '#2563eb', color: '#2563eb', background: 'rgba(37, 99, 235, 0.05)' }} onClick={() => setShowQZModal(true)}>
-                    <UsbIcon size={14} />
-                    <span>USB: {selectedQZPrinter ? (selectedQZPrinter.length > 10 ? `${selectedQZPrinter.substring(0, 10)}...` : selectedQZPrinter) : 'Connected'}</span>
-                  </button>
-                ) : (
-                  <button className="ws-print-btn" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }} onClick={connectQZTray} disabled={qzConnecting}>
-                    <UsbIcon size={14} />
-                    <span>{qzConnecting ? `USB: ${qzConnectTimer}s` : 'Connect USB'}</span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1182,191 +822,7 @@ const StoreWorkSheet = () => {
       </div>
     </div>
 
-      {/* ========================================== */}
-      {/* PRINTER UTILITY DIALOG MODALS              */}
-      {/* ========================================== */}
 
-      {/* Bluetooth BLE Scanner Modal */}
-      <AnimatePresence>
-        {showBluetoothModal && (
-          <div className="modal-overlay" style={{ zIndex: 5000 }}>
-            <motion.div
-              className="custom-modal"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              style={{ maxWidth: '400px', width: '90%' }}
-            >
-              <div className="modal-icon-box" style={{ background: 'rgba(212, 175, 55, 0.1)', color: 'var(--accent-color)' }}>
-                <BluetoothIcon size={28} />
-              </div>
-              <h3 className="modal-title">Pair BLE Thermal Printer</h3>
-
-              <div style={{ margin: '15px 0', textAlign: 'left' }}>
-                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Available Devices</span>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {isScanningBt ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '15px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                      <RefreshCw size={14} className="animate-spin" /> Scanning for printers...
-                    </div>
-                  ) : btDevices.length > 0 ? (
-                    btDevices.map(dev => (
-                      <div
-                        key={dev.name}
-                        onClick={() => !connectingBtDevice && connectBtDevice(dev.name)}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '10px 12px',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          cursor: connectingBtDevice ? 'not-allowed' : 'pointer',
-                          background: '#f8fafc',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => { if (!connectingBtDevice) e.currentTarget.style.borderColor = 'var(--accent-color)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
-                      >
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{dev.name}</div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{dev.type}</div>
-                        </div>
-                        <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '700' }}>
-                          {connectingBtDevice === dev.name ? 'Pairing...' : `${dev.rssi} dBm`}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: '15px', textAlign: 'center', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      No BLE printers detected in range.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="modal-actions" style={{ marginTop: '20px' }}>
-                <button className="modal-btn cancel" onClick={() => setShowBluetoothModal(false)}>Close</button>
-                <button
-                  className="ws-save-btn"
-                  style={{ height: '36px', fontSize: '13px' }}
-                  onClick={restartBtScan}
-                  disabled={isScanningBt}
-                >
-                  <RefreshCw size={12} className={isScanningBt ? 'animate-spin' : ''} /> Rescan
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* QZ Tray Printer Selection Modal */}
-      <AnimatePresence>
-        {showQZModal && (
-          <div className="modal-overlay" style={{ zIndex: 5000 }}>
-            <motion.div
-              className="custom-modal"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              style={{ maxWidth: '400px', width: '90%' }}
-            >
-              <div className="modal-icon-box" style={{ background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb' }}>
-                <UsbIcon size={28} />
-              </div>
-              <h3 className="modal-title">Select USB Thermal Printer</h3>
-
-              <div style={{ margin: '15px 0', textAlign: 'left' }}>
-                <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Detected USB Printers</label>
-                <select
-                  value={selectedQZPrinter}
-                  onChange={(e) => setSelectedQZPrinter(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '40px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1.5px solid var(--border-color)',
-                    fontSize: '14px',
-                    background: '#f8fafc',
-                    outline: 'none'
-                  }}
-                >
-                  {qzPrinters.length > 0 ? (
-                    qzPrinters.map(p => <option key={p} value={p}>{p}</option>)
-                  ) : (
-                    <option value="">No USB printers found</option>
-                  )}
-                </select>
-              </div>
-
-              <div className="modal-actions" style={{ marginTop: '20px' }}>
-                <button className="modal-btn cancel" onClick={() => disconnectQZTray()}>Disconnect</button>
-                <button
-                  className="ws-save-btn"
-                  style={{ height: '36px', fontSize: '13px', background: '#2563eb', boxShadow: '0 4px 12px rgba(37,99,235,0.15)' }}
-                  onClick={() => setShowQZModal(false)}
-                >
-                  Confirm Printer
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* QZ Tray Connection Setup Guide (Fallback) */}
-      <AnimatePresence>
-        {showQZSetupGuide && (
-          <div className="modal-overlay" style={{ zIndex: 5000 }}>
-            <motion.div
-              className="custom-modal"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              style={{ maxWidth: '440px', width: '90%', textAlign: 'left' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '15px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
-                  <AlertCircle size={20} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>USB Thermal Print Driver Missing</h3>
-                </div>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowQZSetupGuide(false)}><X size={18} /></button>
-              </div>
-
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <p>Direct USB printing requires <strong>QZ Tray</strong> local service to bridges web actions to hardware drivers.</p>
-
-                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '12px', marginBottom: '4px' }}>Setup Steps:</div>
-                  <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <li>Download & install from: <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: '700' }}>qz.io/download/</a></li>
-                    <li>Launch QZ Tray application on your PC.</li>
-                    <li>If prompted for security warning, choose "Always Trust".</li>
-                    <li>Click the Retry Connect button below.</li>
-                  </ol>
-                </div>
-              </div>
-
-              <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button className="modal-btn cancel" onClick={() => setShowQZSetupGuide(false)}>Close</button>
-                <button
-                  className="ws-save-btn"
-                  style={{ height: '36px', fontSize: '13px', background: '#dc2626', boxShadow: 'none' }}
-                  onClick={async () => {
-                    setShowQZSetupGuide(false);
-                    await connectQZTray();
-                  }}
-                >
-                  <RefreshCw size={12} /> Retry Connect
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Consolidated Analytics Preview Modal */}
       <AnimatePresence>

@@ -220,3 +220,66 @@
   background: #E2E8F0;
   border-radius: 10px;
 }
+
+/* Global Header Printer Status Button Styles */
+.header-printer-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-print-status-btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.1, 0.8, 0.3, 1);
+  outline: none;
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.header-print-status-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+  color: #FFFFFF;
+}
+
+.header-print-status-btn.connected.ble {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10B981;
+  color: #10B981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.header-print-status-btn.connected.ble:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34D399;
+}
+
+.header-print-status-btn.connected.usb {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3B82F6;
+  color: #3B82F6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.1);
+}
+
+.header-print-status-btn.connected.usb:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: #60A5FA;
+}
+
+@media (max-width: 640px) {
+  .header-printer-status-bar {
+    display: none; /* Hide on extremely small viewports to prevent layout wrapping */
+  }
+}

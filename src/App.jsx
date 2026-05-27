@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { PrinterProvider } from './context/PrinterContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login/Login';
@@ -45,7 +46,8 @@ const PlaceholderPage = ({ title }) => (
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <PrinterProvider>
+        <Router>
         <Toaster 
           position="top-right"
           toastOptions={{
@@ -114,6 +116,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+      </PrinterProvider>
     </AuthProvider>
   );
 }

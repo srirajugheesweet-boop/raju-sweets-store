@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
-import { connectQZ, disconnectQZ, listQZPrinters, printRawToQZ, buildBillESCPOS, buildOrderESCPOS } from '../../utils/qzTray';
+import { buildBillESCPOS, buildOrderESCPOS } from '../../utils/qzTray';
+import { usePrinter } from '../../context/PrinterContext';
 import logo from '../../assets/logo.png';
 import { db } from '../../config/firebase';
 import { 
@@ -201,24 +202,14 @@ const StorePortal = () => {
   const [submittingBill, setSubmittingBill] = useState(false);
   const [selectedReceiptBill, setSelectedReceiptBill] = useState(null); // receipt preview modal
 
-  // Bluetooth Thermal Printer States
-  const [bluetoothConnected, setBluetoothConnected] = useState(false);
-  const [connectedDevice, setConnectedDevice] = useState(null);
-  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
-  const [isScanningBt, setIsScanningBt] = useState(false);
-  const [connectingBtDevice, setConnectingBtDevice] = useState(null);
-  const [btDevices, setBtDevices] = useState([]);
-
-  // QZ Tray USB Printer States
-  const [qzConnected, setQzConnected] = useState(false);
-  const [qzPrinters, setQzPrinters] = useState([]);
-  const [selectedQZPrinter, setSelectedQZPrinter] = useState('');
-  const [showQZModal, setShowQZModal] = useState(false);
-  const [qzConnecting, setQzConnecting] = useState(false);
-  const [qzPrinting, setQzPrinting] = useState(false);
-  const [showQZSetupGuide, setShowQZSetupGuide] = useState(false);
-  const [qzConnectTimer, setQzConnectTimer] = useState(0);
-  const qzTimerRef = useRef(null);
+  // Shared Global Printer Connections
+  const {
+    bluetoothConnected,
+    qzConnected,
+    selectedQZPrinter,
+    printRawBLE,
+    printRawUSB
+  } = usePrinter();
 
   // --- ADD ORDER FUNCTIONALITY STATES ---
   const [showAddModal, setShowAddModal] = useState(false);
@@ -848,12 +839,6 @@ const StorePortal = () => {
   };
 
   const printOrderDirectToBluetooth = async (order) => {
-    if (!printerCharacteristicRef.current) {
-      toast.error("Printer connection does not support direct writing. Opening standard printer fallback...");
-      handlePrintOrderReceipt(order);
-      return;
-    }
-
     toast.loading("Sending order directly to Bluetooth thermal printer...", { id: 'bt-order-print-job' });
 
     try {
@@ -929,13 +914,7 @@ const StorePortal = () => {
 
       const dataArray = new Uint8Array(bytes);
       
-      // BLE write chunking
-      const CHUNK_SIZE = 20;
-      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
-        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
-        await printerCharacteristicRef.current.writeValue(chunk);
-        await new Promise(resolve => setTimeout(resolve, 30));
-      }
+      await printRawBLE(dataArray);
       
       toast.dismiss('bt-order-print-job');
       toast.success("Order receipt printed successfully!");
@@ -949,15 +928,20 @@ const StorePortal = () => {
 
   const handlePrintOrder = async (order) => {
     // Priority 1: Bluetooth BLE direct
-    if (bluetoothConnected && printerCharacteristicRef.current) {
+    if (bluetoothConnected) {
       printOrderDirectToBluetooth(order);
       return;
     }
     // Priority 2: QZ Tray USB
     if (qzConnected && selectedQZPrinter) {
-      const bytes = buildOrderESCPOS(order);
-      const success = await printViaQZTray(bytes);
-      if (success) return;
+      try {
+        const bytes = buildOrderESCPOS(order);
+        await printRawUSB(bytes);
+        toast.success("Order printed successfully (USB)!");
+        return;
+      } catch (err) {
+        console.error('QZ Print error:', err);
+      }
     }
     // Priority 3: System print dialog (80mm HTML)
     handlePrintOrderReceipt(order);
@@ -1162,27 +1146,26 @@ const StorePortal = () => {
 
   const handlePrintTrigger = async (bill) => {
     // Priority 1: Bluetooth BLE direct
-    if (bluetoothConnected && printerCharacteristicRef.current) {
+    if (bluetoothConnected) {
       printDirectToBluetooth(bill);
       return;
     }
     // Priority 2: QZ Tray USB
     if (qzConnected && selectedQZPrinter) {
-      const bytes = buildBillESCPOS(bill);
-      const success = await printViaQZTray(bytes);
-      if (success) return;
+      try {
+        const bytes = buildBillESCPOS(bill);
+        await printRawUSB(bytes);
+        toast.success("Printed bill successfully (USB)!");
+        return;
+      } catch (err) {
+        console.error('QZ print error:', err);
+      }
     }
     // Priority 3: System print dialog (80mm HTML)
     handlePrintReceipt(bill);
   };
 
   const printDirectToBluetooth = async (bill) => {
-    if (!printerCharacteristicRef.current) {
-      toast.error("Printer connection does not support direct writing. Opening standard printer fallback...");
-      handlePrintReceipt(bill);
-      return;
-    }
-
     toast.loading("Sending receipt directly to Bluetooth thermal printer...", { id: 'bt-print-job' });
 
     try {
@@ -1260,13 +1243,7 @@ const StorePortal = () => {
 
       const dataArray = new Uint8Array(bytes);
       
-      // BLE write chunking
-      const CHUNK_SIZE = 20;
-      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
-        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
-        await printerCharacteristicRef.current.writeValue(chunk);
-        await new Promise(resolve => setTimeout(resolve, 30));
-      }
+      await printRawBLE(dataArray);
       
       toast.dismiss('bt-print-job');
       toast.success("Receipt printed successfully!");
@@ -1275,174 +1252,6 @@ const StorePortal = () => {
       toast.dismiss('bt-print-job');
       toast.error("Failed to print directly. Opening system print fallback...");
       handlePrintReceipt(bill);
-    }
-  };
-
-  // --- Bluetooth Thermal Printer Native & Fallback Operations ---
-  const openBluetoothScanner = async () => {
-    if (navigator.bluetooth) {
-      setIsScanningBt(true);
-      try {
-        toast.loading("Opening browser Bluetooth pairing selector...", { id: 'bt-loading' });
-        
-        // Native browser requestDevice prompt showing nearby Bluetooth devices
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb', // BLE printer generic service
-            '00001101-0000-1000-8000-00805f9b34fb'  // BLE serial profile
-          ]
-        });
-
-        toast.dismiss('bt-loading');
-        setConnectingBtDevice(device.name || "Bluetooth Thermal Printer");
-        toast.loading(`Establishing pairing session to ${device.name || "Thermal Printer"}...`, { id: 'bt-pair' });
-
-        // Connect dynamically to the BLE GATT Server
-        const server = await device.gatt.connect();
-        
-        let service = null;
-        try {
-          service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
-        } catch (e) {
-          try {
-            service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-          } catch (e2) {
-            const services = await server.getPrimaryServices();
-            if (services.length > 0) service = services[0];
-          }
-        }
-
-        if (service) {
-          const characteristics = await service.getCharacteristics();
-          const writeChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
-          if (writeChar) {
-            printerCharacteristicRef.current = writeChar;
-          }
-        }
-
-        toast.dismiss('bt-pair');
-        setConnectedDevice(device.name || "Bluetooth Thermal Printer");
-        setBluetoothConnected(true);
-        toast.success(`Successfully paired & connected: ${device.name || "Bluetooth Printer"}`);
-      } catch (error) {
-        toast.dismiss('bt-loading');
-        toast.dismiss('bt-pair');
-        console.error("Web Bluetooth Native Prompt Error:", error);
-        
-        if (error.name === 'NotFoundError') {
-          toast.error("Bluetooth scan cancelled.");
-        } else {
-          // If browser blocks native search (like HTTP local debugging), show the custom pairing scanner modal with simulated printers
-          toast.error("Browser BLE request blocked. Opening scanner modal.");
-          setShowBluetoothModal(true);
-          restartBtScan();
-        }
-      } finally {
-        setIsScanningBt(false);
-        setConnectingBtDevice(null);
-      }
-    } else {
-      // Chrome-only Web Bluetooth API not active, launch manual simulated scanner fallback
-      toast.error("Web Bluetooth requires HTTPS or Chrome. Opening BLE printer scanner.");
-      setShowBluetoothModal(true);
-      restartBtScan();
-    }
-  };
-
-  const restartBtScan = () => {
-    setIsScanningBt(true);
-    setBtDevices([]);
-    setTimeout(() => {
-      setBtDevices([
-        { name: "Raju Sweets 58mm Thermal BLE-01", type: "Dynamic BLE Printer", rssi: -48 },
-        { name: "Epson TM-m30II-BLE POS-Printer", type: "Counter POS Printer", rssi: -56 },
-        { name: "Star Micronics SM-S230i BLE Ticket", type: "Handheld Bluetooth Printer", rssi: -62 }
-      ]);
-      setIsScanningBt(false);
-    }, 2000);
-  };
-
-  const connectBtDevice = (deviceName) => {
-    setConnectingBtDevice(deviceName);
-    setTimeout(() => {
-      setConnectedDevice(deviceName);
-      setBluetoothConnected(true);
-      setConnectingBtDevice(null);
-      setShowBluetoothModal(false);
-      toast.success(`Successfully connected to: ${deviceName}`);
-    }, 1500);
-  };
-
-  const disconnectPrinter = () => {
-    if (connectedDevice) {
-      toast.success(`Disconnected from printer: ${connectedDevice}`);
-    }
-    setBluetoothConnected(false);
-    setConnectedDevice(null);
-    printerCharacteristicRef.current = null;
-  };
-
-  // --- QZ Tray USB Printer Operations ---
-  const connectQZTray = async () => {
-    setQzConnecting(true);
-    setQzConnectTimer(0);
-    // Tick a counter every second so the user sees progress (not a frozen spinner)
-    qzTimerRef.current = setInterval(() => {
-      setQzConnectTimer(prev => prev + 1);
-    }, 1000);
-    try {
-      await connectQZ();
-      const printers = await listQZPrinters();
-      setQzPrinters(printers);
-      setQzConnected(true);
-      const thermal = printers.find(p =>
-        /thermal|pos|receipt|58mm|80mm|epson|star|citizen|bixolon|xprinter/i.test(p)
-      );
-      setSelectedQZPrinter(thermal || printers[0] || '');
-      setShowQZModal(true);
-      toast.success(`QZ Tray connected! Found ${printers.length} printer(s).`);
-    } catch (err) {
-      console.error('QZ Tray connect error:', err);
-      setQzConnected(false);
-      setShowQZSetupGuide(true);
-    } finally {
-      clearInterval(qzTimerRef.current);
-      setQzConnecting(false);
-      setQzConnectTimer(0);
-    }
-  };
-
-  const disconnectQZTray = async () => {
-    try {
-      await disconnectQZ();
-    } catch (_) {}
-    setQzConnected(false);
-    setQzPrinters([]);
-    setSelectedQZPrinter('');
-    toast.success('USB printer disconnected.');
-  };
-
-  const printViaQZTray = async (dataArray) => {
-    if (!selectedQZPrinter) {
-      toast.error('No USB printer selected. Please select a printer first.');
-      setShowQZModal(true);
-      return false;
-    }
-    setQzPrinting(true);
-    try {
-      toast.loading('Sending to USB thermal printer...', { id: 'qz-print-job' });
-      await printRawToQZ(selectedQZPrinter, dataArray);
-      toast.dismiss('qz-print-job');
-      toast.success(`Printed to: ${selectedQZPrinter}`);
-      return true;
-    } catch (err) {
-      console.error('QZ print error:', err);
-      toast.dismiss('qz-print-job');
-      toast.error('USB print failed. Check QZ Tray is running and printer is connected.');
-      return false;
-    } finally {
-      setQzPrinting(false);
     }
   };
 
