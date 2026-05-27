@@ -158,7 +158,16 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
   const [expandedOrders, setExpandedOrders] = useState([]);
+
+  // Date helper functions for filter shortcuts
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTomorrowStr = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
   const [previewOrder, setPreviewOrder] = useState(null);
   const [editingOrderId, setEditingOrderId] = useState(null);
 
@@ -1086,8 +1095,16 @@ const Orders = () => {
       </div>
 
       <div className="ord-table-wrapper">
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
-          <div className="items-search-bar" style={{ maxWidth: '400px' }}>
+        <div style={{ 
+          padding: '16px 20px', 
+          borderBottom: '1px solid var(--border-color)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '15px'
+        }}>
+          <div className="items-search-bar" style={{ maxWidth: '350px', flex: 1, margin: 0 }}>
             <Search size={18} className="items-search-icon" />
             <input
               type="text"
@@ -1095,6 +1112,95 @@ const Orders = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+          </div>
+
+          <div className="ord-date-filter-container" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Calendar size={14} color="var(--primary-color)" /> Delivery Date:
+              </span>
+              <input
+                type="date"
+                value={deliveryDateFilter}
+                onChange={(e) => setDeliveryDateFilter(e.target.value)}
+                style={{
+                  height: '38px',
+                  padding: '0 12px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  fontWeight: '600'
+                }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setDeliveryDateFilter(getTodayStr())}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid ' + (deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : 'var(--border-color)'),
+                  background: deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : '#f8fafc',
+                  color: deliveryDateFilter === getTodayStr() ? '#ffffff' : 'var(--text-secondary)',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryDateFilter(getTomorrowStr())}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid ' + (deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : 'var(--border-color)'),
+                  background: deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : '#f8fafc',
+                  color: deliveryDateFilter === getTomorrowStr() ? '#ffffff' : 'var(--text-secondary)',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Tomorrow
+              </button>
+              {deliveryDateFilter && (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryDateFilter('')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px dashed var(--error-color)',
+                    background: '#fef2f2',
+                    color: 'var(--error-color)',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <X size={12} /> Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1115,11 +1221,50 @@ const Orders = () => {
           <tbody>
             {loading ? (
               <tr><td colSpan="9" style={{ textAlign: 'center', padding: '100px' }}><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></td></tr>
-            ) : orders.length > 0 ? (
-              orders.filter(o =>
-                o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                o.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-              ).map(order => (
+            ) : orders.length > 0 ? (() => {
+              const filtered = orders.filter(o => {
+                const matchesSearch = 
+                  o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  o.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesDate = !deliveryDateFilter || o.deliveryDate === deliveryDateFilter;
+                return matchesSearch && matchesDate;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+                      <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
+                      <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
+                      <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
+                      {(searchQuery || deliveryDateFilter) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setDeliveryDateFilter('');
+                          }}
+                          style={{
+                            marginTop: '15px',
+                            padding: '6px 16px',
+                            background: 'var(--primary-color)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            color: '#ffffff'
+                          }}
+                        >
+                          Clear All Filters
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              }
+
+              return filtered.map(order => (
                 <React.Fragment key={order.id}>
                   <tr className={expandedOrders.includes(order.id) ? "row-expanded" : ""}>
                     <td className="ord-id-cell">
@@ -1212,8 +1357,8 @@ const Orders = () => {
                     </tr>
                   )}
                 </React.Fragment>
-              ))
-            ) : (
+              ));
+            })() : (
               <tr><td colSpan="9" className="ord-orders-empty">No orders found. Click "Create New Order" to start.</td></tr>
             )}
           </tbody>
