@@ -36,8 +36,10 @@ import {
 } from '../../utils/qzTray';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import Loader from '../../components/Loader/Loader';
 import './StoreWorkSheet.css';
+
 
 // Get Tomorrow's Date String in YYYY-MM-DD format
 const getTomorrowDateString = () => {
@@ -56,6 +58,9 @@ const StoreWorkSheet = () => {
   const [items, setItems] = useState([]);
   const [quantities, setQuantities] = useState({}); // { [itemId]: { [storeId]: quantity } }
   const [history, setHistory] = useState([]);
+  const [previewSheet, setPreviewSheet] = useState(null);
+  const [printTargetSheet, setPrintTargetSheet] = useState(null);
+
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -363,10 +368,10 @@ const StoreWorkSheet = () => {
   };
 
   // Printing implementation tailored for thermal printers
-  const printDirectToBluetooth = async (worksheet) => {
+  const printDirectToBluetooth = async (worksheet, printType = 'store') => {
     if (!printerCharacteristicRef.current) {
       toast.error("Bluetooth printer connection lost. Opening system print fallback...");
-      printHTMLFallback(worksheet);
+      printHTMLFallback(worksheet, printType);
       return;
     }
 
@@ -411,105 +416,116 @@ const StoreWorkSheet = () => {
       bytes.push(...encoder.encode(`PRINTED: ${new Date().toLocaleString()}\n`));
       bytes.push(...encoder.encode(dashedLine));
 
-      // I. Store-Wise Summary
-      bytes.push(...BOLD_ON);
-      bytes.push(...encoder.encode("I. STORE-WISE ITEMS\n"));
-      bytes.push(...BOLD_OFF);
-      bytes.push(...encoder.encode(dashedLine));
+      if (printType === 'store') {
+        // I. Store-Wise Summary
+        bytes.push(...BOLD_ON);
+        bytes.push(...encoder.encode("I. STORE-WISE ITEMS\n"));
+        bytes.push(...BOLD_OFF);
+        bytes.push(...encoder.encode(dashedLine));
 
-      stores.forEach(store => {
-        let storeItems = [];
-        items.forEach(item => {
-          const qty = wsQuantities[item.id]?.[store.id];
-          if (qty && qty > 0) {
-            const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-            storeItems.push({ name: item.name, qty, unitLabel });
+        stores.forEach(store => {
+          let storeItems = [];
+          items.forEach(item => {
+            const qty = wsQuantities[item.id]?.[store.id];
+            if (qty && qty > 0) {
+              const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
+              storeItems.push({ name: item.name, qty, unitLabel });
+            }
+          });
+
+          if (storeItems.length > 0) {
+            bytes.push(...BOLD_ON);
+            bytes.push(...encoder.encode(`${store.name.toUpperCase()}\n`));
+            bytes.push(...BOLD_OFF);
+
+            storeItems.forEach(si => {
+              let leftText = `* ${si.name}`;
+              if (leftText.length > 18) {
+                bytes.push(...encoder.encode(`${leftText}\n`));
+                leftText = "  ";
+              }
+              const rightText = `${si.qty} ${si.unitLabel}`;
+              bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
+            });
+            bytes.push(...encoder.encode(miniDashedLine));
           }
         });
 
-        if (storeItems.length > 0) {
-          bytes.push(...BOLD_ON);
-          bytes.push(...encoder.encode(`${store.name.toUpperCase()}\n`));
-          bytes.push(...BOLD_OFF);
+        // II. Handwritten Notes
+        bytes.push(...BOLD_ON);
+        bytes.push(...encoder.encode("II. HANDWRITTEN NOTES\n"));
+        bytes.push(...BOLD_OFF);
+        bytes.push(...encoder.encode(dashedLine));
+        bytes.push(...encoder.encode("\n\n")); // Renders space for writing
+      }
 
-          storeItems.forEach(si => {
-            let leftText = `* ${si.name}`;
-            if (leftText.length > 18) {
-              bytes.push(...encoder.encode(`${leftText}\n`));
-              leftText = "  ";
+      if (printType === 'item') {
+        // II. Globally Consolidated Summary
+        bytes.push(...BOLD_ON);
+        bytes.push(...encoder.encode("I. GLOBALLY CONSOLIDATED\n"));
+        bytes.push(...BOLD_OFF);
+        bytes.push(...encoder.encode(dashedLine));
+
+        let overallSumWeight = 0;
+        let overallSumPieces = 0;
+        let totalActiveItems = 0;
+
+        items.forEach(item => {
+          const allocations = wsQuantities[item.id] || {};
+          const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
+
+          if (activeAllocations.length > 0) {
+            totalActiveItems++;
+            const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
+            const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
+
+            if (item.unit === 'Weight') {
+              overallSumWeight += total;
+            } else {
+              overallSumPieces += total;
             }
-            const rightText = `${si.qty} ${si.unitLabel}`;
-            bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
-          });
-          bytes.push(...encoder.encode(miniDashedLine));
-        }
-      });
 
-      // II. Globally Consolidated Summary
-      bytes.push(...BOLD_ON);
-      bytes.push(...encoder.encode("II. GLOBALLY CONSOLIDATED\n"));
-      bytes.push(...BOLD_OFF);
-      bytes.push(...encoder.encode(dashedLine));
+            bytes.push(...BOLD_ON);
+            bytes.push(...encoder.encode(`${item.name.toUpperCase()} (${unitLabel})\n`));
+            bytes.push(...BOLD_OFF);
 
-      let overallSumWeight = 0;
-      let overallSumPieces = 0;
-      let totalActiveItems = 0;
+            activeAllocations.forEach(([storeId, qty]) => {
+              const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
+              let leftText = `- ${storeName}`;
+              if (leftText.length > 18) {
+                bytes.push(...encoder.encode(`${leftText}\n`));
+                leftText = "  ";
+              }
+              const rightText = `${qty} ${unitLabel}`;
+              bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
+            });
 
-      items.forEach(item => {
-        const allocations = wsQuantities[item.id] || {};
-        const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
-
-        if (activeAllocations.length > 0) {
-          totalActiveItems++;
-          const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
-          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-
-          if (item.unit === 'Weight') {
-            overallSumWeight += total;
-          } else {
-            overallSumPieces += total;
+            // Dashed divider line and sum
+            bytes.push(...encoder.encode(miniDashedLine));
+            const sumText = `SUM: ${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}`;
+            bytes.push(...BOLD_ON, ...RIGHT);
+            bytes.push(...encoder.encode(sumText + '\n'));
+            bytes.push(...BOLD_OFF, ...LEFT);
+            bytes.push(...encoder.encode(dashedLine));
           }
+        });
 
-          bytes.push(...BOLD_ON);
-          bytes.push(...encoder.encode(`${item.name.toUpperCase()} (${unitLabel})\n`));
-          bytes.push(...BOLD_OFF);
+        // III. Handwritten Notes
+        bytes.push(...BOLD_ON);
+        bytes.push(...encoder.encode("II. HANDWRITTEN NOTES\n"));
+        bytes.push(...BOLD_OFF);
+        bytes.push(...encoder.encode(dashedLine));
+        bytes.push(...encoder.encode("\n\n")); // Renders space for writing
 
-          activeAllocations.forEach(([storeId, qty]) => {
-            const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
-            let leftText = `- ${storeName}`;
-            if (leftText.length > 18) {
-              bytes.push(...encoder.encode(`${leftText}\n`));
-              leftText = "  ";
-            }
-            const rightText = `${qty} ${unitLabel}`;
-            bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
-          });
-
-          // Dashed divider line and sum
-          bytes.push(...encoder.encode(miniDashedLine));
-          const sumText = `SUM: ${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}`;
-          bytes.push(...BOLD_ON, ...RIGHT);
-          bytes.push(...encoder.encode(sumText + '\n'));
-          bytes.push(...BOLD_OFF, ...LEFT);
-          bytes.push(...encoder.encode(dashedLine));
-        }
-      });
-
-      // III. Handwritten Notes
-      bytes.push(...BOLD_ON);
-      bytes.push(...encoder.encode("III. HANDWRITTEN NOTES\n"));
-      bytes.push(...BOLD_OFF);
-      bytes.push(...encoder.encode(dashedLine));
-      bytes.push(...encoder.encode("\n\n")); // Renders space for writing
-
-      // IV. Cumulative Sums
-      bytes.push(...BOLD_ON);
-      bytes.push(...encoder.encode("IV. CUMULATIVE SUMS\n"));
-      bytes.push(...BOLD_OFF);
-      bytes.push(...encoder.encode(dashedLine));
-      bytes.push(...encoder.encode(justifyLR("Allocated Items:", `${totalActiveItems} Products`)));
-      bytes.push(...encoder.encode(justifyLR("Total Weight:", `${overallSumWeight.toFixed(2)} KG`)));
-      bytes.push(...encoder.encode(justifyLR("Total Pieces:", `${overallSumPieces} Pcs`)));
+        // IV. Cumulative Sums
+        bytes.push(...BOLD_ON);
+        bytes.push(...encoder.encode("III. CUMULATIVE SUMS\n"));
+        bytes.push(...BOLD_OFF);
+        bytes.push(...encoder.encode(dashedLine));
+        bytes.push(...encoder.encode(justifyLR("Allocated Items:", `${totalActiveItems} Products`)));
+        bytes.push(...encoder.encode(justifyLR("Total Weight:", `${overallSumWeight.toFixed(2)} KG`)));
+        bytes.push(...encoder.encode(justifyLR("Total Pieces:", `${overallSumPieces} Pcs`)));
+      }
 
       // Cut paper
       bytes.push(...CENTER);
@@ -532,11 +548,11 @@ const StoreWorkSheet = () => {
       console.error("Direct BLE worksheet print error: ", err);
       toast.dismiss('bt-worksheet-print-job');
       toast.error("Bluetooth print failed. Opening system print fallback...");
-      printHTMLFallback(worksheet);
+      printHTMLFallback(worksheet, printType);
     }
   };
 
-  const buildWorksheetESCPOSBytes = (worksheet, charsPerLine = 48) => {
+  const buildWorksheetESCPOSBytes = (worksheet, charsPerLine = 48, printType = 'store') => {
     const encoder = new TextEncoder();
     const wsQuantities = worksheet.quantities || {};
 
@@ -573,105 +589,116 @@ const StoreWorkSheet = () => {
     bytes.push(...encoder.encode(`PRINTED: ${new Date().toLocaleString()}\n`));
     bytes.push(...encoder.encode(dashedLine));
 
-    // I. Store-Wise Summary
-    bytes.push(...BOLD_ON);
-    bytes.push(...encoder.encode("I. STORE-WISE ITEMS\n"));
-    bytes.push(...BOLD_OFF);
-    bytes.push(...encoder.encode(dashedLine));
+    if (printType === 'store') {
+      // I. Store-Wise Summary
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("I. STORE-WISE ITEMS\n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode(dashedLine));
 
-    stores.forEach(store => {
-      let storeItems = [];
-      items.forEach(item => {
-        const qty = wsQuantities[item.id]?.[store.id];
-        if (qty && qty > 0) {
-          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-          storeItems.push({ name: item.name, qty, unitLabel });
+      stores.forEach(store => {
+        let storeItems = [];
+        items.forEach(item => {
+          const qty = wsQuantities[item.id]?.[store.id];
+          if (qty && qty > 0) {
+            const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
+            storeItems.push({ name: item.name, qty, unitLabel });
+          }
+        });
+
+        if (storeItems.length > 0) {
+          bytes.push(...BOLD_ON);
+          bytes.push(...encoder.encode(`${store.name.toUpperCase()}\n`));
+          bytes.push(...BOLD_OFF);
+
+          storeItems.forEach(si => {
+            let leftText = `* ${si.name}`;
+            if (leftText.length > (charsPerLine - 12)) {
+              bytes.push(...encoder.encode(`${leftText}\n`));
+              leftText = "  ";
+            }
+            const rightText = `${si.qty} ${si.unitLabel}`;
+            bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
+          });
+          bytes.push(...encoder.encode(miniDashedLine));
         }
       });
 
-      if (storeItems.length > 0) {
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode(`${store.name.toUpperCase()}\n`));
-        bytes.push(...BOLD_OFF);
+      // II. Handwritten Notes
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("II. HANDWRITTEN NOTES\n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode(dashedLine));
+      bytes.push(...encoder.encode("\n\n")); // Renders space for writing
+    }
 
-        storeItems.forEach(si => {
-          let leftText = `* ${si.name}`;
-          if (leftText.length > (charsPerLine - 12)) {
-            bytes.push(...encoder.encode(`${leftText}\n`));
-            leftText = "  ";
+    if (printType === 'item') {
+      // II. Globally Consolidated Summary
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("I. GLOBALLY CONSOLIDATED\n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode(dashedLine));
+
+      let overallSumWeight = 0;
+      let overallSumPieces = 0;
+      let totalActiveItems = 0;
+
+      items.forEach(item => {
+        const allocations = wsQuantities[item.id] || {};
+        const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
+
+        if (activeAllocations.length > 0) {
+          totalActiveItems++;
+          const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
+          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
+
+          if (item.unit === 'Weight') {
+            overallSumWeight += total;
+          } else {
+            overallSumPieces += total;
           }
-          const rightText = `${si.qty} ${si.unitLabel}`;
-          bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
-        });
-        bytes.push(...encoder.encode(miniDashedLine));
-      }
-    });
 
-    // II. Globally Consolidated Summary
-    bytes.push(...BOLD_ON);
-    bytes.push(...encoder.encode("II. GLOBALLY CONSOLIDATED\n"));
-    bytes.push(...BOLD_OFF);
-    bytes.push(...encoder.encode(dashedLine));
+          bytes.push(...BOLD_ON);
+          bytes.push(...encoder.encode(`${item.name.toUpperCase()} (${unitLabel})\n`));
+          bytes.push(...BOLD_OFF);
 
-    let overallSumWeight = 0;
-    let overallSumPieces = 0;
-    let totalActiveItems = 0;
+          activeAllocations.forEach(([storeId, qty]) => {
+            const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
+            let leftText = `- ${storeName}`;
+            if (leftText.length > (charsPerLine - 12)) {
+              bytes.push(...encoder.encode(`${leftText}\n`));
+              leftText = "  ";
+            }
+            const rightText = `${qty} ${unitLabel}`;
+            bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
+          });
 
-    items.forEach(item => {
-      const allocations = wsQuantities[item.id] || {};
-      const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
-
-      if (activeAllocations.length > 0) {
-        totalActiveItems++;
-        const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
-        const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-
-        if (item.unit === 'Weight') {
-          overallSumWeight += total;
-        } else {
-          overallSumPieces += total;
+          // Dashed divider line and sum
+          bytes.push(...encoder.encode(miniDashedLine));
+          const sumText = `SUM: ${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}`;
+          bytes.push(...BOLD_ON, ...RIGHT);
+          bytes.push(...encoder.encode(sumText + '\n'));
+          bytes.push(...BOLD_OFF, ...LEFT);
+          bytes.push(...encoder.encode(dashedLine));
         }
+      });
 
-        bytes.push(...BOLD_ON);
-        bytes.push(...encoder.encode(`${item.name.toUpperCase()} (${unitLabel})\n`));
-        bytes.push(...BOLD_OFF);
+      // III. Handwritten Notes
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("II. HANDWRITTEN NOTES\n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode(dashedLine));
+      bytes.push(...encoder.encode("\n\n")); // Renders space for writing
 
-        activeAllocations.forEach(([storeId, qty]) => {
-          const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
-          let leftText = `- ${storeName}`;
-          if (leftText.length > (charsPerLine - 12)) {
-            bytes.push(...encoder.encode(`${leftText}\n`));
-            leftText = "  ";
-          }
-          const rightText = `${qty} ${unitLabel}`;
-          bytes.push(...encoder.encode(justifyLR(leftText, rightText)));
-        });
-
-        // Dashed divider line and sum
-        bytes.push(...encoder.encode(miniDashedLine));
-        const sumText = `SUM: ${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}`;
-        bytes.push(...BOLD_ON, ...RIGHT);
-        bytes.push(...encoder.encode(sumText + '\n'));
-        bytes.push(...BOLD_OFF, ...LEFT);
-        bytes.push(...encoder.encode(dashedLine));
-      }
-    });
-
-    // III. Handwritten Notes
-    bytes.push(...BOLD_ON);
-    bytes.push(...encoder.encode("III. HANDWRITTEN NOTES\n"));
-    bytes.push(...BOLD_OFF);
-    bytes.push(...encoder.encode(dashedLine));
-    bytes.push(...encoder.encode("\n\n")); // Renders space for writing
-
-    // IV. Cumulative Sums
-    bytes.push(...BOLD_ON);
-    bytes.push(...encoder.encode("IV. CUMULATIVE SUMS\n"));
-    bytes.push(...BOLD_OFF);
-    bytes.push(...encoder.encode(dashedLine));
-    bytes.push(...encoder.encode(justifyLR("Allocated Items:", `${totalActiveItems} Products`)));
-    bytes.push(...encoder.encode(justifyLR("Total Weight:", `${overallSumWeight.toFixed(2)} KG`)));
-    bytes.push(...encoder.encode(justifyLR("Total Pieces:", `${overallSumPieces} Pcs`)));
+      // IV. Cumulative Sums
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode("III. CUMULATIVE SUMS\n"));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode(dashedLine));
+      bytes.push(...encoder.encode(justifyLR("Allocated Items:", `${totalActiveItems} Products`)));
+      bytes.push(...encoder.encode(justifyLR("Total Weight:", `${overallSumWeight.toFixed(2)} KG`)));
+      bytes.push(...encoder.encode(justifyLR("Total Pieces:", `${overallSumPieces} Pcs`)));
+    }
 
     // Cut paper
     bytes.push(...CENTER);
@@ -681,7 +708,7 @@ const StoreWorkSheet = () => {
     return new Uint8Array(bytes);
   };
 
-  const printHTMLFallback = (worksheet) => {
+  const printHTMLFallback = (worksheet, printType = 'store') => {
     const printWindow = window.open('', '_blank', 'width=350,height=600');
     if (!printWindow) {
       toast.error("Popup blocked! Please allow popups for thermal printing.");
@@ -690,82 +717,126 @@ const StoreWorkSheet = () => {
 
     const wsQuantities = worksheet.quantities || {};
 
-    // 1. Build Store-Wise Allocations Section
-    let storeWiseHtml = '';
-    stores.forEach(store => {
-      let storeItems = [];
-      items.forEach(item => {
-        const qty = wsQuantities[item.id]?.[store.id];
-        if (qty && qty > 0) {
-          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
-          storeItems.push({ name: item.name, qty, unitLabel });
+    let bodyContentHtml = '';
+
+    if (printType === 'store') {
+      // 1. Build Store-Wise Allocations Section
+      let storeWiseHtml = '';
+      stores.forEach(store => {
+        let storeItems = [];
+        items.forEach(item => {
+          const qty = wsQuantities[item.id]?.[store.id];
+          if (qty && qty > 0) {
+            const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
+            storeItems.push({ name: item.name, qty, unitLabel });
+          }
+        });
+
+        if (storeItems.length > 0) {
+          storeWiseHtml += `<div class="bold store-name-title">${store.name.toUpperCase()}</div>`;
+          storeItems.forEach(si => {
+            storeWiseHtml += `
+              <div class="item-row indent">
+                <span>* ${si.name}</span>
+                <span class="bold">${si.qty} ${si.unitLabel}</span>
+              </div>
+            `;
+          });
+          storeWiseHtml += `<div class="mini-divider"></div>`;
         }
       });
 
-      if (storeItems.length > 0) {
-        storeWiseHtml += `<div class="bold store-name-title">${store.name.toUpperCase()}</div>`;
-        storeItems.forEach(si => {
-          storeWiseHtml += `
-            <div class="item-row indent">
-              <span>* ${si.name}</span>
-              <span class="bold">${si.qty} ${si.unitLabel}</span>
-            </div>
-          `;
-        });
-        storeWiseHtml += `<div class="mini-divider"></div>`;
+      if (!storeWiseHtml) {
+        storeWiseHtml = '<div class="text-center">No allocations recorded.</div>';
       }
-    });
 
-    if (!storeWiseHtml) {
-      storeWiseHtml = '<div class="text-center">No allocations recorded.</div>';
+      bodyContentHtml = `
+        <div class="bold section-title">I. STORE-WISE ITEMS</div>
+        ${storeWiseHtml}
+        
+        <div class="divider"></div>
+        
+        <div class="bold section-title">II. HANDWRITTEN NOTES</div>
+        <div class="note-line"></div>
+        <div class="note-line"></div>
+      `;
     }
 
-    // 2. Build Globally Consolidated Items Section
-    let itemWiseHtml = '';
-    let overallSumWeight = 0;
-    let overallSumPieces = 0;
-    let totalActiveItems = 0;
+    if (printType === 'item') {
+      // 2. Build Globally Consolidated Items Section
+      let itemWiseHtml = '';
+      let overallSumWeight = 0;
+      let overallSumPieces = 0;
+      let totalActiveItems = 0;
 
-    items.forEach(item => {
-      const allocations = wsQuantities[item.id] || {};
-      const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
+      items.forEach(item => {
+        const allocations = wsQuantities[item.id] || {};
+        const activeAllocations = Object.entries(allocations).filter(([_, qty]) => qty > 0);
 
-      if (activeAllocations.length > 0) {
-        totalActiveItems++;
-        const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
-        const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
+        if (activeAllocations.length > 0) {
+          totalActiveItems++;
+          const total = activeAllocations.reduce((sum, [_, qty]) => sum + qty, 0);
+          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pcs';
 
-        if (item.unit === 'Weight') {
-          overallSumWeight += total;
-        } else {
-          overallSumPieces += total;
-        }
+          if (item.unit === 'Weight') {
+            overallSumWeight += total;
+          } else {
+            overallSumPieces += total;
+          }
 
-        itemWiseHtml += `<div class="bold item-name-title">${item.name.toUpperCase()} (${unitLabel})</div>`;
-        activeAllocations.forEach(([storeId, qty]) => {
-          const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
+          itemWiseHtml += `<div class="bold item-name-title">${item.name.toUpperCase()} (${unitLabel})</div>`;
+          activeAllocations.forEach(([storeId, qty]) => {
+            const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
+            itemWiseHtml += `
+              <div class="item-row indent">
+                <span>- ${storeName}</span>
+                <span>${qty} ${unitLabel}</span>
+              </div>
+            `;
+          });
+
+          // Add visual divider note line before writing the sum
           itemWiseHtml += `
-            <div class="item-row indent">
-              <span>- ${storeName}</span>
-              <span>${qty} ${unitLabel}</span>
+            <div class="mini-divider-dashed"></div>
+            <div class="item-row indent bold sum-row">
+              <span>SUM:</span>
+              <span>${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}</span>
             </div>
+            <div class="mini-divider"></div>
           `;
-        });
+        }
+      });
 
-        // Add visual divider note line before writing the sum
-        itemWiseHtml += `
-          <div class="mini-divider-dashed"></div>
-          <div class="item-row indent bold sum-row">
-            <span>SUM:</span>
-            <span>${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}</span>
-          </div>
-          <div class="mini-divider"></div>
-        `;
+      if (!itemWiseHtml) {
+        itemWiseHtml = '<div class="text-center">No allocations recorded.</div>';
       }
-    });
 
-    if (!itemWiseHtml) {
-      itemWiseHtml = '<div class="text-center">No allocations recorded.</div>';
+      bodyContentHtml = `
+        <div class="bold section-title">I. GLOBALLY CONSOLIDATED</div>
+        ${itemWiseHtml}
+        
+        <div class="divider"></div>
+        
+        <div class="bold section-title">II. HANDWRITTEN NOTES</div>
+        <div class="note-line"></div>
+        <div class="note-line"></div>
+        
+        <div class="divider"></div>
+        
+        <div class="bold section-title">III. CUMULATIVE SUMS</div>
+        <div class="item-row">
+          <span>Allocated Items:</span>
+          <span class="bold">${totalActiveItems} Products</span>
+        </div>
+        <div class="item-row">
+          <span>Total Ghee Weight:</span>
+          <span class="bold">${overallSumWeight.toFixed(2)} KG</span>
+        </div>
+        <div class="item-row">
+          <span>Total Piece Count:</span>
+          <span class="bold">${overallSumPieces} Pcs</span>
+        </div>
+      `;
     }
 
     const receiptContent = `
@@ -861,38 +932,10 @@ const StoreWorkSheet = () => {
           <div><strong>PRINTED:</strong> ${new Date().toLocaleString()}</div>
           <div class="divider"></div>
           
-          <div class="bold section-title">I. STORE-WISE ITEMS</div>
-          ${storeWiseHtml}
+          ${bodyContentHtml}
           
           <div class="divider"></div>
-          
-          <div class="bold section-title">II. GLOBALLY CONSOLIDATED</div>
-          ${itemWiseHtml}
-          
-          <div class="divider"></div>
-          
-          <div class="bold section-title">III. HANDWRITTEN NOTES</div>
-          <div class="note-line"></div>
-          <div class="note-line"></div>
-          
-          <div class="divider"></div>
-          
-          <div class="bold section-title">IV. CUMULATIVE SUMS</div>
-          <div class="item-row">
-            <span>Allocated Items:</span>
-            <span class="bold">${totalActiveItems} Products</span>
-          </div>
-          <div class="item-row">
-            <span>Total Ghee Weight:</span>
-            <span class="bold">${overallSumWeight.toFixed(2)} KG</span>
-          </div>
-          <div class="item-row">
-            <span>Total Piece Count:</span>
-            <span class="bold">${overallSumPieces} Pcs</span>
-          </div>
-          
-          <div class="divider"></div>
-          <div class="text-center footer">*** BLUETOOTH THERMAL PRINT ***</div>
+          <div class="text-center footer">*** THERMAL TICKET PRINT ***</div>
           <script>
             window.onload = function() {
               window.print();
@@ -907,22 +950,22 @@ const StoreWorkSheet = () => {
     printWindow.document.close();
   };
 
-  const handlePrint = async (worksheet) => {
+  const handlePrint = async (worksheet, printType = 'store') => {
     // 1. Bluetooth Connection Check
     if (bluetoothConnected && printerCharacteristicRef.current) {
-      await printDirectToBluetooth(worksheet);
+      await printDirectToBluetooth(worksheet, printType);
       return;
     }
 
     // 2. QZ Tray USB Connection Check
     if (qzConnected && selectedQZPrinter) {
-      const bytes = buildWorksheetESCPOSBytes(worksheet, 48); // 48 chars standard width for QZ 80mm
+      const bytes = buildWorksheetESCPOSBytes(worksheet, 48, printType); // 48 chars standard width for QZ 80mm
       const success = await printViaQZTray(bytes);
       if (success) return;
     }
 
     // 3. Fallback to System HTML dialog
-    printHTMLFallback(worksheet);
+    printHTMLFallback(worksheet, printType);
   };
 
   if (loading) {
@@ -930,7 +973,8 @@ const StoreWorkSheet = () => {
   }
 
   return (
-    <div className="ws-container">
+    <>
+      <div className="ws-container">
       <div className="ws-header">
         <div className="ws-header-info">
           <h1>Store Work Sheet</h1>
@@ -1085,9 +1129,14 @@ const StoreWorkSheet = () => {
                 {history.map(sheet => {
                   // Count total allocated items
                   const allocatedItemsCount = Object.keys(sheet.quantities || {}).length;
-
+                  
                   return (
-                    <div key={sheet.id} className="ws-history-card">
+                    <div 
+                      key={sheet.id} 
+                      className="ws-history-card" 
+                      onClick={() => setPreviewSheet(sheet)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="ws-card-header">
                         <span className="ws-card-date">
                           <Calendar size={18} color="var(--accent-color)" />
@@ -1095,7 +1144,7 @@ const StoreWorkSheet = () => {
                         </span>
                         <ChevronRight size={18} color="var(--text-secondary)" />
                       </div>
-
+                      
                       <div className="ws-card-stats">
                         <span className="ws-stat-pill">
                           <strong>{allocatedItemsCount}</strong> Products
@@ -1105,11 +1154,11 @@ const StoreWorkSheet = () => {
                           {stores.length} Stores
                         </span>
                       </div>
-
+                      
                       <div className="ws-card-actions">
-                        <button
-                          className="ws-print-btn"
-                          onClick={() => handlePrint(sheet)}
+                        <button 
+                          className="ws-print-btn" 
+                          onClick={(e) => { e.stopPropagation(); setPrintTargetSheet(sheet); }}
                         >
                           <Printer size={15} />
                           Print Ticket
@@ -1131,6 +1180,7 @@ const StoreWorkSheet = () => {
           </>
         )}
       </div>
+    </div>
 
       {/* ========================================== */}
       {/* PRINTER UTILITY DIALOG MODALS              */}
@@ -1317,7 +1367,260 @@ const StoreWorkSheet = () => {
           </div>
         )}
       </AnimatePresence>
-    </div>
+
+      {/* Consolidated Analytics Preview Modal */}
+      <AnimatePresence>
+        {previewSheet && (() => {
+          const wsQuantities = previewSheet.quantities || {};
+          
+          // Calculate cumulative sums
+          let overallSumWeight = 0;
+          let overallSumPieces = 0;
+          let totalActiveItems = 0;
+          
+          // Store-wise parsed data
+          const storeBreakdowns = stores.map(store => {
+            const allocatedItems = [];
+            items.forEach(item => {
+              const qty = Number(wsQuantities[item.id]?.[store.id] || 0);
+              if (qty > 0) {
+                allocatedItems.push({
+                  id: item.id,
+                  name: item.name,
+                  qty,
+                  unit: item.unit,
+                  unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs'
+                });
+              }
+            });
+            return {
+              ...store,
+              allocatedItems
+            };
+          }).filter(s => s.allocatedItems.length > 0);
+
+          // Globally consolidated parsed data
+          const consolidatedItems = [];
+          items.forEach(item => {
+            const allocations = wsQuantities[item.id] || {};
+            const storeAllocations = [];
+            let itemTotal = 0;
+
+            Object.entries(allocations).forEach(([storeId, qtyStr]) => {
+              const qty = Number(qtyStr || 0);
+              if (qty > 0) {
+                const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
+                storeAllocations.push({ storeId, storeName, qty });
+                itemTotal += qty;
+              }
+            });
+
+            if (itemTotal > 0) {
+              totalActiveItems++;
+              if (item.unit === 'Weight') {
+                overallSumWeight += itemTotal;
+              } else {
+                overallSumPieces += itemTotal;
+              }
+
+              consolidatedItems.push({
+                id: item.id,
+                name: item.name,
+                unit: item.unit,
+                unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs',
+                total: itemTotal,
+                storeAllocations
+              });
+            }
+          });
+
+          return (
+            <div className="modal-overlay" style={{ zIndex: 4000 }}>
+              <motion.div
+                className="ws-analytics-modal"
+                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 30, scale: 0.98 }}
+                transition={{ type: "spring", duration: 0.5 }}
+              >
+                {/* Modal Header */}
+                <div className="ws-modal-header">
+                  <div className="ws-modal-title-area">
+                    <ClipboardList size={22} className="ws-modal-header-icon" />
+                    <div>
+                      <h2>Consolidated Analytics</h2>
+                      <p>Worksheet for {previewSheet.date}</p>
+                    </div>
+                  </div>
+                  <button className="ws-modal-close-btn" onClick={() => setPreviewSheet(null)}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="ws-modal-body">
+                  {/* Quick Metrics row */}
+                  <div className="ws-metrics-grid">
+                    <div className="ws-metric-card">
+                      <span className="ws-metric-label">Products Active</span>
+                      <span className="ws-metric-value">{totalActiveItems}</span>
+                      <span className="ws-metric-sub">Allocated items</span>
+                    </div>
+                    <div className="ws-metric-card">
+                      <span className="ws-metric-label">Total Ghee Weight</span>
+                      <span className="ws-metric-value">{overallSumWeight.toFixed(2)} <span className="ws-metric-unit">KG</span></span>
+                      <span className="ws-metric-sub">Distributed weight</span>
+                    </div>
+                    <div className="ws-metric-card">
+                      <span className="ws-metric-label">Total Piece Count</span>
+                      <span className="ws-metric-value">{overallSumPieces} <span className="ws-metric-unit">Pcs</span></span>
+                      <span className="ws-metric-sub">Distributed units</span>
+                    </div>
+                  </div>
+
+                  {/* Columns for Store-Wise and Consolidated */}
+                  <div className="ws-analytics-columns">
+                    {/* Column 1: Store-wise Breakdowns */}
+                    <div className="ws-analytics-column">
+                      <div className="ws-column-header">
+                        <Building size={16} />
+                        <h3>Store-Wise Summaries</h3>
+                      </div>
+                      
+                      {storeBreakdowns.length > 0 ? (
+                        <div className="ws-column-scrollable">
+                          {storeBreakdowns.map(sb => (
+                            <div key={sb.id} className="ws-analytics-store-card">
+                              <div className="ws-store-card-header">{sb.name}</div>
+                              <div className="ws-store-card-list">
+                                {sb.allocatedItems.map(item => (
+                                  <div key={item.id} className="ws-store-card-item">
+                                    <span className="ws-item-name">{item.name}</span>
+                                    <span className="ws-item-qty">{item.qty} {item.unitLabel}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="ws-column-empty">No Store Allocations Found</div>
+                      )}
+                    </div>
+
+                    {/* Column 2: Consolidated Inventory */}
+                    <div className="ws-analytics-column">
+                      <div className="ws-column-header">
+                        <PackageCheck size={16} />
+                        <h3>Consolidated Products</h3>
+                      </div>
+
+                      {consolidatedItems.length > 0 ? (
+                        <div className="ws-column-scrollable">
+                          {consolidatedItems.map(ci => (
+                            <div key={ci.id} className="ws-analytics-product-card">
+                              <div className="ws-product-card-header">
+                                <span className="ws-product-name">{ci.name}</span>
+                                <span className={`ws-unit-badge ${ci.unit === 'Weight' ? 'weight' : 'piece'}`}>
+                                  {ci.total.toFixed(ci.unit === 'Weight' ? 2 : 0)} {ci.unitLabel}
+                                </span>
+                              </div>
+                              <div className="ws-product-card-allocations">
+                                {ci.storeAllocations.map(sa => (
+                                  <div key={sa.storeId} className="ws-product-allocation-row">
+                                    <span className="ws-alloc-store">{sa.storeName}</span>
+                                    <span className="ws-alloc-qty">{sa.qty} {ci.unitLabel}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="ws-column-empty">No Product Allocations Found</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="ws-modal-footer">
+                  <button className="ws-modal-btn secondary" onClick={() => setPreviewSheet(null)}>
+                    Close Preview
+                  </button>
+                  <button className="ws-save-btn" style={{ height: '40px' }} onClick={() => setPrintTargetSheet(previewSheet)}>
+                    <Printer size={18} />
+                    Print Ticket
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* Print Options Selection Modal */}
+      <AnimatePresence>
+        {printTargetSheet && (
+          <div className="modal-overlay" style={{ zIndex: 6000 }} onClick={() => setPrintTargetSheet(null)}>
+            <motion.div
+              className="custom-modal ws-print-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{ maxWidth: '420px', width: '90%' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-icon-box" style={{ background: 'rgba(212, 175, 55, 0.1)', color: 'var(--accent-color)' }}>
+                <Printer size={28} />
+              </div>
+              <h3 className="modal-title">Select Print Format</h3>
+              <p className="modal-text" style={{ marginBottom: '20px' }}>Choose how you would like to print the worksheet for {printTargetSheet.date}:</p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+                <button
+                  className="ws-print-option-card"
+                  onClick={() => {
+                    handlePrint(printTargetSheet, 'store');
+                    setPrintTargetSheet(null);
+                  }}
+                >
+                  <div className="ws-print-option-icon">
+                    <Building size={20} />
+                  </div>
+                  <div>
+                    <div className="ws-print-option-title">Store-Wise Print</div>
+                    <div className="ws-print-option-desc">Prints items grouped individually under each branch store.</div>
+                  </div>
+                </button>
+
+                <button
+                  className="ws-print-option-card"
+                  onClick={() => {
+                    handlePrint(printTargetSheet, 'item');
+                    setPrintTargetSheet(null);
+                  }}
+                >
+                  <div className="ws-print-option-icon">
+                    <PackageCheck size={20} />
+                  </div>
+                  <div>
+                    <div className="ws-print-option-title">Item-Wise Print</div>
+                    <div className="ws-print-option-desc">Prints globally consolidated sums and cumulative product counts.</div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '24px' }}>
+                <button className="modal-btn cancel" onClick={() => setPrintTargetSheet(null)}>
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

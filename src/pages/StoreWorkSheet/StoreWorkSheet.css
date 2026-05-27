@@ -374,3 +374,374 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ========================================== */
+/* CONSOLIDATED ANALYTICS MODAL STYLE         */
+/* ========================================== */
+.ws-analytics-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  width: 95%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  animation: ws-fade-in 0.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+.ws-modal-header {
+  padding: 20px 24px;
+  background: var(--card-bg);
+  border-bottom: 1.5px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ws-modal-title-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ws-modal-header-icon {
+  color: var(--accent-color);
+  background: rgba(212, 175, 55, 0.1);
+  padding: 10px;
+  border-radius: 12px;
+  box-sizing: content-box;
+}
+
+.ws-modal-title-area h2 {
+  font-size: 20px;
+  color: var(--primary-color);
+  margin: 0 0 2px 0;
+  font-weight: 700;
+}
+
+.ws-modal-title-area p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.ws-modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.ws-modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--primary-color);
+}
+
+.ws-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Quick Metrics Row */
+.ws-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.ws-metric-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.ws-metric-card:hover {
+  border-color: var(--accent-color);
+  box-shadow: var(--shadow-md);
+}
+
+.ws-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.ws-metric-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--primary-color);
+  line-height: 1.2;
+}
+
+.ws-metric-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ws-metric-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Columns for Analytics Lists */
+.ws-analytics-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .ws-analytics-columns {
+    grid-template-columns: 1fr;
+  }
+  .ws-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .ws-analytics-modal {
+    max-height: 95vh;
+  }
+}
+
+.ws-analytics-column {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: var(--shadow-sm);
+  max-height: 450px;
+}
+
+.ws-column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary-color);
+  border-bottom: 1.5px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.ws-column-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.ws-column-scrollable {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+}
+
+.ws-column-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Store card inside summaries */
+.ws-analytics-store-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  transition: var(--transition);
+}
+
+.ws-analytics-store-card:hover {
+  border-color: var(--accent-color);
+}
+
+.ws-store-card-header {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 6px;
+}
+
+.ws-store-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ws-store-card-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.ws-store-card-item .ws-item-qty {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+/* Product card inside consolidated list */
+.ws-analytics-product-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  transition: var(--transition);
+}
+
+.ws-analytics-product-card:hover {
+  border-color: var(--accent-color);
+}
+
+.ws-product-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 6px;
+}
+
+.ws-product-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+.ws-product-card-allocations {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ws-product-allocation-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ws-alloc-qty {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Modal Footer */
+.ws-modal-footer {
+  padding: 16px 24px;
+  background: var(--card-bg);
+  border-top: 1.5px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.ws-modal-btn {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ws-modal-btn.secondary {
+  background: #FFFFFF;
+  border: 1.5px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.ws-modal-btn.secondary:hover {
+  background: #F8FAFC;
+  color: var(--primary-color);
+  border-color: var(--text-secondary);
+}
+
+/* Print Options Modal Card Buttons */
+.ws-print-option-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: left;
+}
+
+.ws-print-option-card:hover {
+  border-color: var(--accent-color);
+  background: rgba(212, 175, 55, 0.03);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.ws-print-option-icon {
+  background: rgba(10, 42, 27, 0.05);
+  color: var(--primary-color);
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ws-print-option-card:hover .ws-print-option-icon {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.ws-print-option-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 2px;
+}
+
+.ws-print-option-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+
