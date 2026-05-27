@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  Search, 
-  ShoppingBag, 
-  User, 
-  Store, 
-  X, 
-  ChevronDown, 
-  Scale, 
+import {
+  Plus,
+  Search,
+  ShoppingBag,
+  User,
+  Store,
+  X,
+  ChevronDown,
+  Scale,
   Trash2,
   Minus,
   Calendar,
@@ -28,12 +28,12 @@ import {
 import { connectQZ, listQZPrinters, disconnectQZ, printRawToQZ, buildOrderESCPOS } from '../../utils/qzTray';
 import logo from '../../assets/logo.png';
 import { db } from '../../config/firebase';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  query, 
-  orderBy, 
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
   onSnapshot,
   doc,
   updateDoc,
@@ -61,7 +61,7 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter(opt => 
+  const filteredOptions = options.filter(opt =>
     (opt.name || opt.firstName + ' ' + opt.lastName || '').toLowerCase().includes(search.toLowerCase()) ||
     (opt.mobileNumber || opt.phone || '').includes(search)
   );
@@ -75,8 +75,8 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Icon size={18} color="var(--primary-color)" />
           <span>
-            {selectedOption 
-              ? (selectedOption.name || selectedOption.firstName + ' ' + selectedOption.lastName) 
+            {selectedOption
+              ? (selectedOption.name || selectedOption.firstName + ' ' + selectedOption.lastName)
               : placeholder}
           </span>
         </div>
@@ -85,16 +85,16 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             className="ord-dropdown-popover"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="ord-dropdown-search">
-              <input 
-                type="text" 
-                placeholder="Search..." 
+              <input
+                type="text"
+                placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
@@ -103,8 +103,8 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
             <div className="ord-dropdown-list">
               {filteredOptions.length > 0 ? (
                 filteredOptions.map(opt => (
-                  <div 
-                    key={opt.id} 
+                  <div
+                    key={opt.id}
                     className="ord-dropdown-item"
                     onClick={() => {
                       onSelect(opt.id);
@@ -120,7 +120,7 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
                 <div style={{ padding: '15px', textAlign: 'center' }}>
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>No results found</div>
                   {onCreateClick && (
-                    <button 
+                    <button
                       type="button"
                       className="ord-create-customer-dropdown-btn"
                       onClick={() => {
@@ -171,6 +171,12 @@ const Orders = () => {
   const [categories, setCategories] = useState([]);
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
+  const [previewTab, setPreviewTab] = useState('payment');
+  const [previewInstallments, setPreviewInstallments] = useState([]);
+  const [addPayAmount, setAddPayAmount] = useState('');
+  const [addPayMode, setAddPayMode] = useState('UPI');
+  const [addPayNotes, setAddPayNotes] = useState('');
+  const [addingPayment, setAddingPayment] = useState(false);
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
@@ -224,7 +230,7 @@ const Orders = () => {
   const handleOpenCreateCustomer = (searchVal) => {
     let initialPhone = '';
     let initialFirstName = '';
-    
+
     if (/^\d+$/.test(searchVal)) {
       initialPhone = searchVal;
     } else {
@@ -254,15 +260,15 @@ const Orders = () => {
         ...customerFormData,
         createdAt: serverTimestamp()
       });
-      
+
       const newCust = {
         id: docRef.id,
         ...customerFormData
       };
-      
+
       setCustomers(prev => [newCust, ...prev].sort((a, b) => a.firstName.localeCompare(b.firstName)));
       setSelectedCustomer(docRef.id);
-      
+
       toast.success("Customer created and selected!");
       setShowCreateCustomerModal(false);
     } catch (error) {
@@ -284,7 +290,6 @@ const Orders = () => {
 
   useEffect(() => {
     if (showAddModal) {
-      // Fetch data for the modal
       const fetchModalData = async () => {
         const [custSnap, storeSnap, itemSnap, muSnap, puSnap, catSnap] = await Promise.all([
           getDocs(query(collection(db, 'customers'), orderBy('firstName', 'asc'))),
@@ -305,6 +310,87 @@ const Orders = () => {
       fetchModalData();
     }
   }, [showAddModal]);
+
+  // Fetch installments dynamic subcollection for order preview
+  useEffect(() => {
+    if (previewOrder) {
+      const remaining = previewOrder.totalAmount - (previewOrder.receivedAmount || 0);
+      setAddPayAmount(remaining > 0 ? remaining.toFixed(2) : '');
+      setAddPayMode('UPI');
+      setAddPayNotes('');
+
+      const fetchInstallments = async () => {
+        try {
+          const snap = await getDocs(query(collection(db, 'orders', previewOrder.id, 'installments'), orderBy('createdAt', 'asc')));
+          setPreviewInstallments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (err) {
+          console.error("Failed to load installments:", err);
+          setPreviewInstallments([]);
+        }
+      };
+      fetchInstallments();
+    } else {
+      setPreviewInstallments([]);
+    }
+  }, [previewOrder]);
+
+  const handleAddPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!previewOrder) return;
+
+    const amountVal = parseFloat(addPayAmount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+
+    const remaining = previewOrder.totalAmount - (previewOrder.receivedAmount || 0);
+    if (amountVal > remaining + 0.01) {
+      toast.error(`Payment amount cannot exceed the remaining balance of ₹${remaining.toFixed(2)}`);
+      return;
+    }
+
+    setAddingPayment(true);
+    try {
+      const orderRef = doc(db, 'orders', previewOrder.id);
+      const newReceived = (previewOrder.receivedAmount || 0) + amountVal;
+      let newStatus = 'Pending';
+      if (newReceived >= previewOrder.totalAmount - 0.01) {
+        newStatus = 'Done';
+      } else if (newReceived > 0) {
+        newStatus = 'Partial';
+      }
+
+      // 1. Write the installment record
+      await addDoc(collection(db, 'orders', previewOrder.id, 'installments'), {
+        amount: amountVal,
+        paymentMode: addPayMode,
+        notes: addPayNotes || 'Subsequent Installment',
+        createdAt: serverTimestamp()
+      });
+
+      // 2. Update parent order in Firestore
+      await updateDoc(orderRef, {
+        receivedAmount: newReceived,
+        paymentStatus: newStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      // 3. Responsive state update
+      setPreviewOrder(prev => ({
+        ...prev,
+        receivedAmount: newReceived,
+        paymentStatus: newStatus
+      }));
+
+      toast.success(`Payment of ₹${amountVal.toFixed(2)} recorded successfully!`);
+    } catch (error) {
+      console.error("Save Preview Payment Error:", error);
+      toast.error("Failed to save payment installment");
+    } finally {
+      setAddingPayment(false);
+    }
+  };
 
   const handleItemClick = (item) => {
     if (item.unit === 'Weight') {
@@ -327,7 +413,7 @@ const Orders = () => {
 
   const addToCart = (item, quantity, total, itemDescription = '') => {
     const existingIndex = cart.findIndex(c => c.id === item.id);
-    
+
     if (existingIndex > -1) {
       const newCart = [...cart];
       if (item.unit !== 'Weight') {
@@ -449,7 +535,7 @@ const Orders = () => {
         }
         toast.success(`Order #${orderId} saved successfully!`);
       }
-      
+
       setShowAddModal(false);
       resetForm();
     } catch (error) {
@@ -588,7 +674,7 @@ const Orders = () => {
 
     try {
       const encoder = new TextEncoder();
-      
+
       // ESC/POS Commands
       const INIT = new Uint8Array([0x1b, 0x40]);
       const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
@@ -597,11 +683,11 @@ const Orders = () => {
       const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
       const BOLD_ON = new Uint8Array([0x1b, 0x45, 0x01]);
       const BOLD_OFF = new Uint8Array([0x1b, 0x45, 0x00]);
-      
+
       let bytes = [];
-      
+
       bytes.push(...INIT);
-      
+
       // Header
       bytes.push(...CENTER);
       bytes.push(...DOUBLE_SIZE);
@@ -610,7 +696,7 @@ const Orders = () => {
       bytes.push(...encoder.encode(`${order.storeName || 'Outlet Store'}\n`));
       bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
+
       // Order Details
       bytes.push(...LEFT);
       bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
@@ -618,18 +704,18 @@ const Orders = () => {
       bytes.push(...encoder.encode(`Phone: ${order.customerPhone}\n`));
       bytes.push(...encoder.encode(`Date: ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '')}\n`));
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
+
       // Table Header
       bytes.push(...BOLD_ON);
       bytes.push(...encoder.encode("Item            Qty      Total  \n"));
       bytes.push(...BOLD_OFF);
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
+
       // Items list
       order.items.forEach(item => {
         const qtyPart = (item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`).padEnd(8, ' ');
         const pricePart = `Rs.${Number(item.total).toFixed(0)}`.padStart(8, ' ');
-        
+
         if (item.name.length > 14) {
           bytes.push(...encoder.encode(`${item.name}\n`));
           const spacesPart = "".padEnd(14, ' ');
@@ -639,26 +725,35 @@ const Orders = () => {
           bytes.push(...encoder.encode(`${namePart} ${qtyPart} ${pricePart}\n`));
         }
       });
-      
+
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
-      // Total
+
+      // Totals
+      const totalStr = `Rs.${Number(order.totalAmount || 0).toFixed(2)}`;
+      const paidStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
+      const balanceStr = `Rs.${(Number(order.totalAmount || 0) - Number(order.receivedAmount || 0)).toFixed(2)}`;
+
+      const totalLabel = "TOTAL AMOUNT:".padEnd(14, ' ');
+      const paidLabel = "PAID:".padEnd(14, ' ');
+      const balanceLabel = "BALANCE DUE:".padEnd(14, ' ');
+
+      bytes.push(...encoder.encode(`${totalLabel}${totalStr.padStart(18, ' ')}\n`));
+      bytes.push(...encoder.encode(`${paidLabel}${paidStr.padStart(18, ' ')}\n`));
       bytes.push(...BOLD_ON);
-      const grandTotalStr = `Rs.${Number(order.totalAmount).toFixed(2)}`;
-      bytes.push(...encoder.encode(`TOTAL AMOUNT: ${grandTotalStr.padStart(18, ' ')}\n`));
+      bytes.push(...encoder.encode(`${balanceLabel}${balanceStr.padStart(18, ' ')}\n`));
       bytes.push(...BOLD_OFF);
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
+
       // Footer
       bytes.push(...CENTER);
       bytes.push(...encoder.encode("Thank you for your business!\n"));
       bytes.push(...encoder.encode("Please visit again.\n\n"));
-      
+
       const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
       bytes.push(...CUT);
 
       const dataArray = new Uint8Array(bytes);
-      
+
       // BLE write chunking
       const CHUNK_SIZE = 20;
       for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
@@ -666,7 +761,7 @@ const Orders = () => {
         await printerCharacteristicRef.current.writeValue(chunk);
         await new Promise(resolve => setTimeout(resolve, 30));
       }
-      
+
       toast.dismiss('bt-order-print-job');
       toast.success("Order receipt printed successfully!");
     } catch (err) {
@@ -733,7 +828,7 @@ const Orders = () => {
   const disconnectQZTray = async () => {
     try {
       await disconnectQZ();
-    } catch (_) {}
+    } catch (_) { }
     setQzConnected(false);
     setQzPrinters([]);
     setSelectedQZPrinter('');
@@ -746,7 +841,7 @@ const Orders = () => {
       setIsScanningBt(true);
       try {
         toast.loading("Opening browser Bluetooth pairing selector...", { id: 'bt-loading' });
-        
+
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: [
@@ -760,7 +855,7 @@ const Orders = () => {
         toast.loading(`Establishing pairing session to ${device.name || "Thermal Printer"}...`, { id: 'bt-pair' });
 
         const server = await device.gatt.connect();
-        
+
         let service = null;
         try {
           service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
@@ -789,7 +884,7 @@ const Orders = () => {
         toast.dismiss('bt-loading');
         toast.dismiss('bt-pair');
         console.error("Web Bluetooth Native Prompt Error:", error);
-        
+
         if (error.name === 'NotFoundError') {
           toast.error("Bluetooth scan cancelled.");
         } else {
@@ -847,21 +942,21 @@ const Orders = () => {
 
   const calculateOverallOrderStatus = (items) => {
     if (!items || items.length === 0) return 'new';
-    
+
     const getStatus = (item) => (item.status || 'preparation_started').toLowerCase().trim();
-    
+
     // Check if ALL items are delivered
     const allDelivered = items.every(item => getStatus(item) === 'delivered');
     if (allDelivered) return 'Delivered';
-    
+
     // Check if ANY item has progressed beyond preparation_started (or new/empty status)
     const hasProgressed = items.some(item => {
       const st = getStatus(item);
       return st !== 'preparation_started' && st !== 'new' && st !== '';
     });
-    
+
     if (hasProgressed) return 'In Progress';
-    
+
     return 'new';
   };
 
@@ -870,17 +965,17 @@ const Orders = () => {
       const orderRef = doc(db, 'orders', orderId);
       const order = orders.find(o => o.id === orderId);
       if (!order) return;
-      
+
       const newItems = order.items.map((item, idx) => {
         if (idx === itemIndex) {
           return { ...item, status: newStatus };
         }
         return { ...item };
       });
-      
+
       const overallStatus = calculateOverallOrderStatus(newItems);
-      
-      await updateDoc(orderRef, { 
+
+      await updateDoc(orderRef, {
         items: newItems,
         status: overallStatus
       });
@@ -921,8 +1016,8 @@ const Orders = () => {
           <p>Track and manage customer sweet orders and factory production</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <button 
-            className="st-compact-bluetooth" 
+          <button
+            className="st-compact-bluetooth"
             onClick={bluetoothConnected ? disconnectPrinter : openBluetoothScanner}
             style={{
               display: 'inline-flex',
@@ -945,10 +1040,10 @@ const Orders = () => {
             <Bluetooth size={16} className={bluetoothConnected ? 'connected' : 'disconnected'} />
             <span>{bluetoothConnected ? 'Printer Connected' : 'Connect BT Printer'}</span>
           </button>
-          
+
           {/* USB QZ Tray Printer Button */}
-          <button 
-            className="st-compact-bluetooth" 
+          <button
+            className="st-compact-bluetooth"
             onClick={qzConnected ? disconnectQZTray : connectQZTray}
             disabled={qzConnecting || qzPrinting}
             style={{
@@ -975,9 +1070,9 @@ const Orders = () => {
               <Usb size={16} className={qzConnected ? 'connected' : 'disconnected'} />
             )}
             <span>
-              {qzConnected ? 'USB Connected' : 
-               qzPrinting ? 'Printing...' :
-               qzConnecting ? `Connecting (${qzConnectTimer}s)` : 'Connect USB Printer'}
+              {qzConnected ? 'USB Connected' :
+                qzPrinting ? 'Printing...' :
+                  qzConnecting ? `Connecting (${qzConnectTimer}s)` : 'Connect USB Printer'}
             </span>
           </button>
 
@@ -994,9 +1089,9 @@ const Orders = () => {
         <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
           <div className="items-search-bar" style={{ maxWidth: '400px' }}>
             <Search size={18} className="items-search-icon" />
-            <input 
-              type="text" 
-              placeholder="Search by Order ID or Customer..." 
+            <input
+              type="text"
+              placeholder="Search by Order ID or Customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -1021,8 +1116,8 @@ const Orders = () => {
             {loading ? (
               <tr><td colSpan="9" style={{ textAlign: 'center', padding: '100px' }}><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></td></tr>
             ) : orders.length > 0 ? (
-              orders.filter(o => 
-                o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) || 
+              orders.filter(o =>
+                o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 o.customerName.toLowerCase().includes(searchQuery.toLowerCase())
               ).map(order => (
                 <React.Fragment key={order.id}>
@@ -1064,14 +1159,14 @@ const Orders = () => {
                     </td>
                     <td>
                       <div className="ord-actions-cell">
-                        <button className="ord-action-btn view" title="Preview" onClick={() => setPreviewOrder(order)}><Eye size={16} /></button>
+                        <button className="ord-action-btn view" title="Preview" onClick={() => { setPreviewTab('payment'); setPreviewOrder(order); }}><Eye size={16} /></button>
                         <button className="ord-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={16} /></button>
                         <button className="ord-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
                         <button className="ord-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
-                  
+
                   {expandedOrders.includes(order.id) && (
                     <tr className="ord-accordion-row">
                       <td colSpan="9" style={{ padding: 0 }}>
@@ -1095,7 +1190,7 @@ const Orders = () => {
                                   <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
                                   <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
                                   <td>
-                                    <select 
+                                    <select
                                       className="ord-item-status-select"
                                       value={item.status || 'preparation_started'}
                                       onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
@@ -1128,7 +1223,7 @@ const Orders = () => {
       {/* Add Order Full Screen Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <motion.div 
+          <motion.div
             className="ord-full-modal"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -1151,7 +1246,7 @@ const Orders = () => {
               <div className="ord-items-panel">
                 <div className="ord-panel-header">
                   <div className="ord-panel-top">
-                    <CustomDropdown 
+                    <CustomDropdown
                       label="Select Customer"
                       options={customers}
                       onSelect={setSelectedCustomer}
@@ -1160,7 +1255,7 @@ const Orders = () => {
                       icon={User}
                       onCreateClick={handleOpenCreateCustomer}
                     />
-                    <CustomDropdown 
+                    <CustomDropdown
                       label="Select Delivery Store"
                       options={stores}
                       onSelect={setSelectedStore}
@@ -1168,7 +1263,7 @@ const Orders = () => {
                       placeholder="Select a store..."
                       icon={Store}
                     />
-                    <CustomDropdown 
+                    <CustomDropdown
                       label="Select Packing Unit"
                       options={pUnits}
                       onSelect={setSelectedPUnit}
@@ -1182,7 +1277,7 @@ const Orders = () => {
                   <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
-                      <input 
+                      <input
                         type="date"
                         required
                         value={deliveryDate}
@@ -1200,7 +1295,7 @@ const Orders = () => {
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Time *</label>
-                      <input 
+                      <input
                         type="time"
                         required
                         value={deliveryTime}
@@ -1222,7 +1317,7 @@ const Orders = () => {
                   <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Manufacturing Unit Description</label>
-                      <textarea 
+                      <textarea
                         placeholder="Special instructions for manufacturing..."
                         value={mUnitDescription}
                         onChange={(e) => setMUnitDescription(e.target.value)}
@@ -1241,7 +1336,7 @@ const Orders = () => {
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Description</label>
-                      <textarea 
+                      <textarea
                         placeholder="Packaging and gift wrapping notes..."
                         value={pUnitDescription}
                         onChange={(e) => setPUnitDescription(e.target.value)}
@@ -1270,7 +1365,7 @@ const Orders = () => {
                 <div className="ord-search-filter-row">
                   <div className="ord-item-search-wrapper">
                     <Search size={16} className="ord-item-search-icon" />
-                    <input 
+                    <input
                       type="text"
                       className="ord-item-search-input"
                       placeholder="Search item by name..."
@@ -1325,7 +1420,7 @@ const Orders = () => {
               {/* Right Panel: Summary */}
               <div className="ord-summary-panel">
                 <h2><FileText size={20} /> Order Summary</h2>
-                
+
                 <div className="ord-summary-list">
                   {cart.length > 0 ? cart.map((item, idx) => (
                     <div key={idx} className="ord-summary-item">
@@ -1367,15 +1462,15 @@ const Orders = () => {
                     <span>Total Amount</span>
                     <span>₹{totalAmount.toFixed(2)}</span>
                   </div>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
                       <div className="ord-payment-modes" style={{ marginTop: '0' }}>
                         {['Cash', 'UPI', 'Card'].map(mode => (
-                          <button 
+                          <button
                             type="button"
-                            key={mode} 
+                            key={mode}
                             className={`ord-mode-btn ${paymentMode === mode ? 'active' : ''}`}
                             onClick={() => setPaymentMode(mode)}
                           >
@@ -1388,7 +1483,7 @@ const Orders = () => {
                     <div style={{ display: 'flex', gap: '15px' }}>
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Received Amount (₹)</label>
-                        <input 
+                        <input
                           type="number"
                           placeholder="0.00"
                           value={receivedAmount}
@@ -1430,7 +1525,7 @@ const Orders = () => {
       <AnimatePresence>
         {showWeightModal && (
           <div className="modal-overlay" style={{ zIndex: 3000 }}>
-            <motion.div 
+            <motion.div
               className="custom-modal"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1440,13 +1535,13 @@ const Orders = () => {
                 <Scale size={32} />
               </div>
               <h3 className="modal-title">Enter Quantity for {showWeightModal.name}</h3>
-              
+
               <div className="ord-weight-form">
                 <div className="ord-weight-input-group">
                   <label>Weight (kg)</label>
-                  <input 
-                    type="number" 
-                    step="0.001" 
+                  <input
+                    type="number"
+                    step="0.001"
                     placeholder="0.000"
                     value={weightInput.weight}
                     onChange={(e) => handleWeightCalc('weight', e.target.value, showWeightModal.price)}
@@ -1455,8 +1550,8 @@ const Orders = () => {
                 <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5 }}>OR</div>
                 <div className="ord-weight-input-group">
                   <label>Amount (₹)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     placeholder="0.00"
                     value={weightInput.amount}
                     onChange={(e) => handleWeightCalc('amount', e.target.value, showWeightModal.price)}
@@ -1465,25 +1560,25 @@ const Orders = () => {
 
                 <div className="ord-weight-input-group">
                   <label>Item Description / Note</label>
-                  <textarea 
+                  <textarea
                     placeholder="e.g. less sugar, extra packing..."
                     value={weightInput.description}
                     onChange={(e) => setWeightInput({ ...weightInput, description: e.target.value })}
-                    style={{ 
-                      height: '60px', 
-                      padding: '10px', 
-                      border: '1px solid var(--border-color)', 
-                      border_radius: '10px', 
-                      font_size: '14px', 
-                      resize: 'none' 
+                    style={{
+                      height: '60px',
+                      padding: '10px',
+                      border: '1px solid var(--border-color)',
+                      border_radius: '10px',
+                      font_size: '14px',
+                      resize: 'none'
                     }}
                   />
                 </div>
 
                 <div className="modal-actions" style={{ marginTop: '10px' }}>
                   <button className="modal-btn cancel" onClick={() => setShowWeightModal(null)}>Cancel</button>
-                  <button 
-                    className="modal-btn confirm" 
+                  <button
+                    className="modal-btn confirm"
                     style={{ background: 'var(--primary-color)' }}
                     onClick={() => {
                       if (weightInput.weight && weightInput.amount) {
@@ -1505,104 +1600,286 @@ const Orders = () => {
 
       {/* Preview Modal */}
       <AnimatePresence>
-        {previewOrder && (
-          <div className="modal-overlay" style={{ zIndex: 3000 }}>
-            <motion.div 
-              className="custom-modal ord-preview-modal"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              style={{ maxWidth: '600px', width: '90%' }}
-            >
-              <div className="ord-preview-header">
-                <h2>Invoice Details</h2>
-                <button className="items-close-btn" onClick={() => setPreviewOrder(null)}><X size={24} /></button>
-              </div>
-              
-              <div className="ord-preview-body">
-                <div className="ord-preview-top">
-                  <div>
-                    <h3>Raju Ghee Sweets</h3>
-                    <p>{previewOrder.storeName}</p>
-                    <p style={{ marginTop: '10px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
-                    <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
-                    {previewOrder.deliveryDate && (
-                      <p style={{ color: 'var(--primary-color)', fontWeight: '700' }}>
-                        <strong>Delivery Target:</strong> {new Date(previewOrder.deliveryDate).toLocaleDateString()} at {previewOrder.deliveryTime || ''}
-                      </p>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <h3>Bill To</h3>
-                    <p><strong>{previewOrder.customerName}</strong></p>
-                    <p>{previewOrder.customerPhone}</p>
-                  </div>
+        {previewOrder && (() => {
+          const balanceDue = Number(previewOrder.totalAmount || 0) - Number(previewOrder.receivedAmount || 0);
+          return (
+            <div className="modal-overlay" style={{ zIndex: 3000 }}>
+              <motion.div
+                className="custom-modal ord-preview-modal"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+              >
+                <div className="ord-preview-header" style={{ marginBottom: '15px', paddingBottom: '10px' }}>
+                  <h2>Order Invoice Preview</h2>
+                  <button className="items-close-btn" onClick={() => setPreviewOrder(null)}><X size={24} /></button>
                 </div>
 
-                <div className="ord-preview-desc">
-                  {previewOrder.globalDescription && <p><strong>Global Note:</strong> {previewOrder.globalDescription}</p>}
-                  {previewOrder.mUnitDescription && <p><strong>Mfg Note:</strong> {previewOrder.mUnitDescription}</p>}
-                  {previewOrder.pUnitDescription && <p><strong>Pack Note:</strong> {previewOrder.pUnitDescription}</p>}
+                <div className="ord-preview-body">
+                  <div className="ord-preview-top" style={{ marginBottom: '15px' }}>
+                    <div>
+                      <h3>Raju Ghee Sweets</h3>
+                      <p>{previewOrder.storeName}</p>
+                      <p style={{ marginTop: '6px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
+                      <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
+                      {previewOrder.deliveryDate && (
+                        <p style={{ color: 'var(--primary-color)', fontWeight: '700', marginTop: '2px' }}>
+                          <strong>Delivery Target:</strong> {new Date(previewOrder.deliveryDate).toLocaleDateString()} at {previewOrder.deliveryTime || ''}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <h3>Bill To</h3>
+                      <p><strong>{previewOrder.customerName}</strong></p>
+                      <p>{previewOrder.customerPhone}</p>
+                    </div>
+                  </div>
+
+                  <div className="ord-preview-desc" style={{ marginBottom: '15px', padding: '10px' }}>
+                    {previewOrder.globalDescription && <p><strong>Global Note:</strong> {previewOrder.globalDescription}</p>}
+                    {previewOrder.mUnitDescription && <p><strong>Mfg Note:</strong> {previewOrder.mUnitDescription}</p>}
+                    {previewOrder.pUnitDescription && <p><strong>Pack Note:</strong> {previewOrder.pUnitDescription}</p>}
+                  </div>
+
+                  {/* Tabs Header */}
+                  <div className="ord-preview-tabs">
+                    <button
+                      type="button"
+                      className={`ord-preview-tab-btn ${previewTab === 'payment' ? 'active' : ''}`}
+                      onClick={() => setPreviewTab('payment')}
+                    >
+                      Payment History
+                    </button>
+                    <button
+                      type="button"
+                      className={`ord-preview-tab-btn ${previewTab === 'items' ? 'active' : ''}`}
+                      onClick={() => setPreviewTab('items')}
+                    >
+                      Items Included
+                    </button>
+                  </div>
+
+                  {/* Tab Panel: Payment History */}
+                  {previewTab === 'payment' && (
+                    <div className="ord-tab-panel">
+                      <div className="ord-payment-summary-grid">
+                        <div className="ord-payment-summary-card">
+                          <h4>Total Bill</h4>
+                          <p>₹{previewOrder.totalAmount.toFixed(2)}</p>
+                        </div>
+                        <div className="ord-payment-summary-card">
+                          <h4>Total Paid</h4>
+                          <p>₹{previewOrder.receivedAmount.toFixed(2)}</p>
+                        </div>
+                        <div className={`ord-payment-summary-card due ${balanceDue <= 0 ? 'paid' : ''}`}>
+                          <h4>Balance Due</h4>
+                          <p>₹{Math.max(0, balanceDue).toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      {/* Add Inline Installment Form */}
+                      {balanceDue > 0.01 && (
+                        <form onSubmit={handleAddPaymentSubmit} style={{ marginTop: '0', marginBottom: '24px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <h4 style={{ fontSize: '13px', fontWeight: '800', marginBottom: '12px', color: 'var(--primary-color)', marginTop: '0' }}>Record New Payment</h4>
+                          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Amount (₹) *</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                required
+                                value={addPayAmount}
+                                onChange={(e) => setAddPayAmount(e.target.value)}
+                                max={balanceDue}
+                                min="0.01"
+                                style={{
+                                  height: '36px',
+                                  padding: '0 10px',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  fontWeight: '700',
+                                  boxSizing: 'border-box',
+                                  width: '100%',
+                                  background: '#FFFFFF'
+                                }}
+                              />
+                            </div>
+                            <div style={{ flex: 1.5, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
+                              <div style={{ display: 'flex', gap: '4px', height: '36px' }}>
+                                {['UPI', 'Cash', 'Card'].map(mode => (
+                                  <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => setAddPayMode(mode)}
+                                    style={{
+                                      flex: 1,
+                                      border: '1.5px solid ' + (addPayMode === mode ? 'var(--primary-color)' : 'var(--border-color)'),
+                                      background: addPayMode === mode ? 'var(--primary-color)' : '#FFFFFF',
+                                      color: addPayMode === mode ? '#FFFFFF' : 'var(--text-secondary)',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    {mode}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                            <div style={{ flex: 2, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Notes / Reference</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. UPI ID or Installment note"
+                                value={addPayNotes}
+                                onChange={(e) => setAddPayNotes(e.target.value)}
+                                style={{
+                                  height: '36px',
+                                  padding: '0 10px',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  boxSizing: 'border-box',
+                                  width: '100%',
+                                  background: '#FFFFFF'
+                                }}
+                              />
+                            </div>
+                            <button
+                              type="submit"
+                              disabled={addingPayment}
+                              style={{
+                                flex: 1,
+                                minWidth: '120px',
+                                height: '36px',
+                                background: 'var(--primary-color)',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              {addingPayment ? (
+                                <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff' }}></div>
+                              ) : (
+                                <>
+                                  <Plus size={14} /> Record Payment
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      <div className="ord-installment-section">
+                        <h3>Installment timeline</h3>
+                        <div className="ord-installment-timeline">
+                          {previewInstallments.length > 0 ? (
+                            previewInstallments.map((inst, idx) => (
+                              <div key={inst.id || idx} className="ord-installment-card">
+                                <div className="ord-inst-left">
+                                  <span className="ord-inst-date">
+                                    {inst.createdAt?.toDate ? inst.createdAt.toDate().toLocaleString('en-IN', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    }) : 'Just now'}
+                                  </span>
+                                  {inst.notes && <span className="ord-inst-note">{inst.notes}</span>}
+                                </div>
+                                <div className="ord-inst-right">
+                                  <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
+                                  <div>
+                                    <span className="ord-inst-mode">{inst.paymentMode || 'Cash'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="ord-timeline-empty">
+                              No installment payments recorded.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab Panel: Items Included */}
+                  {previewTab === 'items' && (
+                    <div className="ord-tab-panel">
+                      <table className="ord-preview-table">
+                        <thead>
+                          <tr>
+                            <th>Item Description</th>
+                            <th style={{ textAlign: 'center' }}>Qty</th>
+                            <th style={{ textAlign: 'center' }}>Status</th>
+                            <th style={{ textAlign: 'right' }}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewOrder.items.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <div style={{ fontWeight: '700' }}>{item.name}</div>
+                                {item.description && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.description}</div>}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                {item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pcs`}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span className={`ord-status-badge ${(item.status || 'preparation_started').toLowerCase().replace(/_/g, '-')}`} style={{ fontSize: '10px', padding: '3px 8px' }}>
+                                  {getStatusLabel(item.status || 'preparation_started')}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
-                <table className="ord-preview-table">
-                  <thead>
-                    <tr>
-                      <th>Item Description</th>
-                      <th style={{ textAlign: 'center' }}>Qty</th>
-                      <th style={{ textAlign: 'right' }}>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewOrder.items.map((item, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <div style={{ fontWeight: '700' }}>{item.name}</div>
-                          {item.description && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.description}</div>}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          {item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pcs`}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <div className="ord-preview-total">
-                  <div className="row">
-                    <span>Payment Mode</span>
-                    <span>{previewOrder.paymentMode}</span>
-                  </div>
-                  <div className="row total">
-                    <span>Total Amount</span>
-                    <span>₹{previewOrder.totalAmount.toFixed(2)}</span>
-                  </div>
+                <div className="modal-actions" style={{ marginTop: '24px', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button className="modal-btn cancel" onClick={() => setPreviewOrder(null)}>Close</button>
+                  <button
+                    className="ord-modal-print-btn"
+                    onClick={() => {
+                      handlePrint(previewOrder);
+                    }}
+                  >
+                    <Printer size={16} /> Print Receipt
+                  </button>
                 </div>
-              </div>
-
-              <div className="modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
-                <button className="modal-btn cancel" onClick={() => setPreviewOrder(null)}>Close</button>
-                <button 
-                  className="modal-btn confirm" 
-                  style={{ background: 'var(--primary-color)' }}
-                  onClick={() => {
-                    handlePrint(previewOrder);
-                  }}
-                >
-                  <Printer size={16} /> Print Bill
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Create Customer Modal */}
       <AnimatePresence>
         {showCreateCustomerModal && (
           <div className="modal-overlay" style={{ zIndex: 3000 }}>
-            <motion.div 
+            <motion.div
               className="custom-modal"
               style={{ maxWidth: '500px', width: '90%' }}
               initial={{ opacity: 0, scale: 0.9 }}
@@ -1614,13 +1891,13 @@ const Orders = () => {
               </div>
               <h3 className="modal-title" style={{ marginBottom: '5px' }}>Create New Customer</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '20px' }}>Fill in customer details to save and select automatically</p>
-              
+
               <form onSubmit={handleSaveCustomer} className="ord-weight-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>First Name *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       required
                       placeholder="First Name"
                       value={customerFormData.firstName}
@@ -1630,8 +1907,8 @@ const Orders = () => {
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Last Name *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       required
                       placeholder="Last Name"
                       value={customerFormData.lastName}
@@ -1643,8 +1920,8 @@ const Orders = () => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Mobile Number *</label>
-                  <input 
-                    type="tel" 
+                  <input
+                    type="tel"
                     required
                     placeholder="10-digit mobile number"
                     value={customerFormData.mobileNumber}
@@ -1655,17 +1932,17 @@ const Orders = () => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Full Address</label>
-                  <textarea 
+                  <textarea
                     placeholder="Enter street address..."
                     value={customerFormData.address}
                     onChange={(e) => setCustomerFormData({ ...customerFormData, address: e.target.value })}
-                    style={{ 
-                      width: '100%', 
-                      height: '60px', 
-                      padding: '10px', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '8px', 
-                      fontSize: '14px', 
+                    style={{
+                      width: '100%',
+                      height: '60px',
+                      padding: '10px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
                       resize: 'none',
                       boxSizing: 'border-box',
                       fontFamily: 'inherit'
@@ -1676,8 +1953,8 @@ const Orders = () => {
                 <div style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>City</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="City"
                       value={customerFormData.city}
                       onChange={(e) => setCustomerFormData({ ...customerFormData, city: e.target.value })}
@@ -1686,8 +1963,8 @@ const Orders = () => {
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>State</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="State"
                       value={customerFormData.state}
                       onChange={(e) => setCustomerFormData({ ...customerFormData, state: e.target.value })}
@@ -1698,9 +1975,9 @@ const Orders = () => {
 
                 <div className="modal-actions" style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                   <button type="button" className="modal-btn cancel" onClick={() => setShowCreateCustomerModal(false)} disabled={savingCustomer}>Cancel</button>
-                  <button 
-                    type="submit" 
-                    className="modal-btn confirm" 
+                  <button
+                    type="submit"
+                    className="modal-btn confirm"
                     style={{ background: 'var(--primary-color)' }}
                     disabled={savingCustomer}
                   >
@@ -1717,7 +1994,7 @@ const Orders = () => {
       <AnimatePresence>
         {showBluetoothModal && (
           <div className="modal-overlay" style={{ zIndex: 4000 }}>
-            <motion.div 
+            <motion.div
               className="custom-modal st-bluetooth-scan-modal"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1728,7 +2005,7 @@ const Orders = () => {
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>Connect Bluetooth Printer</h3>
                 <button className="items-close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowBluetoothModal(false)}><X size={20} /></button>
               </div>
-              
+
               <div className="scan-modal-body" style={{ padding: '24px', minHeight: '200px' }}>
                 {isScanningBt ? (
                   <div className="scan-loading-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', gap: '15px' }}>
@@ -1742,8 +2019,8 @@ const Orders = () => {
                     <span className="results-label" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: '#64748b', textAlign: 'left', display: 'block' }}>Nearby Devices</span>
                     <div className="devices-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '180px', overflowY: 'auto' }}>
                       {btDevices.map((device, idx) => (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           className={`device-list-row ${connectingBtDevice === device.name ? 'connecting' : ''}`}
                           onClick={() => connectBtDevice(device.name)}
                           style={{
@@ -1813,7 +2090,7 @@ const Orders = () => {
 
               <div style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  
+
                   <div style={{ display: 'flex', gap: '15px' }}>
                     <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#f1f5f9', color: '#0f172a', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '14px' }}>1</div>
                     <div>
@@ -1840,8 +2117,8 @@ const Orders = () => {
                       <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '700', color: '#ef4444' }}>Trust the Certificate (Important!)</h4>
                       <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: '1.5' }}>
                         Your browser blocks the connection by default. You MUST click this link: <a href="https://localhost:8181" target="_blank" rel="noreferrer" style={{ color: '#ef4444', fontWeight: '700', textDecoration: 'underline' }}>https://localhost:8181</a>
-                        <br/><br/>
-                        It will say "Your connection is not private". Click <strong>Advanced</strong>, then click <strong>Proceed to localhost (unsafe)</strong>. 
+                        <br /><br />
+                        It will say "Your connection is not private". Click <strong>Advanced</strong>, then click <strong>Proceed to localhost (unsafe)</strong>.
                         Once you see a blank page or QZ Tray message, you can close that tab and return here.
                       </p>
                     </div>
@@ -1850,13 +2127,13 @@ const Orders = () => {
                 </div>
 
                 <div style={{ marginTop: '30px', display: 'flex', gap: '12px' }}>
-                  <button 
+                  <button
                     onClick={() => setShowQZSetupGuide(false)}
                     style={{ flex: 1, padding: '12px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}
                   >
                     Close
                   </button>
-                  <button 
+                  <button
                     onClick={() => {
                       setShowQZSetupGuide(false);
                       connectQZTray();
@@ -1910,17 +2187,17 @@ const Orders = () => {
                   <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>
                     Available System Printers ({qzPrinters.length})
                   </label>
-                  
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '10px', 
-                    maxHeight: '240px', 
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    maxHeight: '240px',
                     overflowY: 'auto',
                     paddingRight: '5px'
                   }}>
                     {qzPrinters.length > 0 ? qzPrinters.map(printer => (
-                      <div 
+                      <div
                         key={printer}
                         onClick={() => setSelectedQZPrinter(printer)}
                         style={{
@@ -1937,9 +2214,9 @@ const Orders = () => {
                       >
                         <Printer size={20} color={selectedQZPrinter === printer ? '#2563eb' : '#64748b'} />
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ 
-                            fontSize: '14px', 
-                            fontWeight: '700', 
+                          <div style={{
+                            fontSize: '14px',
+                            fontWeight: '700',
                             color: selectedQZPrinter === printer ? '#0f172a' : '#475569',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -1961,20 +2238,20 @@ const Orders = () => {
                     )}
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => {
                       setShowQZModal(false);
                       toast.success(`Selected printer: ${selectedQZPrinter}`);
                     }}
                     disabled={!selectedQZPrinter}
-                    style={{ 
+                    style={{
                       marginTop: '10px',
-                      padding: '14px', 
-                      background: selectedQZPrinter ? '#2563eb' : '#cbd5e1', 
-                      color: 'white', 
-                      border: 'none', 
-                      borderRadius: '10px', 
-                      fontWeight: '700', 
+                      padding: '14px',
+                      background: selectedQZPrinter ? '#2563eb' : '#cbd5e1',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontWeight: '700',
                       fontSize: '15px',
                       cursor: selectedQZPrinter ? 'pointer' : 'not-allowed',
                       width: '100%'

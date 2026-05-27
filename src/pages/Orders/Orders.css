@@ -916,3 +916,241 @@ tr.row-expanded > td {
   box-shadow: 0 4px 10px rgba(10, 42, 27, 0.15);
 }
 
+/* Tabbed Order Preview Modal */
+.ord-preview-modal {
+  max-width: 750px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px !important;
+  padding: 24px !important;
+  background: #FFFFFF !important;
+  box-shadow: var(--shadow-lg) !important;
+  overflow: hidden;
+}
+
+.ord-preview-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-bottom: 15px;
+}
+
+.ord-preview-body::-webkit-scrollbar {
+  width: 2px;
+}
+
+.ord-preview-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ord-preview-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.ord-preview-tabs {
+  display: flex;
+  gap: 15px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 20px;
+  padding-bottom: 2px;
+}
+
+.ord-preview-tab-btn {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ord-preview-tab-btn.active {
+  border-bottom-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.ord-preview-tab-btn:hover:not(.active) {
+  color: var(--primary-color);
+  opacity: 0.8;
+}
+
+/* Payment Info Grid & Timeline */
+.ord-payment-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-bottom: 24px;
+}
+
+.ord-payment-summary-card {
+  padding: 16px;
+  border-radius: 12px;
+  background: #F8FAFC;
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.ord-payment-summary-card.due {
+  background: #FFF5F5;
+  border-color: #FED7D7;
+}
+
+.ord-payment-summary-card.due.paid {
+  background: #F0FFF4;
+  border-color: #C6F6D5;
+}
+
+.ord-payment-summary-card h4 {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.ord-payment-summary-card p {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ord-payment-summary-card.due p {
+  color: var(--error-color);
+}
+
+.ord-payment-summary-card.due.paid p {
+  color: var(--primary-color);
+}
+
+.ord-installment-section {
+  text-align: left;
+}
+
+.ord-installment-section h3 {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 15px;
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: 8px;
+  margin-top: 0;
+}
+
+.ord-installment-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.ord-installment-timeline::-webkit-scrollbar {
+  width: 2px;
+}
+
+.ord-installment-timeline::-webkit-scrollbar-thumb {
+  background: #E2E8F0;
+  border-radius: 2px;
+}
+
+.ord-installment-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.ord-installment-card:hover {
+  border-color: var(--primary-color);
+  background: #F0FFF4;
+}
+
+.ord-inst-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ord-inst-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ord-inst-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.ord-inst-right {
+  text-align: right;
+}
+
+.ord-inst-amount {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+.ord-inst-mode {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #E2E8F0;
+  color: #475569;
+  border-radius: 4px;
+  font-weight: 700;
+  display: inline-block;
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+.ord-timeline-empty {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: #F8FAFC;
+  border-radius: 10px;
+  border: 1px dashed var(--border-color);
+}
+
+/* Upgraded Print Receipt Button */
+.ord-modal-print-btn {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: #FFFFFF;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 4px 15px rgba(10, 42, 27, 0.15);
+}
+
+.ord-modal-print-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(10, 42, 27, 0.25);
+  background: #FFFFFF;
+  color: var(--primary-color);
+}
+
+
+
