@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import Loader from '../../components/Loader/Loader';
 import './Onboarding.css';
 
 const Onboarding = () => {
@@ -66,7 +67,7 @@ const Onboarding = () => {
     fetchAccess();
   }, []);
 
-  if (loading) return <div className="onb-loader"><div className="loader"></div></div>;
+  if (loading) return <Loader type="page" message="Loading your portals..." />;
 
   if (!userData) {
     return (
