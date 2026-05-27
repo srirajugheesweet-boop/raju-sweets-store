@@ -168,6 +168,9 @@ const Orders = () => {
   const [items, setItems] = useState([]);
   const [mUnits, setMUnits] = useState([]);
   const [pUnits, setPUnits] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
@@ -283,12 +286,13 @@ const Orders = () => {
     if (showAddModal) {
       // Fetch data for the modal
       const fetchModalData = async () => {
-        const [custSnap, storeSnap, itemSnap, muSnap, puSnap] = await Promise.all([
+        const [custSnap, storeSnap, itemSnap, muSnap, puSnap, catSnap] = await Promise.all([
           getDocs(query(collection(db, 'customers'), orderBy('firstName', 'asc'))),
           getDocs(query(collection(db, 'stores'), orderBy('name', 'asc'))),
           getDocs(query(collection(db, 'items'), orderBy('name', 'asc'))),
           getDocs(query(collection(db, 'manufacturing_units'), orderBy('name', 'asc'))),
-          getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc')))
+          getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc'))),
+          getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')))
         ]);
 
         setCustomers(custSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -296,6 +300,7 @@ const Orders = () => {
         setItems(itemSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setMUnits(muSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setPUnits(puSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       };
       fetchModalData();
     }
@@ -468,6 +473,8 @@ const Orders = () => {
     setDeliveryDate('');
     setDeliveryTime('');
     setEditingOrderId(null);
+    setItemSearchQuery('');
+    setSelectedCategoryFilter('All');
   };
 
   const handleEditOrder = (order) => {
@@ -889,6 +896,12 @@ const Orders = () => {
     return status.replace(/_/g, ' ').toUpperCase();
   };
 
+  const filteredItemsForOrder = items.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(itemSearchQuery.toLowerCase());
+    const matchesCategory = selectedCategoryFilter === 'All' || item.categoryId === selectedCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
   const totalAmount = cart.reduce((sum, item) => sum + item.total, 0);
   const recAmt = parseFloat(receivedAmount) || 0;
   let paymentStatus = 'Pending';
@@ -1253,19 +1266,59 @@ const Orders = () => {
                   <h3 style={{ fontSize: '16px', fontWeight: '800' }}>Select Items</h3>
                 </div>
 
+                {/* Item Search and Category Filter Row */}
+                <div className="ord-search-filter-row">
+                  <div className="ord-item-search-wrapper">
+                    <Search size={16} className="ord-item-search-icon" />
+                    <input 
+                      type="text"
+                      className="ord-item-search-input"
+                      placeholder="Search item by name..."
+                      value={itemSearchQuery}
+                      onChange={(e) => setItemSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="ord-category-pills-row">
+                    <button
+                      type="button"
+                      className={`ord-category-pill ${selectedCategoryFilter === 'All' ? 'active' : ''}`}
+                      onClick={() => setSelectedCategoryFilter('All')}
+                    >
+                      All
+                    </button>
+                    {categories.map(cat => (
+                      <button
+                        type="button"
+                        key={cat.id}
+                        className={`ord-category-pill ${selectedCategoryFilter === cat.id ? 'active' : ''}`}
+                        onClick={() => setSelectedCategoryFilter(cat.id)}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="ord-items-grid">
-                  {items.map(item => (
-                    <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClick(item)}>
-                      <img src={item.image} alt={item.name} className="ord-item-img" />
-                      <div className="ord-item-details">
-                        <h4>{item.name}</h4>
-                        <div className="ord-price-row">
-                          <span className="price">₹{item.price}</span>
-                          <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                  {filteredItemsForOrder.length > 0 ? (
+                    filteredItemsForOrder.map(item => (
+                      <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClick(item)}>
+                        <img src={item.image} alt={item.name} className="ord-item-img" />
+                        <div className="ord-item-details">
+                          <h4>{item.name}</h4>
+                          <div className="ord-price-row">
+                            <span className="price">₹{item.price}</span>
+                            <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0', opacity: 0.5 }}>
+                      <Package size={32} style={{ margin: '0 auto 10px' }} />
+                      <p>No matching items found</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
