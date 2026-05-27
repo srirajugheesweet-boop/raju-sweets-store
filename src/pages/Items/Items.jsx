@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -8,7 +8,9 @@ import {
   X,
   Image as ImageIcon,
   Scale,
-  Factory
+  Factory,
+  ChevronDown,
+  Tag
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -32,10 +34,74 @@ import logo from '../../assets/logo.png';
 
 const DEFAULT_ITEM_IMAGE = logo;
 
+// Premium Animated Custom Select Component
+const CustomSelect = ({ label, options, value, onChange, placeholder, icon, required }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  return (
+    <div className="items-input-group custom-select-container" ref={dropdownRef}>
+      <label>{label} {required && <span>*</span>}</label>
+      <div className="custom-select-wrapper">
+        <button
+          type="button"
+          className={`custom-select-trigger ${isOpen ? 'active' : ''}`}
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <div className="custom-select-trigger-content">
+            {icon && <span className="custom-select-icon">{icon}</span>}
+            <span className={selectedOption ? 'selected-value' : 'placeholder-value'}>
+              {selectedOption ? selectedOption.label : placeholder}
+            </span>
+          </div>
+          <ChevronDown size={16} className={`custom-select-chevron ${isOpen ? 'open' : ''}`} />
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.ul
+              className="custom-select-options"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+            >
+              {options.map((option) => (
+                <li
+                  key={option.value}
+                  className={`custom-select-option ${option.value === value ? 'selected' : ''}`}
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  {option.label}
+                </li>
+              ))}
+            </motion.ul>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
 
 const Items = () => {
   const [items, setItems] = useState([]);
   const [mUnits, setMUnits] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,12 +110,12 @@ const Items = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-
   const [formData, setFormData] = useState({
     name: '',
     unit: 'Weight', // 'Weight' or 'Piece'
     price: '',
     mUnitId: '',
+    categoryId: '',
     image: ''
   });
   const [imageFile, setImageFile] = useState(null);
@@ -62,6 +128,15 @@ const Items = () => {
       setMUnits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     };
     fetchMUnits();
+  }, []);
+
+  // Fetch Categories for Dropdown
+  useEffect(() => {
+    const q = query(collection(db, 'categories'), orderBy('name', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
   }, []);
 
   // Fetch Global Items
@@ -107,7 +182,6 @@ const Items = () => {
       return null;
     }
   };
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -166,7 +240,7 @@ const Items = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', unit: 'Weight', price: '', mUnitId: '', image: '' });
+    setFormData({ name: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '' });
     setImageFile(null);
     setShowAddForm(false);
     setEditingItem(null);
@@ -179,6 +253,7 @@ const Items = () => {
       unit: item.unit,
       price: item.price,
       mUnitId: item.mUnitId,
+      categoryId: item.categoryId || '',
       image: item.image
     });
     setShowAddForm(true);
@@ -197,7 +272,6 @@ const Items = () => {
       setIsDeleting(false);
     }
   };
-
 
   const filteredItems = items.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -254,6 +328,10 @@ const Items = () => {
                     <div className="item-munit-info">
                       <Factory size={12} />
                       <span>{mUnits.find(mu => mu.id === item.mUnitId)?.name || 'Unknown Unit'}</span>
+                    </div>
+                    <div className="item-card-cat-tag">
+                      <Tag size={12} />
+                      <span>{categories.find(cat => cat.id === item.categoryId)?.name || 'Uncategorized'}</span>
                     </div>
                   </div>
                 </div>
@@ -314,13 +392,19 @@ const Items = () => {
                 </div>
 
                 <div className="items-form-row">
-                  <div className="items-input-group">
-                    <label>Unit Type</label>
-                    <select name="unit" value={formData.unit} onChange={handleInputChange} className="items-select">
-                      <option value="Weight">Weight (kg/gm)</option>
-                      <option value="Piece">Piece (qty)</option>
-                    </select>
-                  </div>
+                  <CustomSelect
+                    label="Unit Type"
+                    options={[
+                      { value: 'Weight', label: 'Weight (kg/gm)' },
+                      { value: 'Piece', label: 'Piece (qty)' }
+                    ]}
+                    value={formData.unit}
+                    onChange={(val) => setFormData(prev => ({ ...prev, unit: val }))}
+                    placeholder="Select unit type"
+                    icon={<Scale size={16} />}
+                    required
+                  />
+
                   <div className="items-input-group">
                     <label>Price (₹)</label>
                     <input 
@@ -334,21 +418,24 @@ const Items = () => {
                   </div>
                 </div>
 
-                <div className="items-input-group">
-                  <label>Manufacturing Unit</label>
-                  <select 
-                    name="mUnitId" 
-                    value={formData.mUnitId} 
-                    onChange={handleInputChange} 
-                    className="items-select"
-                    required
-                  >
-                    <option value="">Select a unit</option>
-                    {mUnits.map(mu => (
-                      <option key={mu.id} value={mu.id}>{mu.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <CustomSelect
+                  label="Manufacturing Unit"
+                  options={mUnits.map(mu => ({ value: mu.id, label: mu.name }))}
+                  value={formData.mUnitId}
+                  onChange={(val) => setFormData(prev => ({ ...prev, mUnitId: val }))}
+                  placeholder="Select a unit"
+                  icon={<Factory size={16} />}
+                  required
+                />
+
+                <CustomSelect
+                  label="Category"
+                  options={categories.map(cat => ({ value: cat.id, label: cat.name }))}
+                  value={formData.categoryId}
+                  onChange={(val) => setFormData(prev => ({ ...prev, categoryId: val }))}
+                  placeholder="Select category"
+                  icon={<Tag size={16} />}
+                />
 
                 <div className="items-form-actions">
                   <button type="button" onClick={resetForm} className="items-btn-cancel">Cancel</button>
