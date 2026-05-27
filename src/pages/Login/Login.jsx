@@ -60,11 +60,16 @@ const Login = () => {
       // Send OTP via SMS using Descope SDK
       // Using international format +91 for India if not provided
       const formattedPhone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
-      await sdk.otp.signUpOrIn.sms(formattedPhone);
+      const response = await sdk.otp.signUpOrIn.sms(formattedPhone);
+      
+      if (!response.ok) {
+        throw new Error(response.error?.errorDescription || response.error?.errorMessage || 'Failed to send OTP');
+      }
+
       toast.success('OTP sent successfully!');
       setOtpSent(true);
     } catch (error) {
-      console.error(error);
+      console.error("Descope OTP request error:", error);
       toast.error(error.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
@@ -82,13 +87,17 @@ const Login = () => {
       const formattedPhone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
       const response = await sdk.otp.verify.sms(formattedPhone, otp);
       
+      if (!response.ok) {
+        throw new Error(response.error?.errorDescription || response.error?.errorMessage || 'Invalid OTP or verification failed');
+      }
+
       toast.success('Successfully logged in via OTP!');
       // Store phone number to identify them in Onboarding
       localStorage.setItem('userPhone', formattedPhone);
       navigate('/onboarding');
     } catch (error) {
-      console.error(error);
-      toast.error('Invalid OTP or verification failed');
+      console.error("Descope OTP verification error:", error);
+      toast.error(error.message || 'Invalid OTP or verification failed');
     } finally {
       setLoading(false);
     }
