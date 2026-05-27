@@ -158,6 +158,7 @@ const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [activeModalTab, setActiveModalTab] = useState('items'); // 'items' or 'summary'
   const [searchQuery, setSearchQuery] = useState('');
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
   const [expandedOrders, setExpandedOrders] = useState([]);
@@ -560,6 +561,7 @@ const Orders = () => {
     setEditingOrderId(null);
     setItemSearchQuery('');
     setSelectedCategoryFilter('All');
+    setActiveModalTab('items');
   };
 
   const handleEditOrder = (order) => {
@@ -575,6 +577,7 @@ const Orders = () => {
     setDeliveryTime(order.deliveryTime || '');
     setCart(order.items || []);
     setEditingOrderId(order.id);
+    setActiveModalTab('items');
     setShowAddModal(true);
   };
 
@@ -854,6 +857,15 @@ const Orders = () => {
     }
   }
 
+  const filteredOrders = orders.filter(o => {
+    const matchesSearch = 
+      o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.customerPhone && o.customerPhone.includes(searchQuery));
+    const matchesDate = !deliveryDateFilter || o.deliveryDate === deliveryDateFilter;
+    return matchesSearch && matchesDate;
+  });
+
   return (
     <div className="orders-container">
       <div className="orders-header">
@@ -998,50 +1010,8 @@ const Orders = () => {
           <tbody>
             {loading ? (
               <tr><td colSpan="9" style={{ textAlign: 'center', padding: '100px' }}><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></td></tr>
-            ) : orders.length > 0 ? (() => {
-              const filtered = orders.filter(o => {
-                const matchesSearch = 
-                  o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  o.customerName.toLowerCase().includes(searchQuery.toLowerCase());
-                const matchesDate = !deliveryDateFilter || o.deliveryDate === deliveryDateFilter;
-                return matchesSearch && matchesDate;
-              });
-
-              if (filtered.length === 0) {
-                return (
-                  <tr>
-                    <td colSpan="9" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
-                      <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
-                      <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
-                      <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
-                      {(searchQuery || deliveryDateFilter) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSearchQuery('');
-                            setDeliveryDateFilter('');
-                          }}
-                          style={{
-                            marginTop: '15px',
-                            padding: '6px 16px',
-                            background: 'var(--primary-color)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            color: '#ffffff'
-                          }}
-                        >
-                          Clear All Filters
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              }
-
-              return filtered.map(order => (
+            ) : filteredOrders.length > 0 ? (
+              filteredOrders.map(order => (
                 <React.Fragment key={order.id}>
                   <tr className={expandedOrders.includes(order.id) ? "row-expanded" : ""}>
                     <td className="ord-id-cell">
@@ -1134,12 +1104,169 @@ const Orders = () => {
                     </tr>
                   )}
                 </React.Fragment>
-              ));
-            })() : (
-              <tr><td colSpan="9" className="ord-orders-empty">No orders found. Click "Create New Order" to start.</td></tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="9" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+                  <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
+                  <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
+                  <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
+                  {(searchQuery || deliveryDateFilter) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setDeliveryDateFilter('');
+                      }}
+                      style={{
+                        marginTop: '15px',
+                        padding: '6px 16px',
+                        background: 'var(--primary-color)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        color: '#ffffff'
+                      }}
+                    >
+                      Clear All Filters
+                    </button>
+                  )}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile & Tablet Card View */}
+      <div className="ord-mobile-cards-list">
+        {loading ? (
+          <div className="ord-portal-loading"><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></div>
+        ) : filteredOrders.length > 0 ? (
+          filteredOrders.map(order => {
+            const isExpanded = expandedOrders.includes(order.id);
+            return (
+              <div key={order.id} className={`ord-mobile-card ${isExpanded ? 'expanded' : ''}`}>
+                {/* Card Header */}
+                <div className="ord-mobile-card-header" onClick={() => toggleOrderAccordion(order.id)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <span className="ord-mobile-id">#{order.orderId}</span>
+                  </div>
+                  <span className={`ord-status-badge ${(order.status || 'new').toLowerCase().replace(/_/g, '-').replace(/\s+/g, '-')}`}>
+                    {getStatusLabel(order.status)}
+                  </span>
+                </div>
+
+                {/* Card Body */}
+                <div className="ord-mobile-card-body">
+                  <div className="ord-mobile-row">
+                    <span className="label">Customer:</span>
+                    <span className="val bold">{order.customerName}</span>
+                  </div>
+                  <div className="ord-mobile-row">
+                    <span className="label">Phone:</span>
+                    <span className="val">{order.customerPhone}</span>
+                  </div>
+                  <div className="ord-mobile-row">
+                    <span className="label">Outlet:</span>
+                    <span className="val">{order.storeName}</span>
+                  </div>
+                  <div className="ord-mobile-row">
+                    <span className="label">Total Amount:</span>
+                    <span className="val bold accent-color" style={{ color: 'var(--primary-color)' }}>₹{order.totalAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="ord-mobile-row">
+                    <span className="label">Payment:</span>
+                    <span className={`ord-status-badge ${order.paymentStatus || 'Pending'}`}>
+                      {order.paymentStatus || 'Pending'}
+                    </span>
+                  </div>
+                  <div className="ord-mobile-row">
+                    <span className="label">Delivery Date:</span>
+                    <span className="val">
+                      {order.deliveryDate ? (
+                        <>
+                          <strong>{new Date(order.deliveryDate).toLocaleDateString()}</strong>
+                          <span style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700', marginLeft: '6px' }}>
+                            {order.deliveryTime || ''}
+                          </span>
+                        </>
+                      ) : (
+                        'Pending'
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Actions */}
+                <div className="ord-mobile-card-actions">
+                  <button className="ord-mobile-action-btn view" title="Preview" onClick={() => { setPreviewTab('payment'); setPreviewOrder(order); }}><Eye size={14} /> Preview</button>
+                  <button className="ord-mobile-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={14} /> Print</button>
+                  <button className="ord-mobile-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={14} /> Edit</button>
+                  <button className="ord-mobile-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={14} /> Delete</button>
+                </div>
+
+                {/* Accordion / Expanded Details */}
+                {isExpanded && (
+                  <div className="ord-mobile-card-accordion animate-fade-in">
+                    <h4>Order Items</h4>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="ord-items-subtable">
+                        <thead>
+                          <tr>
+                            <th>Item Name</th>
+                            <th>Qty</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.items.map((item, idx) => (
+                            <tr key={idx}>
+                              <td style={{ fontWeight: '700' }}>
+                                {item.name}
+                                {item.description && (
+                                  <div style={{ fontSize: '11px', color: '#f59e0b', fontStyle: 'italic', marginTop: '2px' }}>
+                                    Note: {item.description}
+                                  </div>
+                                )}
+                              </td>
+                              <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                              <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                              <td>
+                                <select
+                                  className="ord-item-status-select"
+                                  value={item.status || 'preparation_started'}
+                                  onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                >
+                                  <option value="preparation_started">Preparation Started</option>
+                                  <option value="preparation_complete">Preparation Complete</option>
+                                  <option value="moved_to_packing">Moved to Packing</option>
+                                  <option value="packing_complete">Packing Complete</option>
+                                  <option value="moved_to_store">Moved to Store</option>
+                                  <option value="delivered">Delivered</option>
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="ord-orders-empty">
+            <Calendar size={36} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
+            <h3>No Orders Found</h3>
+            <p>Try adjusting your filters or date selection.</p>
+          </div>
+        )}
       </div>
 
       {/* Add Order Full Screen Modal */}
@@ -1163,9 +1290,31 @@ const Orders = () => {
               <button className="items-close-btn" onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
 
+            {/* Mobile Modal Tabs */}
+            <div className="ord-modal-tabs-mobile">
+              <button 
+                type="button" 
+                className={`ord-modal-tab-btn-mobile ${activeModalTab === 'items' ? 'active' : ''}`}
+                onClick={() => setActiveModalTab('items')}
+              >
+                <Plus size={16} /> 1. Select Items
+              </button>
+              <button 
+                type="button" 
+                className={`ord-modal-tab-btn-mobile ${activeModalTab === 'summary' ? 'active' : ''}`}
+                onClick={() => setActiveModalTab('summary')}
+                style={{ position: 'relative' }}
+              >
+                <ShoppingBag size={16} /> 2. Checkout
+                {cart.length > 0 && (
+                  <span className="cart-badge-dot">{cart.length}</span>
+                )}
+              </button>
+            </div>
+
             <div className="ord-modal-content">
               {/* Left Panel: Form & Selection */}
-              <div className="ord-items-panel">
+              <div className={`ord-items-panel ${activeModalTab === 'items' ? 'show-mobile' : 'hide-mobile'}`}>
                 <div className="ord-panel-header">
                   <div className="ord-panel-top">
                     <CustomDropdown
@@ -1340,7 +1489,7 @@ const Orders = () => {
               </div>
 
               {/* Right Panel: Summary */}
-              <div className="ord-summary-panel">
+              <div className={`ord-summary-panel ${activeModalTab === 'summary' ? 'show-mobile' : 'hide-mobile'}`}>
                 <h2><FileText size={20} /> Order Summary</h2>
 
                 <div className="ord-summary-list">
