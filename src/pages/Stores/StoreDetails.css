@@ -700,3 +700,62 @@ tr.row-expanded > td {
   border-color: var(--primary-color);
 }
 
+@media (max-width: 1024px) {
+  .info-cards-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  .map-card {
+    flex-direction: column;
+  }
+  .map-card-info {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .billing-modal-content {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .billing-right-panel {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-color);
+  }
+}
+
+@media (max-width: 768px) {
+  .store-details-container {
+    padding: 16px;
+  }
+  .store-details-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .store-status-card {
+    border-left: none;
+    padding-left: 0;
+    text-align: left;
+  }
+  .info-cards-row {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .sd-tabs-nav {
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+  }
+  .sd-tab-tile {
+    white-space: nowrap;
+    padding: 8px 16px;
+  }
+  .orders-table th:nth-child(4),
+  .orders-table td:nth-child(4),
+  .orders-table th:nth-child(5),
+  .orders-table td:nth-child(5) {
+    display: none !important;
+  }
+}
+

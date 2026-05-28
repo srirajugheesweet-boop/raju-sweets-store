@@ -785,7 +785,7 @@ const TimeSheet = () => {
                 </div>
 
                 <div className="ts-table-wrapper">
-                  <table className="ts-table">
+                  <table className="ts-table attendance-tab">
                     <thead>
                       <tr>
                         <th>Employee</th>
@@ -873,7 +873,7 @@ const TimeSheet = () => {
                 </div>
 
                 <div className="ts-table-wrapper">
-                  <table className="ts-table">
+                  <table className="ts-table analytics-tab">
                     <thead>
                       <tr>
                         <th>Employee</th>
@@ -947,7 +947,7 @@ const TimeSheet = () => {
                 </div>
 
                 <div className="ts-table-wrapper">
-                  <table className="ts-table">
+                  <table className="ts-table payroll-tab">
                     <thead>
                       <tr>
                         <th>Employee</th>

@@ -701,4 +701,286 @@
   border-color: #93c5fd;
 }
 
+/* ==========================================================================
+   Responsive Styles for TimeSheet Page (Cozy Mobile & Tablet Optimization)
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .ts-header {
+    padding: 16px 20px;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ts-container {
+    padding: 16px;
+  }
+
+  .ts-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 16px;
+    border-radius: 12px;
+    gap: 15px;
+  }
+
+  .ts-tabs {
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    display: flex;
+    scrollbar-width: none;
+  }
+
+  .ts-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ts-tab-btn {
+    flex: 1;
+    flex-shrink: 0;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .ts-content-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .ts-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .ts-search-wrapper {
+    max-width: 100%;
+  }
+
+  .ts-date-wrapper, 
+  .ts-month-selectors {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: space-between;
+  }
+
+  .ts-month-selectors select {
+    flex: 1;
+  }
+
+  /* Responsive Table-to-Card Grid Layout */
+  .ts-table-wrapper {
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  .ts-table,
+  .ts-table tbody,
+  .ts-table tr,
+  .ts-table td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .ts-table thead {
+    display: none !important;
+  }
+
+  .ts-table tr {
+    background: #FFFFFF !important;
+    border: 1px solid #edf2f7 !important;
+    border-radius: 18px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.015) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    box-sizing: border-box;
+  }
+
+  .ts-table td {
+    padding: 0 !important;
+    border-bottom: none !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 14px !important;
+    box-sizing: border-box;
+  }
+
+  /* Header row (Employee Name) prominence */
+  .ts-table td:nth-child(1) {
+    display: block !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* --- 1. Attendance Tab Specific Labels --- */
+  .ts-table.attendance-tab td:nth-child(2)::before {
+    content: "Phone";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.attendance-tab td:nth-child(3)::before {
+    content: "Allowed Leaves";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.attendance-tab td:nth-child(4) {
+    border-top: 1px solid #f1f5f9 !important;
+    padding-top: 12px !important;
+    margin-top: 4px !important;
+    justify-content: center !important; /* Center the status action group */
+  }
+
+  /* --- 2. Analytics Tab Specific Labels --- */
+  .ts-table.analytics-tab td:nth-child(2)::before {
+    content: "Present";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.analytics-tab td:nth-child(3)::before {
+    content: "Half Days";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.analytics-tab td:nth-child(4)::before {
+    content: "Absent";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.analytics-tab td:nth-child(5)::before {
+    content: "Attendance Rate";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* --- 3. Payroll Tab Specific Labels --- */
+  .ts-table.payroll-tab td:nth-child(2)::before {
+    content: "Basic Salary";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.payroll-tab td:nth-child(3)::before {
+    content: "Excess Leave Debit";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.payroll-tab td:nth-child(4)::before {
+    content: "Short Term Adv";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.payroll-tab td:nth-child(5)::before {
+    content: "Long Term Adv";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.payroll-tab td:nth-child(6) {
+    border-top: 1px dashed #edf2f7 !important;
+    border-bottom: 1px dashed #edf2f7 !important;
+    padding: 10px 0 !important;
+    margin: 4px 0 !important;
+    justify-content: space-between !important;
+  }
+
+  .ts-table.payroll-tab td:nth-child(6)::before {
+    content: "Repay Option";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.payroll-tab td:nth-child(7)::before {
+    content: "Net Salary";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ts-table.payroll-tab td:nth-child(8) {
+    border-top: 1px solid #f1f5f9 !important;
+    padding-top: 12px !important;
+    margin-top: 4px !important;
+    justify-content: flex-end !important;
+  }
+
+  /* Align action rows properly */
+  .ts-actions {
+    justify-content: center !important;
+  }
+  
+  .ts-save-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Payslip Modal Responsiveness */
+  .ts-payslip-modal {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
+
+  .payslip-print-area {
+    padding: 15px !important;
+  }
+
+  .payslip-meta-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    padding: 12px 15px !important;
+  }
+}
+
 

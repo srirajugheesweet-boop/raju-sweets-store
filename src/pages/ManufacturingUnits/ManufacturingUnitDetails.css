@@ -280,7 +280,20 @@
 }
 
 @media (max-width: 768px) {
+  .mud-container {
+    padding: 16px;
+  }
   .mud-orders-grid {
     grid-template-columns: 1fr;
+  }
+  .mud-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .mud-status-card {
+    border-left: none;
+    padding-left: 0;
+    text-align: left;
   }
 }

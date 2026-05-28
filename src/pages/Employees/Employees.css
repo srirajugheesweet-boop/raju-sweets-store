@@ -243,6 +243,122 @@
   }
 }
 
+@media (max-width: 768px) {
+  .emp-container {
+    padding: 16px;
+  }
+  .emp-form-section {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 5000;
+    overflow-y: auto;
+    border-radius: 0;
+    padding: 24px;
+    box-shadow: none;
+    margin-top: 0 !important;
+  }
+
+  /* Responsive Table-to-Card Layout */
+  .emp-table-wrapper {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .emp-table, 
+  .emp-table tbody, 
+  .emp-table tr, 
+  .emp-table td {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .emp-table thead {
+    display: none !important;
+  }
+
+  .emp-table tr {
+    background: #FFFFFF !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 18px !important;
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+    box-shadow: var(--shadow-sm) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box;
+  }
+
+  .emp-table tr:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-md) !important;
+    border-color: var(--primary-color) !important;
+  }
+
+  .emp-table td {
+    padding: 0 !important;
+    border-bottom: none !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 14px !important;
+    box-sizing: border-box;
+  }
+
+  .emp-table td:nth-child(1) {
+    display: block !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .emp-table td:nth-child(2)::before {
+    content: "Phone";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .emp-table td:nth-child(3)::before {
+    content: "Salary";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .emp-table td:nth-child(4)::before {
+    content: "Leaves";
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .emp-table td:nth-child(5) {
+    border-top: 1px solid #f1f5f9 !important;
+    padding-top: 12px !important;
+    margin-top: 4px !important;
+    justify-content: flex-end !important;
+  }
+
+  .emp-actions-cell {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+}
+
 /* Hide Number Input Spinners */
 .emp-text-input::-webkit-outer-spin-button,
 .emp-text-input::-webkit-inner-spin-button {
