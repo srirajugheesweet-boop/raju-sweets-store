@@ -146,3 +146,28 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+.login-install-button {
+  width: 100%;
+  padding: 12px;
+  background: rgba(212, 175, 55, 0.08);
+  color: var(--accent-color, #d4af37);
+  border: 1.5px dashed var(--accent-color, #d4af37);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  box-sizing: border-box;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-install-button:hover {
+  background: rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.15);
+  border-style: solid;
+}

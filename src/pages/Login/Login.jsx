@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../config/firebase';
-import { Mail, Lock, LogIn, Phone, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, LogIn, Phone, ShieldCheck, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Descope, useSession, useUser, useDescope } from '@descope/react-sdk';
@@ -24,6 +24,65 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
+
+  // PWA Installation states
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
+
+  useEffect(() => {
+    // If running in standalone (installed) mode, do not show the install prompt button
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (isStandalone) {
+      console.log('App is running in standalone mode. Hiding install button.');
+      return;
+    }
+
+    // Check if the event was already captured by index.html early script
+    if (window.deferredPrompt) {
+      setInstallPromptEvent(window.deferredPrompt);
+    }
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+      window.deferredPrompt = e;
+    };
+
+    const handleDeferredPromptReady = () => {
+      if (window.deferredPrompt) {
+        setInstallPromptEvent(window.deferredPrompt);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('deferredpromptready', handleDeferredPromptReady);
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null);
+      window.deferredPrompt = null;
+      toast.success('Raju Sweets App installed successfully!');
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('deferredpromptready', handleDeferredPromptReady);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    const promptEvent = installPromptEvent || window.deferredPrompt;
+    if (!promptEvent) return;
+    
+    promptEvent.prompt();
+    const { outcome } = await promptEvent.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    
+    // Clear prompt event states once used
+    setInstallPromptEvent(null);
+    window.deferredPrompt = null;
+  };
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -227,6 +286,21 @@ const Login = () => {
               )
             )}
           </div>
+        )}
+
+        {installPromptEvent && (
+          <motion.button 
+            type="button" 
+            className="login-install-button"
+            onClick={handleInstallApp}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          >
+            <Download size={18} /> Install Raju Sweets App
+          </motion.button>
         )}
 
         <p className="otp-note">
