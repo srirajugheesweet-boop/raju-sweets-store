@@ -15,6 +15,7 @@ import {
   Bluetooth,
   Usb,
   RefreshCw,
+  Printer,
   X
 } from 'lucide-react';
 import { printRawToQZ } from '../../utils/qzTray';
@@ -116,16 +117,23 @@ const PUnitPortal = () => {
     
     // Check if the order already has dynamic boxes
     if (order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0) {
-      setBoxes(order.boxes.map(b => ({ ...b })));
+      setBoxes(order.boxes.map((b, idx) => ({ id: b.id || `box_${Date.now()}_${idx}_${Math.random()}`, ...b })));
     } else if (order.boxContents) {
-      setBoxes([{ boxNum: 1, contents: order.boxContents }]);
+      setBoxes([{ id: `box_${Date.now()}_0`, boxNum: 1, contents: order.boxContents }]);
     } else {
-      setBoxes([{ boxNum: 1, contents: '' }]);
+      setBoxes([{ id: `box_${Date.now()}_0`, boxNum: 1, contents: '' }]);
     }
   };
 
   const handleAddBox = () => {
-    setBoxes(prev => [...prev, { boxNum: prev.length + 1, contents: '' }]);
+    setBoxes(prev => {
+      const newBox = { id: `box_${Date.now()}_${Math.random()}`, boxNum: 1, contents: '' };
+      const updated = [newBox, ...prev];
+      return updated.map((b, idx) => ({
+        ...b,
+        boxNum: idx + 1
+      }));
+    });
   };
 
   const handleRemoveBox = (index) => {
@@ -865,7 +873,7 @@ const PUnitPortal = () => {
 
                   <div className="pu-modal-boxes-container">
                     {boxes.map((box, index) => (
-                      <div key={index} className="pu-modal-box-row animate-fade-in">
+                      <div key={box.id || index} className="pu-modal-box-row animate-fade-in">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                           <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)' }}>BOX #{box.boxNum}</span>
                           {boxes.length > 1 && (

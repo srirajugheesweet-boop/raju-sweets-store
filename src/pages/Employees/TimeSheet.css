@@ -706,31 +706,30 @@
    ========================================================================== */
 
 @media (max-width: 1024px) {
-  .ts-header {
-    padding: 16px 20px;
-    gap: 15px;
-  }
-}
-
-@media (max-width: 768px) {
+  /* Container & Layout Paddings for Tablet / Mobile */
   .ts-container {
-    padding: 16px;
+    padding: 20px !important;
   }
 
   .ts-header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 16px;
-    border-radius: 12px;
+    padding: 20px;
+    border-radius: 14px;
     gap: 15px;
   }
 
+  .ts-content-card {
+    padding: 20px;
+    border-radius: 14px;
+  }
+
+  /* Navigation Tabs Horizontal Scrollable View */
   .ts-tabs {
     width: 100%;
     overflow-x: auto;
     white-space: nowrap;
     display: flex;
     scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
   .ts-tabs::-webkit-scrollbar {
@@ -741,37 +740,11 @@
     flex: 1;
     flex-shrink: 0;
     justify-content: center;
-    padding: 8px 12px;
+    padding: 10px 16px;
     font-size: 13px;
   }
 
-  .ts-content-card {
-    padding: 16px;
-    border-radius: 12px;
-  }
-
-  .ts-filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .ts-search-wrapper {
-    max-width: 100%;
-  }
-
-  .ts-date-wrapper, 
-  .ts-month-selectors {
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: space-between;
-  }
-
-  .ts-month-selectors select {
-    flex: 1;
-  }
-
-  /* Responsive Table-to-Card Grid Layout */
+  /* Responsive Table-to-Card Grid Layout for Tablets & Mobile */
   .ts-table-wrapper {
     background: transparent !important;
     border: none !important;
@@ -784,23 +757,30 @@
   .ts-table td {
     display: block !important;
     width: 100% !important;
+    box-sizing: border-box;
   }
 
   .ts-table thead {
     display: none !important;
   }
 
+  /* Body as a flexible CSS Grid */
+  .ts-table tbody {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important; /* 2-Columns on Tablets by default */
+    gap: 16px !important;
+  }
+
   .ts-table tr {
     background: #FFFFFF !important;
     border: 1px solid #edf2f7 !important;
-    border-radius: 18px !important;
+    border-radius: 16px !important;
     padding: 16px !important;
-    margin-bottom: 16px !important;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.015) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01) !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 12px !important;
-    box-sizing: border-box;
+    margin-bottom: 0 !important; /* Managed by grid gap */
   }
 
   .ts-table td {
@@ -810,10 +790,9 @@
     justify-content: space-between !important;
     align-items: center !important;
     font-size: 14px !important;
-    box-sizing: border-box;
   }
 
-  /* Header row (Employee Name) prominence */
+  /* Card Header (Employee Details Cell) styling */
   .ts-table td:nth-child(1) {
     display: block !important;
     border-bottom: 1px solid #f1f5f9 !important;
@@ -825,7 +804,7 @@
   .ts-table.attendance-tab td:nth-child(2)::before {
     content: "Phone";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -834,7 +813,7 @@
   .ts-table.attendance-tab td:nth-child(3)::before {
     content: "Allowed Leaves";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -844,14 +823,27 @@
     border-top: 1px solid #f1f5f9 !important;
     padding-top: 12px !important;
     margin-top: 4px !important;
-    justify-content: center !important; /* Center the status action group */
+    justify-content: center !important;
+  }
+
+  /* Expand attendance button group for easy touching */
+  .ts-table.attendance-tab td:nth-child(4) .ts-status-group {
+    width: 100% !important;
+    max-width: none !important;
+    display: flex !important;
+  }
+
+  .ts-table.attendance-tab td:nth-child(4) .ts-status-btn {
+    flex: 1 !important;
+    text-align: center !important;
+    padding: 10px 14px !important; /* Premium thumb-friendly target size */
   }
 
   /* --- 2. Analytics Tab Specific Labels --- */
   .ts-table.analytics-tab td:nth-child(2)::before {
     content: "Present";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -860,7 +852,7 @@
   .ts-table.analytics-tab td:nth-child(3)::before {
     content: "Half Days";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -869,7 +861,7 @@
   .ts-table.analytics-tab td:nth-child(4)::before {
     content: "Absent";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -878,7 +870,7 @@
   .ts-table.analytics-tab td:nth-child(5)::before {
     content: "Attendance Rate";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -888,7 +880,7 @@
   .ts-table.payroll-tab td:nth-child(2)::before {
     content: "Basic Salary";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -897,7 +889,7 @@
   .ts-table.payroll-tab td:nth-child(3)::before {
     content: "Excess Leave Debit";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -906,16 +898,27 @@
   .ts-table.payroll-tab td:nth-child(4)::before {
     content: "Short Term Adv";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
+  .ts-table.payroll-tab td:nth-child(4) .ts-adv-column-info,
+  .ts-table.payroll-tab td:nth-child(5) .ts-adv-column-info {
+    align-items: flex-end;
+    max-width: none;
+  }
+
+  .ts-table.payroll-tab td:nth-child(4) .ts-input-deduct-wrapper,
+  .ts-table.payroll-tab td:nth-child(5) .ts-input-deduct-wrapper {
+    min-width: 100px;
+  }
+
   .ts-table.payroll-tab td:nth-child(5)::before {
     content: "Long Term Adv";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -932,7 +935,7 @@
   .ts-table.payroll-tab td:nth-child(6)::before {
     content: "Repay Option";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -941,7 +944,7 @@
   .ts-table.payroll-tab td:nth-child(7)::before {
     content: "Net Salary";
     font-weight: 700;
-    color: var(--text-secondary);
+    color: #64748b;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -954,17 +957,104 @@
     justify-content: flex-end !important;
   }
 
-  /* Align action rows properly */
+  .ts-table.payroll-tab td:nth-child(8) .ts-btn-payslip {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  /* Inline actions alignment */
   .ts-actions {
     justify-content: center !important;
+    margin-top: 20px;
   }
   
   .ts-save-btn {
     width: 100% !important;
     justify-content: center !important;
+    padding: 12px 20px;
   }
 
-  /* Payslip Modal Responsiveness */
+  /* Filters styling on Tablets */
+  .ts-filter-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+  }
+
+  .ts-search-wrapper {
+    max-width: 280px;
+  }
+
+  .ts-date-wrapper, 
+  .ts-month-selectors {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  /* Centered Modal behavior on Tablets */
+  .ts-payslip-modal {
+    width: 90% !important;
+    max-width: 600px !important;
+    height: auto !important;
+    max-height: 85vh !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* Mobile Specific Tweaks (<= 650px) */
+@media (max-width: 650px) {
+  .ts-container {
+    padding: 16px !important;
+  }
+
+  .ts-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 16px;
+    border-radius: 12px;
+    gap: 12px;
+  }
+
+  .ts-content-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  /* Stack into 1-Column Cards list on mobile */
+  .ts-table tbody {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ts-table tr {
+    border-radius: 12px !important;
+    padding: 14px !important;
+  }
+
+  /* Stack Filters on mobile */
+  .ts-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .ts-search-wrapper {
+    max-width: 100%;
+  }
+
+  .ts-date-wrapper, 
+  .ts-month-selectors {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .ts-month-selectors select {
+    flex: 1;
+  }
+
+  /* Full screen modal for Mobile phones */
   .ts-payslip-modal {
     width: 100vw !important;
     height: 100vh !important;

@@ -154,6 +154,419 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
   );
 };
 
+// --- Accordion Payment Section Component with Inline Form ---
+const AccordionPaymentSection = ({ order, isMobile = false }) => {
+  const [timeline, setTimeline] = useState([]);
+  const [loadingInst, setLoadingInst] = useState(true);
+  const [addPayAmount, setAddPayAmount] = useState('');
+  const [addPayMode, setAddPayMode] = useState('UPI');
+  const [addPayNotes, setAddPayNotes] = useState('');
+  const [addingPayment, setAddingPayment] = useState(false);
+
+  const fetchTimeline = async () => {
+    try {
+      const snap = await getDocs(query(collection(db, 'orders', order.id, 'installments'), orderBy('createdAt', 'asc')));
+      setTimeline(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoadingInst(false);
+    } catch (err) {
+      console.error("Failed to load accordion installments:", err);
+      setLoadingInst(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    fetchTimeline();
+    return () => { active = false; };
+  }, [order.id]);
+
+  const balanceDue = Number(order.totalAmount || 0) - Number(order.receivedAmount || 0);
+
+  useEffect(() => {
+    if (balanceDue > 0.01) {
+      setAddPayAmount(balanceDue.toFixed(2));
+    } else {
+      setAddPayAmount('');
+    }
+  }, [order.id, order.receivedAmount]);
+
+  const handleAddPaymentSubmit = async (e) => {
+    e.preventDefault();
+    const amountVal = parseFloat(addPayAmount);
+    if (isNaN(amountVal) || amountVal <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+    if (amountVal > balanceDue + 0.01) {
+      toast.error(`Payment amount cannot exceed the remaining balance of ₹${balanceDue.toFixed(2)}`);
+      return;
+    }
+
+    setAddingPayment(true);
+    try {
+      const orderRef = doc(db, 'orders', order.id);
+      const newReceived = (order.receivedAmount || 0) + amountVal;
+      let newStatus = 'Pending';
+      if (newReceived >= order.totalAmount - 0.01) {
+        newStatus = 'Done';
+      } else if (newReceived > 0) {
+        newStatus = 'Partial';
+      }
+
+      await addDoc(collection(db, 'orders', order.id, 'installments'), {
+        amount: amountVal,
+        paymentMode: addPayMode,
+        notes: addPayNotes || 'Subsequent Installment',
+        createdAt: serverTimestamp()
+      });
+
+      await updateDoc(orderRef, {
+        receivedAmount: newReceived,
+        paymentStatus: newStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      toast.success(`Payment of ₹${amountVal.toFixed(2)} recorded successfully!`);
+      setAddPayNotes('');
+      fetchTimeline();
+    } catch (error) {
+      console.error("Save Accordion Payment Error:", error);
+      toast.error("Failed to save payment installment");
+    } finally {
+      setAddingPayment(false);
+    }
+  };
+
+  if (isMobile) {
+    return (
+      <div className="ord-tab-panel animate-fade-in" style={{ fontSize: '12px' }}>
+        <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+          <div className="ord-payment-summary-card" style={{ padding: '8px 4px' }}>
+            <h4 style={{ fontSize: '9px', margin: '0 0 2px 0' }}>Bill</h4>
+            <p style={{ fontSize: '13px', fontWeight: '800' }}>₹{order.totalAmount.toFixed(0)}</p>
+          </div>
+          <div className="ord-payment-summary-card" style={{ padding: '8px 4px' }}>
+            <h4 style={{ fontSize: '9px', margin: '0 0 2px 0' }}>Paid</h4>
+            <p style={{ fontSize: '13px', fontWeight: '800' }}>₹{order.receivedAmount.toFixed(0)}</p>
+          </div>
+          <div className={`ord-payment-summary-card due ${balanceDue <= 0 ? 'paid' : ''}`} style={{ padding: '8px 4px' }}>
+            <h4 style={{ fontSize: '9px', margin: '0 0 2px 0' }}>Due</h4>
+            <p style={{ fontSize: '13px', fontWeight: '800' }}>₹{Math.max(0, balanceDue).toFixed(0)}</p>
+          </div>
+        </div>
+
+        {balanceDue > 0.01 && (
+          <form onSubmit={handleAddPaymentSubmit} style={{ marginTop: '0', marginBottom: '16px', padding: '12px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '11px', fontWeight: '800', marginBottom: '8px', color: 'var(--primary-color)', marginTop: '0' }}>Record New Payment</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)' }}>Amount (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                    value={addPayAmount}
+                    onChange={(e) => setAddPayAmount(e.target.value)}
+                    max={balanceDue}
+                    min="0.01"
+                    style={{
+                      height: '32px',
+                      padding: '0 8px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      boxSizing: 'border-box',
+                      width: '100%',
+                      background: '#FFFFFF'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
+                  <div style={{ display: 'flex', gap: '3px', height: '32px' }}>
+                    {['UPI', 'Cash', 'Card'].map(mode => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setAddPayMode(mode)}
+                        style={{
+                          flex: 1,
+                          border: '1px solid ' + (addPayMode === mode ? 'var(--primary-color)' : 'var(--border-color)'),
+                          background: addPayMode === mode ? 'var(--primary-color)' : '#FFFFFF',
+                          color: addPayMode === mode ? '#FFFFFF' : 'var(--text-secondary)',
+                          borderRadius: '6px',
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          padding: 0
+                        }}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <label style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-secondary)' }}>Notes / Reference</label>
+                <input
+                  type="text"
+                  placeholder="Reference note"
+                  value={addPayNotes}
+                  onChange={(e) => setAddPayNotes(e.target.value)}
+                  style={{
+                    height: '32px',
+                    padding: '0 8px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    background: '#FFFFFF'
+                  }}
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={addingPayment}
+              style={{
+                width: '100%',
+                height: '32px',
+                background: 'var(--primary-color)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {addingPayment ? (
+                <div className="loader" style={{ width: '12px', height: '12px', borderTopColor: '#fff' }}></div>
+              ) : (
+                <>
+                  <Plus size={12} /> Record Payment
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        <div className="ord-installment-section">
+          <h3 style={{ fontSize: '12px', marginBottom: '8px', borderBottom: '1px dashed #e2e8f0', paddingBottom: '4px' }}>Installments</h3>
+          <div className="ord-installment-timeline" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+            {loadingInst ? (
+              <div style={{ padding: '10px', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>Loading timeline...</div>
+            ) : timeline.length > 0 ? (
+              timeline.map((inst, idx) => (
+                <div key={inst.id || idx} className="ord-installment-card" style={{ padding: '6px 10px', margin: '4px 0', fontSize: '11px' }}>
+                  <div className="ord-inst-left">
+                    <span className="ord-inst-date" style={{ fontSize: '9px' }}>
+                      {inst.createdAt?.toDate ? inst.createdAt.toDate().toLocaleString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      }) : 'Just now'}
+                    </span>
+                    {inst.notes && <span className="ord-inst-note" style={{ fontSize: '10px' }}>{inst.notes}</span>}
+                  </div>
+                  <div className="ord-inst-right">
+                    <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
+                    <div>
+                      <span className="ord-inst-mode" style={{ fontSize: '9px', padding: '1px 3px' }}>{inst.paymentMode || 'UPI'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="ord-timeline-empty" style={{ fontSize: '11px', padding: '8px' }}>
+                No installment payments recorded.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop view
+  return (
+    <div className="ord-tab-panel animate-fade-in" style={{ padding: '10px 0' }}>
+      <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginBottom: '20px' }}>
+        <div className="ord-payment-summary-card" style={{ padding: '12px' }}>
+          <h4 style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Total Bill</h4>
+          <p style={{ fontSize: '16px' }}>₹{order.totalAmount.toFixed(2)}</p>
+        </div>
+        <div className="ord-payment-summary-card" style={{ padding: '12px' }}>
+          <h4 style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Total Paid</h4>
+          <p style={{ fontSize: '16px' }}>₹{order.receivedAmount.toFixed(2)}</p>
+        </div>
+        <div className={`ord-payment-summary-card due ${balanceDue <= 0 ? 'paid' : ''}`} style={{ padding: '12px' }}>
+          <h4 style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Balance Due</h4>
+          <p style={{ fontSize: '16px' }}>₹{Math.max(0, balanceDue).toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Inline Installment Form */}
+      {balanceDue > 0.01 && (
+        <form onSubmit={handleAddPaymentSubmit} style={{ marginTop: '0', marginBottom: '24px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <h4 style={{ fontSize: '13px', fontWeight: '800', marginBottom: '12px', color: 'var(--primary-color)', marginTop: '0' }}>Record New Payment</h4>
+          <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Amount (₹) *</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                required
+                value={addPayAmount}
+                onChange={(e) => setAddPayAmount(e.target.value)}
+                max={balanceDue}
+                min="0.01"
+                style={{
+                  height: '36px',
+                  padding: '0 10px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  background: '#FFFFFF'
+                }}
+              />
+            </div>
+            <div style={{ flex: 1.5, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
+              <div style={{ display: 'flex', gap: '4px', height: '36px' }}>
+                {['UPI', 'Cash', 'Card'].map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setAddPayMode(mode)}
+                    style={{
+                      flex: 1,
+                      border: '1.5px solid ' + (addPayMode === mode ? 'var(--primary-color)' : 'var(--border-color)'),
+                      background: addPayMode === mode ? 'var(--primary-color)' : '#FFFFFF',
+                      color: addPayMode === mode ? '#FFFFFF' : 'var(--text-secondary)',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: 2, minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Notes / Reference</label>
+              <input
+                type="text"
+                placeholder="e.g. UPI ID or Installment note"
+                value={addPayNotes}
+                onChange={(e) => setAddPayNotes(e.target.value)}
+                style={{
+                  height: '36px',
+                  padding: '0 10px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  background: '#FFFFFF'
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={addingPayment}
+              style={{
+                flex: 1,
+                minWidth: '120px',
+                height: '36px',
+                background: 'var(--primary-color)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {addingPayment ? (
+                <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff' }}></div>
+              ) : (
+                <>
+                  <Plus size={14} /> Record Payment
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="ord-installment-section">
+        <h3 style={{ fontSize: '13px', marginBottom: '10px' }}>Installment Timeline</h3>
+        <div className="ord-installment-timeline" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+          {loadingInst ? (
+            <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>Loading timeline...</div>
+          ) : timeline.length > 0 ? (
+            timeline.map((inst, idx) => (
+              <div key={inst.id || idx} className="ord-installment-card" style={{ padding: '8px 12px', margin: '4px 0', fontSize: '12px' }}>
+                <div className="ord-inst-left">
+                  <span className="ord-inst-date" style={{ fontSize: '10px' }}>
+                    {inst.createdAt?.toDate ? inst.createdAt.toDate().toLocaleString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    }) : 'Just now'}
+                  </span>
+                  {inst.notes && <span className="ord-inst-note" style={{ fontSize: '11px' }}>{inst.notes}</span>}
+                </div>
+                <div className="ord-inst-right">
+                  <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
+                  <div>
+                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{inst.paymentMode || 'UPI'}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="ord-timeline-empty" style={{ fontSize: '12px', padding: '10px' }}>
+              No installment payments recorded.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -162,6 +575,9 @@ const Orders = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
   const [expandedOrders, setExpandedOrders] = useState([]);
+  const [accordionTabs, setAccordionTabs] = useState({}); // { [orderId]: 'items' | 'payment' | 'packing' }
+  const getAccordionTab = (orderId) => accordionTabs[orderId] || 'items';
+  const setAccordionTab = (orderId, tabName) => setAccordionTabs(prev => ({ ...prev, [orderId]: tabName }));
 
   // Date helper functions for filter shortcuts
   const getTodayStr = () => new Date().toISOString().split('T')[0];
@@ -1062,43 +1478,134 @@ const Orders = () => {
                   {expandedOrders.includes(order.id) && (
                     <tr className="ord-accordion-row">
                       <td colSpan="9" style={{ padding: 0 }}>
-                        <div className="ord-accordion-content">
-                          <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
-                          <table className="ord-items-subtable">
-                            <thead>
-                              <tr>
-                                <th>Item Name</th>
-                                <th>Description</th>
-                                <th>Quantity</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {order.items.map((item, idx) => (
-                                <tr key={idx}>
-                                  <td style={{ fontWeight: '700' }}>{item.name}</td>
-                                  <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
-                                  <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
-                                  <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
-                                  <td>
-                                    <select
-                                      className="ord-item-status-select"
-                                      value={item.status || 'preparation_started'}
-                                      onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
-                                    >
-                                      <option value="preparation_started">Preparation Started</option>
-                                      <option value="preparation_complete">Preparation Complete</option>
-                                      <option value="moved_to_packing">Moved to Packing</option>
-                                      <option value="packing_complete">Packing Complete</option>
-                                      <option value="moved_to_store">Moved to Store</option>
-                                      <option value="delivered">Delivered</option>
-                                    </select>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="ord-accordion-content" style={{ padding: '20px 40px' }}>
+                          {/* Tabs Header inside Accordion */}
+                          <div className="ord-preview-tabs" style={{ marginBottom: '15px' }}>
+                            <button
+                              type="button"
+                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'payment' ? 'active' : ''}`}
+                              onClick={() => setAccordionTab(order.id, 'payment')}
+                              style={{ fontSize: '13px', padding: '8px 12px' }}
+                            >
+                              Payment History
+                            </button>
+                            <button
+                              type="button"
+                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'packing' ? 'active' : ''}`}
+                              onClick={() => setAccordionTab(order.id, 'packing')}
+                              style={{ fontSize: '13px', padding: '8px 12px' }}
+                            >
+                              Packing Details
+                            </button>
+                            <button
+                              type="button"
+                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'items' ? 'active' : ''}`}
+                              onClick={() => setAccordionTab(order.id, 'items')}
+                              style={{ fontSize: '13px', padding: '8px 12px' }}
+                            >
+                              Items Included
+                            </button>
+                          </div>
+
+                          {/* Tab Panel: Payment Timeline */}
+                          {getAccordionTab(order.id) === 'payment' && (
+                            <AccordionPaymentSection order={order} />
+                          )}
+
+                          {/* Tab Panel: Packing Details */}
+                          {getAccordionTab(order.id) === 'packing' && (
+                            <div className="ord-tab-panel animate-fade-in" style={{ padding: '10px 0' }}>
+                              <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '20px', gap: '15px' }}>
+                                <div className="ord-payment-summary-card" style={{ padding: '12px' }}>
+                                  <h4 style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Boxes Packed</h4>
+                                  <p style={{ fontSize: '16px' }}>{order.boxesPacked !== undefined ? `${order.boxesPacked} Boxes` : 'Not Packed yet'}</p>
+                                </div>
+                                <div className="ord-payment-summary-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                  <h4 style={{ fontSize: '10px', margin: '0 0 4px 0' }}>Packing Instructions / Notes</h4>
+                                  <p style={{ fontSize: '12px', fontWeight: '600', color: '#475569', margin: '2px 0 0 0' }}>
+                                    {order.pUnitDescription || 'None specified'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="ord-installment-section">
+                                <h3 style={{ fontSize: '13px', marginBottom: '10px' }}>Packed Boxes Contents</h3>
+                                <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                                  {order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0 ? (
+                                    order.boxes.map((box, bIdx) => (
+                                      <div key={bIdx} className="ord-installment-card" style={{ padding: '10px 12px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                            📦 BOX #{box.boxNum}
+                                          </span>
+                                          <span style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+                                            {box.contents}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : order.boxContents ? (
+                                    <div className="ord-installment-card" style={{ padding: '10px 12px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                          📦 Dynamic Box Contents
+                                        </span>
+                                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+                                          {order.boxContents}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="ord-timeline-empty" style={{ fontSize: '12px', padding: '15px' }}>
+                                      No packing details or boxes recorded yet for this order.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Tab Panel: Items Included */}
+                          {getAccordionTab(order.id) === 'items' && (
+                            <div className="ord-tab-panel animate-fade-in" style={{ padding: '10px 0' }}>
+                              <h4 style={{ fontSize: '13px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
+                              <table className="ord-items-subtable">
+                                <thead>
+                                  <tr>
+                                    <th>Item Name</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {order.items.map((item, idx) => (
+                                    <tr key={idx}>
+                                      <td style={{ fontWeight: '700' }}>{item.name}</td>
+                                      <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
+                                      <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                                      <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                                      <td>
+                                        <select
+                                          className="ord-item-status-select"
+                                          value={item.status || 'preparation_started'}
+                                          onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                        >
+                                          <option value="preparation_started">Preparation Started</option>
+                                          <option value="preparation_complete">Preparation Complete</option>
+                                          <option value="moved_to_packing">Moved to Packing</option>
+                                          <option value="packing_complete">Packing Complete</option>
+                                          <option value="moved_to_store">Moved to Store</option>
+                                          <option value="delivered">Delivered</option>
+                                        </select>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1211,50 +1718,141 @@ const Orders = () => {
 
                 {/* Accordion / Expanded Details */}
                 {isExpanded && (
-                  <div className="ord-mobile-card-accordion animate-fade-in">
-                    <h4>Order Items</h4>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="ord-items-subtable">
-                        <thead>
-                          <tr>
-                            <th>Item Name</th>
-                            <th>Qty</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {order.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td style={{ fontWeight: '700' }}>
-                                {item.name}
-                                {item.description && (
-                                  <div style={{ fontSize: '11px', color: '#f59e0b', fontStyle: 'italic', marginTop: '2px' }}>
-                                    Note: {item.description}
-                                  </div>
-                                )}
-                              </td>
-                              <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
-                              <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
-                              <td>
-                                <select
-                                  className="ord-item-status-select"
-                                  value={item.status || 'preparation_started'}
-                                  onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
-                                >
-                                  <option value="preparation_started">Preparation Started</option>
-                                  <option value="preparation_complete">Preparation Complete</option>
-                                  <option value="moved_to_packing">Moved to Packing</option>
-                                  <option value="packing_complete">Packing Complete</option>
-                                  <option value="moved_to_store">Moved to Store</option>
-                                  <option value="delivered">Delivered</option>
-                                </select>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <div className="ord-mobile-card-accordion animate-fade-in" style={{ padding: '12px 14px' }}>
+                    {/* Tabs Header inside Mobile Accordion */}
+                    <div className="ord-preview-tabs" style={{ marginBottom: '12px', overflowX: 'auto', display: 'flex', whiteSpace: 'nowrap' }}>
+                      <button
+                        type="button"
+                        className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'payment' ? 'active' : ''}`}
+                        onClick={() => setAccordionTab(order.id, 'payment')}
+                        style={{ fontSize: '12px', padding: '6px 10px', flexShrink: 0 }}
+                      >
+                        Payment
+                      </button>
+                      <button
+                        type="button"
+                        className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'packing' ? 'active' : ''}`}
+                        onClick={() => setAccordionTab(order.id, 'packing')}
+                        style={{ fontSize: '12px', padding: '6px 10px', flexShrink: 0 }}
+                      >
+                        Packing
+                      </button>
+                      <button
+                        type="button"
+                        className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'items' ? 'active' : ''}`}
+                        onClick={() => setAccordionTab(order.id, 'items')}
+                        style={{ fontSize: '12px', padding: '6px 10px', flexShrink: 0 }}
+                      >
+                        Items Included
+                      </button>
                     </div>
+
+                    {/* Tab Panel: Payment Timeline */}
+                    {getAccordionTab(order.id) === 'payment' && (
+                      <AccordionPaymentSection order={order} isMobile={true} />
+                    )}
+
+                    {/* Tab Panel: Packing Details */}
+                    {getAccordionTab(order.id) === 'packing' && (
+                      <div className="ord-tab-panel animate-fade-in" style={{ fontSize: '12px' }}>
+                        <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '12px', gap: '8px' }}>
+                          <div className="ord-payment-summary-card" style={{ padding: '8px' }}>
+                            <h4 style={{ fontSize: '9px', margin: '0 0 2px 0' }}>Boxes Packed</h4>
+                            <p style={{ fontSize: '13px', fontWeight: '800' }}>{order.boxesPacked !== undefined ? `${order.boxesPacked} Boxes` : 'Not Packed yet'}</p>
+                          </div>
+                          <div className="ord-payment-summary-card" style={{ padding: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <h4 style={{ fontSize: '9px', margin: '0 0 2px 0' }}>Packing Notes</h4>
+                            <p style={{ fontSize: '11px', fontWeight: '600', color: '#475569', margin: '2px 0 0 0', lineHeight: '1.2' }}>
+                              {order.pUnitDescription || 'None'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="ord-installment-section">
+                          <h3 style={{ fontSize: '12px', marginBottom: '8px', borderBottom: '1px dashed #e2e8f0', paddingBottom: '4px' }}>Boxes Contents</h3>
+                          <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                            {order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0 ? (
+                              order.boxes.map((box, bIdx) => (
+                                <div key={bIdx} className="ord-installment-card" style={{ padding: '8px 10px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontSize: '9px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                      📦 BOX #{box.boxNum}
+                                    </span>
+                                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+                                      {box.contents}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))
+                            ) : order.boxContents ? (
+                              <div className="ord-installment-card" style={{ padding: '8px 10px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <span style={{ fontSize: '9px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                    📦 Dynamic Box Contents
+                                  </span>
+                                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+                                    {order.boxContents}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="ord-timeline-empty" style={{ fontSize: '11px', padding: '12px' }}>
+                                No packing details or boxes recorded yet for this order.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab Panel: Items Included */}
+                    {getAccordionTab(order.id) === 'items' && (
+                      <div className="ord-tab-panel animate-fade-in">
+                        <h4>Order Items</h4>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="ord-items-subtable">
+                            <thead>
+                              <tr>
+                                <th>Item Name</th>
+                                <th>Qty</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {order.items.map((item, idx) => (
+                                <tr key={idx}>
+                                  <td style={{ fontWeight: '700' }}>
+                                    {item.name}
+                                    {item.description && (
+                                      <div style={{ fontSize: '11px', color: '#f59e0b', fontStyle: 'italic', marginTop: '2px' }}>
+                                        Note: {item.description}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                                  <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                                  <td>
+                                    <select
+                                      className="ord-item-status-select"
+                                      value={item.status || 'preparation_started'}
+                                      onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                    >
+                                      <option value="preparation_started">Preparation Started</option>
+                                      <option value="preparation_complete">Preparation Complete</option>
+                                      <option value="moved_to_packing">Moved to Packing</option>
+                                      <option value="packing_complete">Packing Complete</option>
+                                      <option value="moved_to_store">Moved to Store</option>
+                                      <option value="delivered">Delivered</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1723,6 +2321,13 @@ const Orders = () => {
                     </button>
                     <button
                       type="button"
+                      className={`ord-preview-tab-btn ${previewTab === 'packing' ? 'active' : ''}`}
+                      onClick={() => setPreviewTab('packing')}
+                    >
+                      Packing Details
+                    </button>
+                    <button
+                      type="button"
                       className={`ord-preview-tab-btn ${previewTab === 'items' ? 'active' : ''}`}
                       onClick={() => setPreviewTab('items')}
                     >
@@ -1886,6 +2491,59 @@ const Orders = () => {
                           ) : (
                             <div className="ord-timeline-empty">
                               No installment payments recorded.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab Panel: Packing Details */}
+                  {previewTab === 'packing' && (
+                    <div className="ord-tab-panel animate-fade-in">
+                      <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '20px' }}>
+                        <div className="ord-payment-summary-card">
+                          <h4>Boxes Packed</h4>
+                          <p>{previewOrder.boxesPacked !== undefined ? `${previewOrder.boxesPacked} Boxes` : 'Not Packed yet'}</p>
+                        </div>
+                        <div className="ord-payment-summary-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <h4>Packing Instructions / Notes</h4>
+                          <p style={{ fontSize: '13px', fontWeight: '600', color: '#475569', margin: '4px 0 0 0' }}>
+                            {previewOrder.pUnitDescription || 'None specified'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="ord-installment-section">
+                        <h3>Packed Boxes Contents</h3>
+                        <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {previewOrder.boxes && Array.isArray(previewOrder.boxes) && previewOrder.boxes.length > 0 ? (
+                            previewOrder.boxes.map((box, bIdx) => (
+                              <div key={bIdx} className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                    📦 BOX #{box.boxNum}
+                                  </span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+                                    {box.contents}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : previewOrder.boxContents ? (
+                            <div className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                  📦 Dynamic Box Contents
+                                </span>
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+                                  {previewOrder.boxContents}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="ord-timeline-empty" style={{ padding: '30px', background: '#f8fafc', color: '#64748b' }}>
+                              No packing details or boxes recorded yet for this order.
                             </div>
                           )}
                         </div>
