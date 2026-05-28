@@ -115,6 +115,8 @@
 .ord-status-badge.moved_to_store { background: #FFEDD5; color: #9A3412; }
 .ord-status-badge.pickup_confirmed { background: #DBEAFE; color: #1E40AF; }
 .ord-status-badge.delivered { background: #ECFDF5; color: #065F46; }
+.ord-status-badge.ready-for-delivery { background: #EEF2FF; color: #3730A3; }
+
 
 .ord-status-badge.Pending { background: #FEE2E2; color: #991B1B; }
 .ord-status-badge.Partial { background: #FEF3C7; color: #92400E; }

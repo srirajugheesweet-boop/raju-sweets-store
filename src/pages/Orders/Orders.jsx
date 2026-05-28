@@ -574,6 +574,8 @@ const Orders = () => {
   const [activeModalTab, setActiveModalTab] = useState('items'); // 'items' or 'summary'
   const [searchQuery, setSearchQuery] = useState('');
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
   const [expandedOrders, setExpandedOrders] = useState([]);
   const [accordionTabs, setAccordionTabs] = useState({}); // { [orderId]: 'items' | 'payment' | 'packing' }
   const getAccordionTab = (orderId) => accordionTabs[orderId] || 'items';
@@ -1214,6 +1216,13 @@ const Orders = () => {
     const allDelivered = items.every(item => getStatus(item) === 'delivered');
     if (allDelivered) return 'Delivered';
 
+    // Check if ALL items are either moved_to_store or delivered
+    const allMovedOrDelivered = items.every(item => {
+      const st = getStatus(item);
+      return st === 'moved_to_store' || st === 'delivered';
+    });
+    if (allMovedOrDelivered) return 'Ready for Delivery';
+
     // Check if ANY item has progressed beyond preparation_started (or new/empty status)
     const hasProgressed = items.some(item => {
       const st = getStatus(item);
@@ -1279,7 +1288,9 @@ const Orders = () => {
       o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (o.customerPhone && o.customerPhone.includes(searchQuery));
     const matchesDate = !deliveryDateFilter || o.deliveryDate === deliveryDateFilter;
-    return matchesSearch && matchesDate;
+    const matchesStatus = statusFilter === 'All' || (o.status || 'new').toLowerCase().trim() === statusFilter.toLowerCase().trim();
+    const matchesPaymentStatus = paymentStatusFilter === 'All' || (o.paymentStatus || 'Pending').toLowerCase().trim() === paymentStatusFilter.toLowerCase().trim();
+    return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus;
   });
 
   return (
@@ -1317,6 +1328,59 @@ const Orders = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Status:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                height: '38px',
+                padding: '0 12px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                fontSize: '13px',
+                color: 'var(--text-primary)',
+                backgroundColor: '#ffffff',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="new">New</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Ready for Delivery">Ready for Delivery</option>
+              <option value="Delivered">Delivered</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment:</span>
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              style={{
+                height: '38px',
+                padding: '0 12px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                fontSize: '13px',
+                color: 'var(--text-primary)',
+                backgroundColor: '#ffffff',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="All">All Payments</option>
+              <option value="Pending">Pending</option>
+              <option value="Partial">Partial</option>
+              <option value="Done">Done</option>
+            </select>
           </div>
 
           <div className="ord-date-filter-container" style={{ 
@@ -1618,12 +1682,14 @@ const Orders = () => {
                   <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
                   <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
                   <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
-                  {(searchQuery || deliveryDateFilter) && (
+                  {(searchQuery || deliveryDateFilter || statusFilter !== 'All' || paymentStatusFilter !== 'All') && (
                     <button
                       type="button"
                       onClick={() => {
                         setSearchQuery('');
                         setDeliveryDateFilter('');
+                        setStatusFilter('All');
+                        setPaymentStatusFilter('All');
                       }}
                       style={{
                         marginTop: '15px',
