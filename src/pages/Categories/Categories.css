@@ -349,3 +349,21 @@
     top: 0;
   }
 }
+
+@media (max-width: 768px) {
+  .cat-container {
+    padding: 0;
+  }
+  .cat-form-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 5000;
+    overflow-y: auto;
+    border-radius: 0;
+    padding: 24px;
+    box-shadow: none;
+  }
+}

@@ -516,6 +516,9 @@
 }
 
 @media (max-width: 768px) {
+  .ws-container {
+    padding: 0;
+  }
   .ws-analytics-columns {
     grid-template-columns: 1fr;
   }
