@@ -37,6 +37,7 @@ const MUnitPortal = () => {
   const [mUnitStores, setMUnitStores] = useState([]);
   const [mUnitItems, setMUnitItems] = useState([]);
   const [mUnitWorksheetLoading, setMUnitWorksheetLoading] = useState(false);
+  const [storeWorksheetSubTab, setStoreWorksheetSubTab] = useState('pending'); // 'pending' or 'completed'
 
   // Fetch items & stores on mount / tab change
   useEffect(() => {
@@ -66,7 +67,7 @@ const MUnitPortal = () => {
       
       const unsubscribe = onSnapshot(q, (snap) => {
         if (!snap.empty) {
-          setMUnitWorksheetData(snap.docs[0].data());
+          setMUnitWorksheetData({ id: snap.docs[0].id, ...snap.docs[0].data() });
         } else {
           setMUnitWorksheetData(null);
         }
@@ -254,6 +255,35 @@ const MUnitPortal = () => {
     }
   };
 
+  // Toggle individual store allocation completion status in store worksheet
+  const handleToggleStoreAllocation = async (itemId, storeId) => {
+    if (!mUnitWorksheetData || !mUnitWorksheetData.id) {
+      toast.error("Worksheet is not loaded or does not exist.");
+      return;
+    }
+
+    try {
+      const worksheetRef = doc(db, 'store_worksheets', mUnitWorksheetData.id);
+      const currentCompleted = mUnitWorksheetData.completed || {};
+      const itemCompleted = currentCompleted[itemId] || {};
+      const isCurrentlyCompleted = !!itemCompleted[storeId];
+
+      const updatedCompleted = {
+        ...currentCompleted,
+        [itemId]: {
+          ...itemCompleted,
+          [storeId]: !isCurrentlyCompleted
+        }
+      };
+
+      await updateDoc(worksheetRef, { completed: updatedCompleted });
+      toast.success(isCurrentlyCompleted ? "Allocation marked as pending" : "Allocation marked as completed!");
+    } catch (err) {
+      console.error("Error updating store worksheet allocation:", err);
+      toast.error("Failed to update allocation status.");
+    }
+  };
+
   const toggleOrderAccordion = (orderDocId) => {
     setExpandedOrders(prev => 
       prev.includes(orderDocId) ? prev.filter(oId => oId !== orderDocId) : [...prev, orderDocId]
@@ -265,11 +295,12 @@ const MUnitPortal = () => {
   const activeWorksheetItems = worksheetSubTab === 'pending' ? pendingWorksheetItems : completedWorksheetItems;
   const assignedOrders = getAssignedOrders();
 
-  const getMUnitWorksheetItems = () => {
+  const getMUnitWorksheetItems = (statusType) => {
     if (!mUnitWorksheetData || !mUnitWorksheetData.quantities) return [];
     
     const parsed = [];
     const globalQuantities = mUnitWorksheetData.quantities;
+    const completedMap = mUnitWorksheetData.completed || {};
 
     mUnitItems.forEach(item => {
       if (item.mUnitId === id) {
@@ -279,13 +310,18 @@ const MUnitPortal = () => {
 
         Object.entries(allocations).forEach(([storeId, qty]) => {
           if (qty > 0) {
-            const storeName = mUnitStores.find(s => s.id === storeId)?.name || 'Unknown Store';
-            storeAllocations.push({ storeId, storeName, qty });
-            total += Number(qty);
+            const isCompleted = !!(completedMap[item.id]?.[storeId]);
+            const match = (statusType === 'pending' && !isCompleted) || (statusType === 'completed' && isCompleted);
+
+            if (match) {
+              const storeName = mUnitStores.find(s => s.id === storeId)?.name || 'Unknown Store';
+              storeAllocations.push({ storeId, storeName, qty, isCompleted });
+              total += Number(qty);
+            }
           }
         });
 
-        if (total > 0) {
+        if (storeAllocations.length > 0) {
           parsed.push({
             id: item.id,
             name: item.name,
@@ -301,7 +337,9 @@ const MUnitPortal = () => {
     return parsed;
   };
 
-  const mUnitWorksheetItems = getMUnitWorksheetItems();
+  const pendingMUnitWorksheetItems = getMUnitWorksheetItems('pending');
+  const completedMUnitWorksheetItems = getMUnitWorksheetItems('completed');
+  const activeMUnitWorksheetItems = storeWorksheetSubTab === 'pending' ? pendingMUnitWorksheetItems : completedMUnitWorksheetItems;
 
   return (
     <PortalLayout title="Manufacturing Portal" links={links}>
@@ -404,10 +442,24 @@ const MUnitPortal = () => {
                           <div className="mu-card-orders-breakdown">
                             <span className="mu-breakdown-title">Source Orders:</span>
                             {worksheetSubTab === 'pending' ? (
-                              <div className="mu-breakdown-pills">
+                              <div className="mu-orders-checklist">
                                 {groupedItem.linkedOrders.map((link, lIdx) => (
-                                  <div key={lIdx} className="mu-breakdown-pill" title={`Customer: ${link.customerName}`}>
-                                    <span className="bold">#{link.orderId}</span> - {link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}
+                                  <div key={lIdx} className="mu-checklist-item" title={`Customer: ${link.customerName}`}>
+                                    <div className="mu-checklist-info">
+                                      <div className="mu-checklist-header-line">
+                                        <span className="mu-checklist-order-id">#{link.orderId}</span>
+                                        <span className="mu-checklist-qty">{link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}</span>
+                                      </div>
+                                      <span className="mu-checklist-customer">{link.customerName}</span>
+                                    </div>
+                                    <button 
+                                      className="mu-checklist-check-btn"
+                                      onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, 'preparation_complete')}
+                                      title="Mark this order's item as done"
+                                    >
+                                      <CheckCircle2 size={14} />
+                                      <span>Done</span>
+                                    </button>
                                   </div>
                                 ))}
                               </div>
@@ -596,6 +648,22 @@ const MUnitPortal = () => {
                       <h2>Store Wise Worksheet</h2>
                       <p className="mu-subtitle">Production targets allocated across retail store outlets</p>
                     </div>
+                    
+                    {/* Pending vs Completed Sub tabs */}
+                    <div className="mu-sub-tabs">
+                      <button 
+                        className={`mu-sub-tab-btn ${storeWorksheetSubTab === 'pending' ? 'active' : ''}`}
+                        onClick={() => setStoreWorksheetSubTab('pending')}
+                      >
+                        <Clock size={16} /> Pending ({pendingMUnitWorksheetItems.length})
+                      </button>
+                      <button 
+                        className={`mu-sub-tab-btn ${storeWorksheetSubTab === 'completed' ? 'active' : ''}`}
+                        onClick={() => setStoreWorksheetSubTab('completed')}
+                      >
+                        <CheckCircle2 size={16} /> Completed ({completedMUnitWorksheetItems.length})
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mu-date-filter-bar">
@@ -623,12 +691,12 @@ const MUnitPortal = () => {
                     <div className="loader" style={{ margin: '0 auto 15px auto' }}></div>
                     <p style={{ color: '#64748b' }}>Loading worksheet...</p>
                   </div>
-                ) : mUnitWorksheetItems.length > 0 ? (
+                ) : activeMUnitWorksheetItems.length > 0 ? (
                   <div className="mu-worksheet-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
-                    {mUnitWorksheetItems.map((item, idx) => (
+                    {activeMUnitWorksheetItems.map((item, idx) => (
                       <motion.div 
                         key={item.id}
-                        className="mu-worksheet-card"
+                        className={`mu-worksheet-card ${storeWorksheetSubTab === 'completed' ? 'completed-card' : ''}`}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: idx * 0.05 }}
@@ -637,7 +705,7 @@ const MUnitPortal = () => {
                         <div className="mu-card-body">
                           <div className="mu-card-main-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <h3 className="mu-item-title" style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', margin: 0 }}>{item.name}</h3>
-                            <span className="mu-item-qty" style={{ background: '#fef3c7', color: '#92400e', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                            <span className="mu-item-qty" style={{ background: storeWorksheetSubTab === 'completed' ? '#d1fae5' : '#fef3c7', color: storeWorksheetSubTab === 'completed' ? '#065f46' : '#92400e', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
                               {item.total.toFixed(item.unit === 'Weight' ? 2 : 0)} {item.unitLabel}
                             </span>
                           </div>
@@ -645,12 +713,71 @@ const MUnitPortal = () => {
                           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
                             <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Store Breakdown:</span>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              {item.storeAllocations.map(sa => (
-                                <div key={sa.storeId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>{sa.storeName}</span>
-                                  <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary-color)' }}>{sa.qty} {item.unitLabel}</span>
-                                </div>
-                              ))}
+                              {item.storeAllocations.map(sa => {
+                                const isCompleted = sa.isCompleted;
+                                return (
+                                  <div 
+                                    key={sa.storeId} 
+                                    className={`mu-store-allocation-row ${isCompleted ? 'completed' : ''}`}
+                                    style={{ 
+                                      display: 'flex', 
+                                      justifyContent: 'space-between', 
+                                      alignItems: 'center', 
+                                      background: isCompleted ? '#f0fdf4' : '#f8fafc', 
+                                      padding: '10px 14px', 
+                                      borderRadius: '10px', 
+                                      border: isCompleted ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                                      opacity: isCompleted ? 0.9 : 1,
+                                      transition: 'all 0.2s ease',
+                                      gap: '15px'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                                      <span style={{ 
+                                        fontSize: '13px', 
+                                        fontWeight: '700', 
+                                        color: isCompleted ? '#166534' : '#334155',
+                                        textDecoration: isCompleted ? 'line-through' : 'none',
+                                        textDecorationColor: '#cbd5e1',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }} title={sa.storeName}>
+                                        {sa.storeName}
+                                      </span>
+                                    </div>
+                                    <span style={{ 
+                                      fontSize: '12px', 
+                                      fontWeight: '800', 
+                                      color: isCompleted ? '#047857' : '#d97706',
+                                      background: isCompleted ? '#e6fbf1' : '#fffbeb',
+                                      padding: '3px 8px',
+                                      borderRadius: '6px',
+                                      border: isCompleted ? '1px solid #a7f3d0' : '1px solid #fef3c7',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {sa.qty} {item.unitLabel}
+                                    </span>
+                                    <button
+                                      onClick={() => handleToggleStoreAllocation(item.id, sa.storeId)}
+                                      className="mu-checklist-check-btn"
+                                      style={{
+                                        borderColor: isCompleted ? '#f59e0b' : '#10b981',
+                                        color: isCompleted ? '#f59e0b' : '#10b981',
+                                        background: 'white',
+                                        padding: '4px 10px',
+                                        height: '28px',
+                                        fontSize: '11px',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title={isCompleted ? "Mark allocation as pending" : "Mark allocation as completed"}
+                                    >
+                                      <CheckCircle2 size={12} />
+                                      <span>{isCompleted ? 'Undo' : 'Done'}</span>
+                                    </button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -659,9 +786,19 @@ const MUnitPortal = () => {
                   </div>
                 ) : (
                   <div className="mu-empty-state">
-                    <ClipboardList size={48} className="mu-empty-icon" style={{ color: '#94a3b8', margin: '0 auto 15px auto', display: 'block' }} />
-                    <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>No Production Targets Scheduled</h3>
-                    <p style={{ color: '#64748b' }}>No store-wise allocations have been saved for {new Date(mUnitWorksheetDate).toLocaleDateString()} yet.</p>
+                    {storeWorksheetSubTab === 'pending' ? (
+                      <>
+                        <CheckCircle2 size={48} className="mu-empty-icon" />
+                        <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>All Allocations Done!</h3>
+                        <p style={{ color: '#64748b' }}>No pending store allocations for {new Date(mUnitWorksheetDate).toLocaleDateString()}.</p>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle size={48} className="mu-empty-icon" style={{ color: '#94a3b8' }} />
+                        <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>No Completed Allocations</h3>
+                        <p style={{ color: '#64748b' }}>No allocations have been marked done for {new Date(mUnitWorksheetDate).toLocaleDateString()} yet.</p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

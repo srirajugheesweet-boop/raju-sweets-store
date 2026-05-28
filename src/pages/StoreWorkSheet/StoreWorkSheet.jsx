@@ -834,6 +834,8 @@ const StoreWorkSheet = () => {
           let overallSumPieces = 0;
           let totalActiveItems = 0;
           
+          const completedMap = previewSheet.completed || {};
+          
           // Store-wise parsed data
           const storeBreakdowns = stores.map(store => {
             const allocatedItems = [];
@@ -845,7 +847,8 @@ const StoreWorkSheet = () => {
                   name: item.name,
                   qty,
                   unit: item.unit,
-                  unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs'
+                  unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs',
+                  isCompleted: !!(completedMap[item.id]?.[store.id])
                 });
               }
             });
@@ -866,7 +869,8 @@ const StoreWorkSheet = () => {
               const qty = Number(qtyStr || 0);
               if (qty > 0) {
                 const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
-                storeAllocations.push({ storeId, storeName, qty });
+                const isCompleted = !!(completedMap[item.id]?.[storeId]);
+                storeAllocations.push({ storeId, storeName, qty, isCompleted });
                 itemTotal += qty;
               }
             });
@@ -950,9 +954,26 @@ const StoreWorkSheet = () => {
                               <div className="ws-store-card-header">{sb.name}</div>
                               <div className="ws-store-card-list">
                                 {sb.allocatedItems.map(item => (
-                                  <div key={item.id} className="ws-store-card-item">
-                                    <span className="ws-item-name">{item.name}</span>
-                                    <span className="ws-item-qty">{item.qty} {item.unitLabel}</span>
+                                  <div key={item.id} className="ws-store-card-item" style={{ background: item.isCompleted ? '#f0fdf4' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: '6px', margin: '4px 0', border: item.isCompleted ? '1px solid #bbf7d0' : 'none' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span className="ws-item-name" style={{ textDecoration: item.isCompleted ? 'line-through' : 'none', textDecorationColor: '#94a3b8', fontSize: '12px', fontWeight: '600' }}>{item.name}</span>
+                                      {item.isCompleted && (
+                                        <span style={{ 
+                                          background: '#10b981', 
+                                          color: 'white', 
+                                          fontSize: '9px', 
+                                          fontWeight: '800', 
+                                          padding: '1px 5px', 
+                                          borderRadius: '10px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '2px'
+                                        }}>
+                                          ✓ Prepared
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="ws-item-qty" style={{ fontSize: '12px', fontWeight: '700', color: item.isCompleted ? '#047857' : 'var(--primary-color)' }}>{item.qty} {item.unitLabel}</span>
                                   </div>
                                 ))}
                               </div>
@@ -983,9 +1004,26 @@ const StoreWorkSheet = () => {
                               </div>
                               <div className="ws-product-card-allocations">
                                 {ci.storeAllocations.map(sa => (
-                                  <div key={sa.storeId} className="ws-product-allocation-row">
-                                    <span className="ws-alloc-store">{sa.storeName}</span>
-                                    <span className="ws-alloc-qty">{sa.qty} {ci.unitLabel}</span>
+                                  <div key={sa.storeId} className="ws-product-allocation-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px dashed #f1f5f9' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span className="ws-alloc-store" style={{ textDecoration: sa.isCompleted ? 'line-through' : 'none', textDecorationColor: '#94a3b8', fontSize: '12px' }}>{sa.storeName}</span>
+                                      {sa.isCompleted && (
+                                        <span style={{ 
+                                          background: '#d1fae5', 
+                                          color: '#065f46', 
+                                          fontSize: '8px', 
+                                          fontWeight: '800', 
+                                          padding: '0px 4px', 
+                                          borderRadius: '8px',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '1px'
+                                        }}>
+                                          ✓ Prepared
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="ws-alloc-qty" style={{ fontSize: '12px', fontWeight: '600' }}>{sa.qty} {ci.unitLabel}</span>
                                   </div>
                                 ))}
                               </div>

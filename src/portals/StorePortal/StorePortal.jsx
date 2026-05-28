@@ -288,6 +288,7 @@ const StorePortal = () => {
   const [wsHistoryLoading, setWsHistoryLoading] = useState(false);
   const [wsSaving, setWsSaving] = useState(false);
   const [wsPreviewSheet, setWsPreviewSheet] = useState(null);
+  const [activeWorksheet, setActiveWorksheet] = useState(null);
 
   // Store Worksheet - Fetch Items on tab active
   useEffect(() => {
@@ -309,32 +310,33 @@ const StorePortal = () => {
     }
   }, [tab]);
 
-  // Fetch/subscribe to the worksheet for the selected date
+  // Fetch/subscribe to the worksheet for the selected date reactively
   useEffect(() => {
     if (tab === 'worksheet' && wsDate) {
-      const fetchSelectedWorksheet = async () => {
-        try {
-          const q = query(collection(db, 'store_worksheets'), where('date', '==', wsDate));
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            const sheet = snap.docs[0].data();
-            const globalQuantities = sheet.quantities || {};
-            const storeQuantities = {};
-            Object.entries(globalQuantities).forEach(([itemId, storeQtyMap]) => {
-              if (storeQtyMap && storeQtyMap[id] !== undefined) {
-                storeQuantities[itemId] = storeQtyMap[id];
-              }
-            });
-            setWsQuantities(storeQuantities);
-            toast.success(`Loaded saved allocations for ${wsDate}`);
-          } else {
-            setWsQuantities({});
-          }
-        } catch (err) {
-          console.error("Error loading worksheet for date:", err);
+      const q = query(collection(db, 'store_worksheets'), where('date', '==', wsDate));
+      
+      const unsubscribe = onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          const docData = snap.docs[0].data();
+          setActiveWorksheet({ id: snap.docs[0].id, ...docData });
+          
+          const globalQuantities = docData.quantities || {};
+          const storeQuantities = {};
+          Object.entries(globalQuantities).forEach(([itemId, storeQtyMap]) => {
+            if (storeQtyMap && storeQtyMap[id] !== undefined) {
+              storeQuantities[itemId] = storeQtyMap[id];
+            }
+          });
+          setWsQuantities(storeQuantities);
+        } else {
+          setActiveWorksheet(null);
+          setWsQuantities({});
         }
-      };
-      fetchSelectedWorksheet();
+      }, (err) => {
+        console.error("Error subscribing to worksheet in StorePortal:", err);
+      });
+
+      return () => unsubscribe();
     }
   }, [tab, wsDate, id]);
 
@@ -1788,9 +1790,28 @@ const StorePortal = () => {
                           const unitPlaceholder = item.unit === 'Weight' ? '0.00' : '0';
                           const itemQty = wsQuantities[item.id] ?? '';
 
+                          const isAllocationCompleted = !!(activeWorksheet?.completed?.[item.id]?.[id]);
+
                           return (
-                            <tr key={item.id}>
-                              <td style={{ fontWeight: '700' }}>{item.name}</td>
+                            <tr key={item.id} style={{ background: isAllocationCompleted ? '#f0fdf4' : 'none', transition: 'all 0.2s ease' }}>
+                              <td style={{ fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span>{item.name}</span>
+                                {isAllocationCompleted && (
+                                  <span style={{ 
+                                    background: '#10b981', 
+                                    color: 'white', 
+                                    fontSize: '10px', 
+                                    fontWeight: '800', 
+                                    padding: '2px 8px', 
+                                    borderRadius: '20px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}>
+                                    <CheckCircle2 size={10} /> Prepared
+                                  </span>
+                                )}
+                              </td>
                               <td>
                                 <span className={`ws-unit-badge ${item.unit === 'Weight' ? 'weight' : 'piece'}`}>
                                   {unitLabel}
@@ -1806,6 +1827,7 @@ const StorePortal = () => {
                                     onChange={(e) => handleWorksheetQtyChange(item.id, e.target.value)}
                                     min="0"
                                     step={item.unit === 'Weight' ? '0.01' : '1'}
+                                    disabled={isAllocationCompleted}
                                   />
                                   <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{item.unit === 'Weight' ? 'KG' : 'Pcs'}</span>
                                 </div>
@@ -2228,11 +2250,14 @@ const StorePortal = () => {
           wsItems.forEach(item => {
             const qty = globalQuantities[item.id]?.[id];
             if (qty && qty > 0) {
+              const isCompleted = !!(wsPreviewSheet.completed?.[item.id]?.[id]);
               storeQuantities.push({
+                id: item.id,
                 name: item.name,
                 qty,
                 unit: item.unit,
-                unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs'
+                unitLabel: item.unit === 'Weight' ? 'KG' : 'Pcs',
+                isCompleted
               });
             }
           });
@@ -2256,9 +2281,26 @@ const StorePortal = () => {
                 {storeQuantities.length > 0 ? (
                   <div className="ws-preview-list">
                     {storeQuantities.map((item, idx) => (
-                      <div key={idx} className="ws-preview-row">
-                        <span className="ws-preview-name">{item.name}</span>
-                        <span className="ws-preview-qty">{item.qty} {item.unitLabel}</span>
+                      <div key={idx} className="ws-preview-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="ws-preview-name" style={{ fontWeight: '600', color: '#0f172a' }}>{item.name}</span>
+                          {item.isCompleted && (
+                            <span style={{ 
+                              background: '#d1fae5', 
+                              color: '#065f46', 
+                              fontSize: '10px', 
+                              fontWeight: '800', 
+                              padding: '1px 6px', 
+                              borderRadius: '12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}>
+                              <CheckCircle2 size={8} /> Prepared
+                            </span>
+                          )}
+                        </div>
+                        <span className="ws-preview-qty" style={{ fontWeight: '700', color: 'var(--primary-color)' }}>{item.qty} {item.unitLabel}</span>
                       </div>
                     ))}
                   </div>
