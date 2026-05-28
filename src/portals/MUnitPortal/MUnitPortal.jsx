@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
-import { 
-  BarChart3, 
-  ShoppingBag, 
-  ClipboardList, 
-  CheckCircle2, 
-  User, 
-  Clock, 
-  ArrowRight, 
-  Eye, 
-  ChevronDown, 
+import {
+  BarChart3,
+  ShoppingBag,
+  ClipboardList,
+  CheckCircle2,
+  User,
+  Clock,
+  ArrowRight,
+  Eye,
+  ChevronDown,
   ChevronUp,
   Calendar,
   AlertCircle
@@ -64,7 +64,7 @@ const MUnitPortal = () => {
     if (tab === 'store-worksheet' && mUnitWorksheetDate) {
       setMUnitWorksheetLoading(true);
       const q = query(collection(db, 'store_worksheets'), where('date', '==', mUnitWorksheetDate));
-      
+
       const unsubscribe = onSnapshot(q, (snap) => {
         if (!snap.empty) {
           setMUnitWorksheetData({ id: snap.docs[0].id, ...snap.docs[0].data() });
@@ -107,10 +107,10 @@ const MUnitPortal = () => {
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
     if (!orderDateStr || !selectedDateStr) return false;
-    
+
     // selectedDateStr is always YYYY-MM-DD
     const [selYear, selMonth, selDay] = selectedDateStr.split('-').map(Number);
-    
+
     try {
       // 1. Slash format (DD/MM/YYYY or MM/DD/YYYY)
       if (orderDateStr.includes('/')) {
@@ -131,7 +131,7 @@ const MUnitPortal = () => {
           }
         }
       }
-      
+
       // 2. Dash format (YYYY-MM-DD)
       if (orderDateStr.includes('-')) {
         const parts = orderDateStr.split('-');
@@ -148,9 +148,9 @@ const MUnitPortal = () => {
       // 3. Fallback date parse
       const parsed = new Date(orderDateStr);
       if (!isNaN(parsed.getTime())) {
-        return parsed.getFullYear() === selYear && 
-               parsed.getMonth() === (selMonth - 1) && 
-               parsed.getDate() === selDay;
+        return parsed.getFullYear() === selYear &&
+          parsed.getMonth() === (selMonth - 1) &&
+          parsed.getDate() === selDay;
       }
     } catch (e) {
       console.error("Error parsing order date:", e);
@@ -170,11 +170,11 @@ const MUnitPortal = () => {
         order.items.forEach((item, index) => {
           if (item.mUnitId === id) {
             const isPending = item.status === 'preparation_started' || !item.status;
-            const isCompleted = item.status === 'preparation_complete' || 
-                                item.status === 'moved_to_packing' || 
-                                item.status === 'packing_complete' || 
-                                item.status === 'moved_to_store' || 
-                                item.status === 'delivered';
+            const isCompleted = item.status === 'preparation_complete' ||
+              item.status === 'moved_to_packing' ||
+              item.status === 'packing_complete' ||
+              item.status === 'moved_to_store' ||
+              item.status === 'delivered';
 
             const match = (statusType === 'pending' && isPending) || (statusType === 'completed' && isCompleted);
 
@@ -197,7 +197,9 @@ const MUnitPortal = () => {
                 itemIndex: index,
                 quantity: item.quantity,
                 customerName: order.customerName,
-                createdAt: order.createdAt
+                createdAt: order.createdAt,
+                itemDescription: item.description || '',
+                mUnitDescription: order.mUnitDescription || ''
               });
             }
           }
@@ -214,7 +216,7 @@ const MUnitPortal = () => {
         const orderRef = doc(db, 'orders', link.orderDocId);
         const order = orders.find(o => o.id === link.orderDocId);
         if (!order) return;
-        
+
         const newItems = [...order.items];
         if (newItems[link.itemIndex]) {
           newItems[link.itemIndex].status = 'preparation_complete';
@@ -232,7 +234,7 @@ const MUnitPortal = () => {
 
   // Filter orders assigned to this manufacturing unit
   const getAssignedOrders = () => {
-    return orders.filter(order => 
+    return orders.filter(order =>
       order.items && order.items.some(item => item.mUnitId === id)
     );
   };
@@ -285,7 +287,7 @@ const MUnitPortal = () => {
   };
 
   const toggleOrderAccordion = (orderDocId) => {
-    setExpandedOrders(prev => 
+    setExpandedOrders(prev =>
       prev.includes(orderDocId) ? prev.filter(oId => oId !== orderDocId) : [...prev, orderDocId]
     );
   };
@@ -297,7 +299,7 @@ const MUnitPortal = () => {
 
   const getMUnitWorksheetItems = (statusType) => {
     if (!mUnitWorksheetData || !mUnitWorksheetData.quantities) return [];
-    
+
     const parsed = [];
     const globalQuantities = mUnitWorksheetData.quantities;
     const completedMap = mUnitWorksheetData.completed || {};
@@ -354,7 +356,7 @@ const MUnitPortal = () => {
             {/* --- TODAY WORKSHEET TAB --- */}
             {tab === 'worksheet' && (
               <div className="mu-worksheet-view animate-fade-in">
-                
+
                 {/* Header with Sub tabs and Date picker */}
                 <div className="mu-view-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
@@ -362,16 +364,16 @@ const MUnitPortal = () => {
                       <h2>Today Worksheet</h2>
                       <p className="mu-subtitle">Aggregated list of sweet items to prepare</p>
                     </div>
-                    
+
                     {/* Pending vs Completed Sub tabs */}
                     <div className="mu-sub-tabs">
-                      <button 
+                      <button
                         className={`mu-sub-tab-btn ${worksheetSubTab === 'pending' ? 'active' : ''}`}
                         onClick={() => setWorksheetSubTab('pending')}
                       >
                         <Clock size={16} /> Pending ({pendingWorksheetItems.length})
                       </button>
-                      <button 
+                      <button
                         className={`mu-sub-tab-btn ${worksheetSubTab === 'completed' ? 'active' : ''}`}
                         onClick={() => setWorksheetSubTab('completed')}
                       >
@@ -385,14 +387,14 @@ const MUnitPortal = () => {
                     <div className="mu-filter-left">
                       <Calendar size={18} className="mu-filter-cal-icon" />
                       <span className="mu-filter-label">Filter Worksheet Date:</span>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         className="mu-date-picker-input"
-                        value={worksheetDate} 
-                        onChange={(e) => setWorksheetDate(e.target.value)} 
+                        value={worksheetDate}
+                        onChange={(e) => setWorksheetDate(e.target.value)}
                       />
                     </div>
-                    <button 
+                    <button
                       className="mu-today-reset-btn"
                       onClick={() => setWorksheetDate(new Date().toISOString().split('T')[0])}
                     >
@@ -420,8 +422,8 @@ const MUnitPortal = () => {
                 ) : (
                   <div className="mu-worksheet-grid">
                     {activeWorksheetItems.map((groupedItem, idx) => (
-                      <motion.div 
-                        key={idx} 
+                      <motion.div
+                        key={idx}
                         className={`mu-worksheet-card ${worksheetSubTab === 'completed' ? 'completed-card' : ''}`}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -435,31 +437,39 @@ const MUnitPortal = () => {
                             </span>
                           </div>
 
-                          {groupedItem.description && (
+                          {/* {groupedItem.description && (
                             <p className="mu-item-description">💡 {groupedItem.description}</p>
-                          )}
+                          )} */}
 
                           <div className="mu-card-orders-breakdown">
                             <span className="mu-breakdown-title">Source Orders:</span>
                             {worksheetSubTab === 'pending' ? (
                               <div className="mu-orders-checklist">
                                 {groupedItem.linkedOrders.map((link, lIdx) => (
-                                  <div key={lIdx} className="mu-checklist-item" title={`Customer: ${link.customerName}`}>
-                                    <div className="mu-checklist-info">
-                                      <div className="mu-checklist-header-line">
-                                        <span className="mu-checklist-order-id">#{link.orderId}</span>
-                                        <span className="mu-checklist-qty">{link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}</span>
+                                  <div key={lIdx} className="mu-checklist-item" title={`Customer: ${link.customerName}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '6px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                      <div className="mu-checklist-info">
+                                        <div className="mu-checklist-header-line">
+                                          <span className="mu-checklist-order-id">#{link.orderId}</span>
+                                          <span className="mu-checklist-qty">{link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}</span>
+                                        </div>
+                                        <span className="mu-checklist-customer">{link.customerName}</span>
                                       </div>
-                                      <span className="mu-checklist-customer">{link.customerName}</span>
+                                      <button
+                                        className="mu-checklist-check-btn"
+                                        onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, 'preparation_complete')}
+                                        title="Mark this order's item as done"
+                                      >
+                                        <CheckCircle2 size={14} />
+                                        <span>Done</span>
+                                      </button>
                                     </div>
-                                    <button 
-                                      className="mu-checklist-check-btn"
-                                      onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, 'preparation_complete')}
-                                      title="Mark this order's item as done"
-                                    >
-                                      <CheckCircle2 size={14} />
-                                      <span>Done</span>
-                                    </button>
+                                    {(link.itemDescription || link.mUnitDescription) && (
+                                      <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 8px', borderRadius: '6px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
+                                        {link.itemDescription && <div style={{ fontWeight: '700' }}>Item Note: {link.itemDescription}</div>}
+                                        {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '2px' : '0' }}>Mfg Note: {link.mUnitDescription}</div>}
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -471,27 +481,35 @@ const MUnitPortal = () => {
                                   const currentStatus = actualItem?.status || 'preparation_complete';
 
                                   return (
-                                    <div key={lIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '6px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', gap: '10px' }}>
-                                      <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
-                                        <div>
-                                          <span className="bold" style={{ color: 'var(--primary-color)', marginRight: '5px' }}>#{link.orderId}</span>
-                                          <span>({link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'})</span>
+                                    <div key={lIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '10px' }}>
+                                        <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                          <div>
+                                            <span className="bold" style={{ color: 'var(--primary-color)', marginRight: '5px' }}>#{link.orderId}</span>
+                                            <span>({link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'})</span>
+                                          </div>
+                                          <span style={{ color: '#64748b', fontSize: '10px' }}>{link.customerName}</span>
                                         </div>
-                                        <span style={{ color: '#64748b', fontSize: '10px' }}>{link.customerName}</span>
+                                        <select
+                                          className="mu-select-status"
+                                          style={{ padding: '4px 6px', fontSize: '11px', height: '30px', width: 'auto', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white' }}
+                                          value={currentStatus}
+                                          onChange={(e) => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, e.target.value)}
+                                        >
+                                          <option value="preparation_started">Prep Started</option>
+                                          <option value="preparation_complete">Prep Completed</option>
+                                          <option value="moved_to_packing">Moved to Packing</option>
+                                          <option value="packing_complete">Packing Completed</option>
+                                          <option value="moved_to_store">Moved to Store</option>
+                                          <option value="delivered">Delivered</option>
+                                        </select>
                                       </div>
-                                      <select
-                                        className="mu-select-status"
-                                        style={{ padding: '4px 6px', fontSize: '11px', height: '30px', width: 'auto', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white' }}
-                                        value={currentStatus}
-                                        onChange={(e) => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, e.target.value)}
-                                      >
-                                        <option value="preparation_started">Prep Started</option>
-                                        <option value="preparation_complete">Prep Completed</option>
-                                        <option value="moved_to_packing">Moved to Packing</option>
-                                        <option value="packing_complete">Packing Completed</option>
-                                        <option value="moved_to_store">Moved to Store</option>
-                                        <option value="delivered">Delivered</option>
-                                      </select>
+                                      {(link.itemDescription || link.mUnitDescription) && (
+                                        <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 8px', borderRadius: '6px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
+                                          {link.itemDescription && <div style={{ fontWeight: '700' }}>Item Note: {link.itemDescription}</div>}
+                                          {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '2px' : '0' }}>Mfg Note: {link.mUnitDescription}</div>}
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -502,7 +520,7 @@ const MUnitPortal = () => {
 
                         <div className="mu-card-footer">
                           {worksheetSubTab === 'pending' ? (
-                            <button 
+                            <button
                               className="mu-btn-complete"
                               onClick={() => handleMarkItemDone(groupedItem)}
                             >
@@ -648,16 +666,16 @@ const MUnitPortal = () => {
                       <h2>Store Wise Worksheet</h2>
                       <p className="mu-subtitle">Production targets allocated across retail store outlets</p>
                     </div>
-                    
+
                     {/* Pending vs Completed Sub tabs */}
                     <div className="mu-sub-tabs">
-                      <button 
+                      <button
                         className={`mu-sub-tab-btn ${storeWorksheetSubTab === 'pending' ? 'active' : ''}`}
                         onClick={() => setStoreWorksheetSubTab('pending')}
                       >
                         <Clock size={16} /> Pending ({pendingMUnitWorksheetItems.length})
                       </button>
-                      <button 
+                      <button
                         className={`mu-sub-tab-btn ${storeWorksheetSubTab === 'completed' ? 'active' : ''}`}
                         onClick={() => setStoreWorksheetSubTab('completed')}
                       >
@@ -670,14 +688,14 @@ const MUnitPortal = () => {
                     <div className="mu-filter-left">
                       <Calendar size={18} className="mu-filter-cal-icon" />
                       <span className="mu-filter-label">Worksheet Date:</span>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         className="mu-date-picker-input"
-                        value={mUnitWorksheetDate} 
-                        onChange={(e) => setMUnitWorksheetDate(e.target.value)} 
+                        value={mUnitWorksheetDate}
+                        onChange={(e) => setMUnitWorksheetDate(e.target.value)}
                       />
                     </div>
-                    <button 
+                    <button
                       className="mu-today-reset-btn"
                       onClick={() => setMUnitWorksheetDate(new Date().toISOString().split('T')[0])}
                     >
@@ -694,7 +712,7 @@ const MUnitPortal = () => {
                 ) : activeMUnitWorksheetItems.length > 0 ? (
                   <div className="mu-worksheet-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
                     {activeMUnitWorksheetItems.map((item, idx) => (
-                      <motion.div 
+                      <motion.div
                         key={item.id}
                         className={`mu-worksheet-card ${storeWorksheetSubTab === 'completed' ? 'completed-card' : ''}`}
                         initial={{ opacity: 0, y: 15 }}
@@ -716,16 +734,16 @@ const MUnitPortal = () => {
                               {item.storeAllocations.map(sa => {
                                 const isCompleted = sa.isCompleted;
                                 return (
-                                  <div 
-                                    key={sa.storeId} 
+                                  <div
+                                    key={sa.storeId}
                                     className={`mu-store-allocation-row ${isCompleted ? 'completed' : ''}`}
-                                    style={{ 
-                                      display: 'flex', 
-                                      justifyContent: 'space-between', 
-                                      alignItems: 'center', 
-                                      background: isCompleted ? '#f0fdf4' : '#f8fafc', 
-                                      padding: '10px 14px', 
-                                      borderRadius: '10px', 
+                                    style={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      background: isCompleted ? '#f0fdf4' : '#f8fafc',
+                                      padding: '10px 14px',
+                                      borderRadius: '10px',
                                       border: isCompleted ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
                                       opacity: isCompleted ? 0.9 : 1,
                                       transition: 'all 0.2s ease',
@@ -733,9 +751,9 @@ const MUnitPortal = () => {
                                     }}
                                   >
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
-                                      <span style={{ 
-                                        fontSize: '13px', 
-                                        fontWeight: '700', 
+                                      <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: '700',
                                         color: isCompleted ? '#166534' : '#334155',
                                         textDecoration: isCompleted ? 'line-through' : 'none',
                                         textDecorationColor: '#cbd5e1',
@@ -746,9 +764,9 @@ const MUnitPortal = () => {
                                         {sa.storeName}
                                       </span>
                                     </div>
-                                    <span style={{ 
-                                      fontSize: '12px', 
-                                      fontWeight: '800', 
+                                    <span style={{
+                                      fontSize: '12px',
+                                      fontWeight: '800',
                                       color: isCompleted ? '#047857' : '#d97706',
                                       background: isCompleted ? '#e6fbf1' : '#fffbeb',
                                       padding: '3px 8px',
