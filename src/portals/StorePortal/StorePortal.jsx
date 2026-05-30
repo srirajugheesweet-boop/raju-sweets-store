@@ -2716,18 +2716,41 @@ const StorePortal = () => {
                                       <h3 style={{ fontSize: '13px', marginBottom: '10px' }}>Packed Boxes Contents</h3>
                                       <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
                                         {order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0 ? (
-                                          order.boxes.map((box, bIdx) => (
-                                            <div key={bIdx} className="ord-installment-card" style={{ padding: '10px 12px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
-                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
-                                                  📦 BOX #{box.boxNum}
-                                                </span>
-                                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
-                                                  {box.contents}
-                                                </span>
+                                          order.boxes.map((box, bIdx) => {
+                                            const isReceived = box.received === true || box.status === 'received_at_store';
+                                            return (
+                                              <div 
+                                                key={bIdx} 
+                                                className="ord-installment-card" 
+                                                style={{ 
+                                                  padding: '10px 12px', 
+                                                  background: isReceived ? '#f0fdf4' : '#faf5ff', 
+                                                  border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff', 
+                                                  display: 'block', 
+                                                  textAlign: 'left',
+                                                  borderRadius: '8px',
+                                                  boxShadow: isReceived ? '0 0 10px rgba(16, 185, 129, 0.1)' : 'none',
+                                                  transition: 'all 0.3s ease'
+                                                }}
+                                              >
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '10px', fontWeight: '800', color: isReceived ? '#10b981' : 'var(--primary-color)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                      📦 BOX #{box.boxNum}
+                                                    </span>
+                                                    {isReceived && (
+                                                      <span style={{ fontSize: '9px', fontWeight: '800', color: '#10b981', background: '#d1fae5', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                                        ✓ RECEIVED
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <span style={{ fontSize: '12px', fontWeight: '600', color: isReceived ? '#14532d' : '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+                                                    {box.contents}
+                                                  </span>
+                                                </div>
                                               </div>
-                                            </div>
-                                          ))
+                                            );
+                                          })
                                         ) : order.boxContents ? (
                                           <div className="ord-installment-card" style={{ padding: '10px 12px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -2962,18 +2985,41 @@ const StorePortal = () => {
                                 <h3 style={{ fontSize: '12px', marginBottom: '8px', borderBottom: '1px dashed #e2e8f0', paddingBottom: '4px' }}>Boxes Contents</h3>
                                 <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
                                   {order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0 ? (
-                                    order.boxes.map((box, bIdx) => (
-                                      <div key={bIdx} className="ord-installment-card" style={{ padding: '8px 10px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                          <span style={{ fontSize: '9px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
-                                            📦 BOX #{box.boxNum}
-                                          </span>
-                                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
-                                            {box.contents}
-                                          </span>
+                                    order.boxes.map((box, bIdx) => {
+                                      const isReceived = box.received === true || box.status === 'received_at_store';
+                                      return (
+                                        <div 
+                                          key={bIdx} 
+                                          className="ord-installment-card" 
+                                          style={{ 
+                                            padding: '8px 10px', 
+                                            background: isReceived ? '#f0fdf4' : '#faf5ff', 
+                                            border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff', 
+                                            display: 'block', 
+                                            textAlign: 'left',
+                                            borderRadius: '8px',
+                                            boxShadow: isReceived ? '0 0 8px rgba(16, 185, 129, 0.1)' : 'none',
+                                            transition: 'all 0.3s ease'
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                              <span style={{ fontSize: '9px', fontWeight: '800', color: isReceived ? '#10b981' : 'var(--primary-color)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                📦 BOX #{box.boxNum}
+                                              </span>
+                                              {isReceived && (
+                                                <span style={{ fontSize: '8px', fontWeight: '800', color: '#10b981', background: '#d1fae5', padding: '1px 4px', borderRadius: '3px', textTransform: 'uppercase' }}>
+                                                  ✓ RECEIVED
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span style={{ fontSize: '11px', fontWeight: '600', color: isReceived ? '#14532d' : '#1e293b', whiteSpace: 'pre-wrap', marginTop: '2px' }}>
+                                              {box.contents}
+                                            </span>
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))
+                                      );
+                                    })
                                   ) : order.boxContents ? (
                                     <div className="ord-installment-card" style={{ padding: '8px 10px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -4897,18 +4943,41 @@ const StorePortal = () => {
                         <h3>Packed Boxes Contents</h3>
                         <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                           {previewOrder.boxes && Array.isArray(previewOrder.boxes) && previewOrder.boxes.length > 0 ? (
-                            previewOrder.boxes.map((box, bIdx) => (
-                              <div key={bIdx} className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
-                                    📦 BOX #{box.boxNum}
-                                  </span>
-                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
-                                    {box.contents}
-                                  </span>
+                            previewOrder.boxes.map((box, bIdx) => {
+                              const isReceived = box.received === true || box.status === 'received_at_store';
+                              return (
+                                <div 
+                                  key={bIdx} 
+                                  className="ord-installment-card" 
+                                  style={{ 
+                                    padding: '14px', 
+                                    background: isReceived ? '#f0fdf4' : '#faf5ff', 
+                                    border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff', 
+                                    display: 'block', 
+                                    textAlign: 'left',
+                                    borderRadius: '10px',
+                                    boxShadow: isReceived ? '0 0 12px rgba(16, 185, 129, 0.12)' : 'none',
+                                    transition: 'all 0.3s ease'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '800', color: isReceived ? '#10b981' : 'var(--primary-color)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        📦 BOX #{box.boxNum}
+                                      </span>
+                                      {isReceived && (
+                                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#10b981', background: '#d1fae5', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                          ✓ RECEIVED AT STORE
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span style={{ fontSize: '13px', fontWeight: '600', color: isReceived ? '#14532d' : '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+                                      {box.contents}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
+                              );
+                            })
                           ) : previewOrder.boxContents ? (
                             <div className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
