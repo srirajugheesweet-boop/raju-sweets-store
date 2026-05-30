@@ -28,6 +28,7 @@ import MUnitPortal from './portals/MUnitPortal/MUnitPortal';
 import PUnitPortal from './portals/PUnitPortal/PUnitPortal';
 import StorePortal from './portals/StorePortal/StorePortal';
 import EmployeePortal from './portals/EmployeePortal/EmployeePortal';
+import IndividualPortal from './portals/IndividualPortal/IndividualPortal';
 import StoreWorkSheet from './pages/StoreWorkSheet/StoreWorkSheet';
 import { Toaster } from 'react-hot-toast';
 
@@ -83,6 +84,8 @@ function App() {
           <Route path="/store-portal/:id/:tab" element={<ProtectedRoute><StorePortal /></ProtectedRoute>} />
           <Route path="/employee-portal" element={<ProtectedRoute><EmployeePortal /></ProtectedRoute>} />
           <Route path="/employee-portal/:tab" element={<ProtectedRoute><EmployeePortal /></ProtectedRoute>} />
+          <Route path="/individual-portal" element={<ProtectedRoute><IndividualPortal /></ProtectedRoute>} />
+          <Route path="/individual-portal/:tab" element={<ProtectedRoute><IndividualPortal /></ProtectedRoute>} />
 
           {/* Super Admin Module Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />

@@ -10,7 +10,8 @@ import {
   ShieldCheck,
   Smartphone,
   Trash2,
-  Edit
+  Edit,
+  User
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -49,6 +50,7 @@ const Users = () => {
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [employeeAccess, setEmployeeAccess] = useState(false);
+  const [individualAccess, setIndividualAccess] = useState(false);
 
   useEffect(() => {
     // Fetch users
@@ -81,6 +83,7 @@ const Users = () => {
     setSelectedMUnits([]);
     setSelectedPUnits([]);
     setEmployeeAccess(false);
+    setIndividualAccess(false);
     setEditingId(null);
   };
 
@@ -107,7 +110,8 @@ const Users = () => {
           stores: selectedStores,
           mUnits: selectedMUnits,
           pUnits: selectedPUnits,
-          employees: employeeAccess
+          employees: employeeAccess,
+          individual: individualAccess
         },
         updatedAt: serverTimestamp()
       };
@@ -138,6 +142,7 @@ const Users = () => {
     setSelectedMUnits(user.access?.mUnits || []);
     setSelectedPUnits(user.access?.pUnits || []);
     setEmployeeAccess(user.access?.employees || false);
+    setIndividualAccess(user.access?.individual || false);
     setEditingId(user.id);
     setShowAddModal(true);
   };
@@ -189,6 +194,7 @@ const Users = () => {
               <th>Store Access</th>
               <th>Manufacturing Access</th>
               <th>Packing Access</th>
+              <th>Special Access</th>
               <th style={{ textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
@@ -213,6 +219,13 @@ const Users = () => {
                   <td><span className="usrm-access-badge">{user.access?.stores?.length || 0} Stores</span></td>
                   <td><span className="usrm-access-badge">{user.access?.mUnits?.length || 0} Units</span></td>
                   <td><span className="usrm-access-badge">{user.access?.pUnits?.length || 0} Units</span></td>
+                  <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                      {user.access?.employees && <span className="usrm-access-badge" style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>Staff Directory</span>}
+                      {user.access?.individual && <span className="usrm-access-badge" style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd' }}>My Profile</span>}
+                      {!user.access?.employees && !user.access?.individual && <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>None</span>}
+                    </div>
+                  </td>
                   <td>
                     <div className="usrm-actions">
                       <button className="edit-btn" onClick={() => handleEdit(user)}><Edit size={16} /></button>
@@ -349,6 +362,25 @@ const Users = () => {
                             style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                           />
                           <span style={{ fontSize: '12px', fontWeight: '600', color: '#5b21b6' }}>Allow view-only staff list & attendance logging</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Individual Portal (My Profile) */}
+                    <div className="usrm-access-card" style={{ background: '#f5f3ff', border: '1.5px dashed #a855f7' }}>
+                      <div className="usrm-acard-header" style={{ background: '#eff6ff', color: '#4f46e5' }}>
+                        <User size={18} />
+                        <h4>Individual Portal (My Profile)</h4>
+                      </div>
+                      <div className="usrm-acard-list" style={{ padding: '15px' }}>
+                        <label className="usrm-checkbox-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={individualAccess}
+                            onChange={() => setIndividualAccess(!individualAccess)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '600', color: '#4f46e5' }}>Allow viewing personal profile & advances in read-only portal</span>
                         </label>
                       </div>
                     </div>

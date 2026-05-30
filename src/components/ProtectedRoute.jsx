@@ -28,7 +28,8 @@ const ProtectedRoute = ({ children }) => {
       /^\/munit-portal/,
       /^\/punit-portal/,
       /^\/store-portal/,
-      /^\/employee-portal/
+      /^\/employee-portal/,
+      /^\/individual-portal/
     ];
     
     const isAllowed = allowedPatterns.some(pattern => pattern.test(location.pathname));

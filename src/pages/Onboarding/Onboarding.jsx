@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Factory, Package, LogOut, Users } from 'lucide-react';
+import { Store, Factory, Package, LogOut, Users, User } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -22,6 +22,7 @@ const Onboarding = () => {
       
       try {
         let userProfile = null;
+        let employeeProfile = null;
         if (auth.currentUser?.email === 'admin@rajusweets.com') {
            userProfile = {
              name: "Super Admin",
@@ -41,9 +42,16 @@ const Onboarding = () => {
            if (!snap.empty) {
              userProfile = { id: snap.docs[0].id, ...snap.docs[0].data() };
            }
+
+           // Check employees collection
+           const qEmp = query(collection(db, 'employees'), where('phone', 'in', [phone, normalizedPhone]));
+           const snapEmp = await getDocs(qEmp);
+           if (!snapEmp.empty) {
+             employeeProfile = { id: snapEmp.docs[0].id, ...snapEmp.docs[0].data() };
+           }
         }
         
-        if (userProfile) {
+        if (userProfile || employeeProfile) {
           const [sSnap, mSnap, pSnap] = await Promise.all([
             getDocs(collection(db, 'stores')),
             getDocs(collection(db, 'manufacturing_units')),
@@ -54,7 +62,13 @@ const Onboarding = () => {
           const mUnitsMap = mSnap.docs.map(d => ({id: d.id, name: d.data().name}));
           const pUnitsMap = pSnap.docs.map(d => ({id: d.id, name: d.data().name}));
           
-          setUserData({ profile: userProfile, storesMap, mUnitsMap, pUnitsMap });
+          const finalProfile = userProfile || {
+            name: employeeProfile ? `${employeeProfile.firstName} ${employeeProfile.lastName || ''}` : 'Employee',
+            role: 'employee',
+            access: {}
+          };
+          
+          setUserData({ profile: finalProfile, employeeProfile, storesMap, mUnitsMap, pUnitsMap });
         } else {
           toast.error("No access found for this account");
         }
@@ -78,7 +92,7 @@ const Onboarding = () => {
     );
   }
 
-  const { profile, storesMap, mUnitsMap, pUnitsMap } = userData;
+  const { profile, employeeProfile, storesMap, mUnitsMap, pUnitsMap } = userData;
 
   const getStoreName = (id) => storesMap.find(s => s.id === id)?.name || id;
   const getMUnitName = (id) => mUnitsMap.find(s => s.id === id)?.name || id;
@@ -151,6 +165,20 @@ const Onboarding = () => {
             <div className="icon-box" style={{ background: '#f5f3ff', color: '#8b5cf6' }}><Users size={32} /></div>
             <h3>Employee Operations</h3>
             <p>Employees & Timesheet Portal</p>
+          </motion.div>
+        )}
+
+        {(employeeProfile || profile.access?.individual) && (
+          <motion.div 
+            key="individual-portal" 
+            className="onb-card employee-individual" 
+            onClick={() => navigate('/individual-portal')}
+            whileHover={{ y: -5 }}
+            style={{ borderLeft: '6px solid #a855f7' }}
+          >
+            <div className="icon-box" style={{ background: '#f3e8ff', color: '#a855f7' }}><User size={32} /></div>
+            <h3>My Profile</h3>
+            <p>Personal Details & Advances</p>
           </motion.div>
         )}
       </div>

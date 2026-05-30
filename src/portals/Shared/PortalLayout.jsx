@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
 import { usePrinter } from '../../context/PrinterContext';
@@ -61,11 +61,23 @@ const PortalLayout = ({ children, title, links }) => {
   } = usePrinter();
 
   useEffect(() => {
-    if (!id) return;
+    if (!id && !location.pathname.startsWith('/individual-portal')) return;
 
     const fetchEntityDetails = async () => {
       try {
-        if (location.pathname.startsWith('/store-portal')) {
+        if (location.pathname.startsWith('/individual-portal')) {
+          setEntityRole('Employee Portal');
+          const phone = localStorage.getItem('userPhone') || auth.currentUser?.phoneNumber;
+          if (phone) {
+            const normalizedPhone = phone.startsWith('+91') ? phone.slice(3) : phone;
+            const q = query(collection(db, 'employees'), where('phone', 'in', [phone, normalizedPhone]));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              const empData = snap.docs[0].data();
+              setEntityName(`${empData.firstName} ${empData.lastName || ''}`);
+            }
+          }
+        } else if (location.pathname.startsWith('/store-portal')) {
           setEntityRole('Store Operator');
           const docRef = doc(db, 'stores', id);
           const docSnap = await getDoc(docRef);
