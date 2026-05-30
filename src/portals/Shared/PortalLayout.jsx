@@ -4,7 +4,7 @@ import {
   LogOut, Home, Star,
   Bluetooth as BluetoothIcon, 
   Usb as UsbIcon, 
-  RefreshCw, AlertCircle, X
+  RefreshCw, AlertCircle, X, Menu
 } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { signOut } from 'firebase/auth';
@@ -23,6 +23,15 @@ const PortalLayout = ({ children, title, links }) => {
 
   const [entityName, setEntityName] = useState('');
   const [entityRole, setEntityRole] = useState('Operator');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prev => !prev);
+  };
+
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
+  };
 
   // Shared Global Printer Connections
   const {
@@ -97,13 +106,20 @@ const PortalLayout = ({ children, title, links }) => {
   };
 
   return (
-    <div className="layout-wrapper">
-      <aside className="sidebar">
+    <div className={`layout-wrapper ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+      <aside className={`sidebar ${isSidebarOpen ? 'drawer-open' : ''}`}>
+        <div className="sidebar-header-mobile">
+          <span className="sidebar-mobile-title">Menu</span>
+          <button className="sidebar-close-btn" onClick={closeSidebar} aria-label="Close menu">
+            <X size={20} />
+          </button>
+        </div>
         <div className="sidebar-menu">
           {links.map(link => (
             <Link 
               key={link.path} 
               to={link.path} 
+              onClick={closeSidebar}
               className={`sidebar-item ${location.pathname.startsWith(link.path) ? 'active' : ''}`}
             >
               {React.cloneElement(link.icon, { size: 24, className: 'sidebar-icon' })}
@@ -112,20 +128,39 @@ const PortalLayout = ({ children, title, links }) => {
           ))}
         </div>
         <div className="sidebar-footer">
-          <button onClick={() => navigate('/onboarding')} className="sidebar-switch-btn" title="Switch Portal">
+          <button 
+            onClick={() => { closeSidebar(); navigate('/onboarding'); }} 
+            className="sidebar-switch-btn" 
+            title="Switch Portal"
+          >
             <Home size={24} />
             <span className="sidebar-label">Switch Portal</span>
           </button>
-          <button onClick={handleLogout} className="sidebar-logout-btn" title="Logout">
+          <button 
+            onClick={() => { closeSidebar(); handleLogout(); }} 
+            className="sidebar-logout-btn" 
+            title="Logout"
+          >
             <LogOut size={24} />
             <span className="sidebar-label">Logout</span>
           </button>
         </div>
       </aside>
 
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={closeSidebar}></div>
+      )}
+
       <div className="layout-main">
         <header className="header">
           <div className="header-left">
+            <button 
+              className="header-menu-btn" 
+              onClick={toggleSidebar}
+              aria-label="Toggle Navigation Sidebar"
+            >
+              {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
             <Link to="/onboarding" className="header-logo">
               <img src={logo} alt="Raju Ghee Sweets" className="header-logo-img" />
             </Link>
