@@ -232,28 +232,60 @@ const TimeSheet = () => {
              rDate.getFullYear() === selectedYear;
     });
 
+    const salary = Number(emp.salary || 0);
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const perDayPay = salary / daysInMonth;
+    const acceptedLeaves = Number(emp.acceptedLeaves || 0);
+
+    // Dynamic past vs current month day evaluation limit
+    const today = new Date();
+    const selectedDateObj = new Date(selectedYear, selectedMonth, 1);
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    let endDay = 0;
+    if (selectedDateObj < currentMonthStart) {
+      endDay = daysInMonth; // Past month
+    } else if (selectedYear === today.getFullYear() && selectedMonth === today.getMonth()) {
+      endDay = today.getDate(); // Current month
+    } else {
+      endDay = 0; // Future month
+    }
+
     let present = 0;
     let absent = 0;
     let halfday = 0;
+    let totalRecorded = 0;
 
-    monthlyRecords.forEach(r => {
-      if (r.status === 'present') present++;
-      else if (r.status === 'absent') absent++;
-      else if (r.status === 'halfday') {
-        halfday++;
-        present += 0.5;
-        absent += 0.5;
+    for (let day = 1; day <= endDay; day++) {
+      totalRecorded++;
+      const yearStr = selectedYear;
+      const monthStr = String(selectedMonth + 1).padStart(2, '0');
+      const dayStr = String(day).padStart(2, '0');
+      const dateKey = `${yearStr}-${monthStr}-${dayStr}`;
+
+      const record = monthlyRecords.find(r => r.date === dateKey);
+
+      if (record) {
+        if (record.status === 'present') {
+          present++;
+        } else if (record.status === 'absent') {
+          absent++;
+        } else if (record.status === 'halfday') {
+          halfday++;
+          present += 0.5;
+          absent += 0.5;
+        }
+      } else {
+        // Treat as absent if no attendance logged for previous days in this month
+        absent++;
       }
-    });
+    }
 
-    const salary = Number(emp.salary || 0);
-    const perDayPay = salary / 30;
-    const acceptedLeaves = Number(emp.acceptedLeaves || 0);
-
+    const presentPay = present * perDayPay;
     const debitedDays = Math.max(0, absent - acceptedLeaves);
     const debitAmount = debitedDays * perDayPay;
 
-    const hasPerfectAttendance = absent === 0 && monthlyRecords.length > 0;
+    const hasPerfectAttendance = absent === 0 && totalRecorded > 0;
     const bonus = hasPerfectAttendance ? (2 * perDayPay) : 0;
     
     const basicNetPay = salary - debitAmount + bonus;
@@ -283,6 +315,7 @@ const TimeSheet = () => {
       absent,
       halfday,
       perDayPay,
+      presentPay,
       debitedDays,
       debitAmount,
       bonus,
@@ -292,6 +325,7 @@ const TimeSheet = () => {
       longTermPending,
       longTermDeduct,
       netPay,
+      daysInMonth,
       totalRecorded: monthlyRecords.length,
       shortTermActive,
       longTermActive,
@@ -672,8 +706,13 @@ const TimeSheet = () => {
             </thead>
             <tbody>
               <tr>
-                <td>Basic Salary (Monthly)</td>
-                <td style="text-align: right;">₹ ${Number(payee.salary).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td>Monthly Base Salary Reference</td>
+                <td style="text-align: right; color: #64748b; font-style: italic;">₹ ${Number(payee.salary).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td style="text-align: right;">-</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Present Days Earnings (${stats.present} Days Present out of ${stats.daysInMonth} days)</td>
+                <td style="text-align: right; font-weight: 700;">₹ ${stats.presentPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                 <td style="text-align: right;">-</td>
               </tr>
               ${stats.bonus > 0 ? `
@@ -976,7 +1015,14 @@ const TimeSheet = () => {
                                 </div>
                               </div>
                             </td>
-                            <td style={{ fontWeight: '600' }}>₹ {Number(emp.salary || 0).toLocaleString('en-IN')}</td>
+                             <td>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: '600' }}>₹ {Number(emp.salary || 0).toLocaleString('en-IN')}</span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                  {stats.present}d Present / {stats.absent}d Absent
+                                </span>
+                              </div>
+                            </td>
                             <td style={{ color: stats.debitAmount > 0 ? '#ef4444' : '#475569', fontWeight: stats.debitAmount > 0 ? '700' : '500' }}>
                               {stats.debitAmount > 0 ? `- ₹ ${Math.round(stats.debitAmount).toLocaleString('en-IN')}` : '₹ 0'}
                               {stats.debitedDays > 0 && <span className="ts-days-sub">({stats.debitedDays}d excess)</span>}
@@ -1204,9 +1250,14 @@ const TimeSheet = () => {
                         </tr>
                       </thead>
                       <tbody>
+                         <tr>
+                          <td>Monthly Base Salary Reference</td>
+                          <td style={{ textAlign: 'right', color: '#64748b', fontStyle: 'italic' }}>₹ {Number(selectedPayee.salary).toLocaleString('en-IN')}</td>
+                          <td style={{ textAlign: 'right' }}>-</td>
+                        </tr>
                         <tr>
-                          <td>Basic Salary (Monthly)</td>
-                          <td style={{ textAlign: 'right' }}>₹ {Number(selectedPayee.salary).toLocaleString('en-IN')}</td>
+                          <td style={{ fontWeight: '600' }}>Present Days Earnings ({stats.present} days out of {stats.daysInMonth} days)</td>
+                          <td style={{ textAlign: 'right', fontWeight: '700' }}>₹ {Math.round(stats.presentPay).toLocaleString('en-IN')}</td>
                           <td style={{ textAlign: 'right' }}>-</td>
                         </tr>
                         {stats.bonus > 0 && (

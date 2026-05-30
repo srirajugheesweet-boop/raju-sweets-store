@@ -577,6 +577,117 @@
   font-weight: 500;
 }
 
+/* Payslip Tab Dashboard Styles */
+.ind-print-btn {
+  background: var(--ind-primary);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
+}
+
+.ind-print-btn:hover {
+  transform: translateY(-2px);
+  background: #9333ea;
+  box-shadow: 0 6px 16px rgba(168, 85, 247, 0.25);
+}
+
+.ind-payslip-filters {
+  display: flex;
+  gap: 16px;
+  background: #f8fafc;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  margin-bottom: 8px;
+}
+
+.ind-payslip-filters .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.ind-payslip-filters label {
+  font-size: 11px;
+  font-weight: 750;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ind-payslip-filters select {
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-color);
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.ind-payslip-filters select:focus {
+  border-color: var(--ind-primary);
+}
+
+.ind-slip-attendance-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.ind-slip-attendance-row .att-box {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ind-slip-attendance-row .att-box.present {
+  border-left: 4px solid #10b981;
+}
+
+.ind-slip-attendance-row .att-box.absent {
+  border-left: 4px solid #ef4444;
+}
+
+.ind-slip-attendance-row .att-box.excess {
+  border-left: 4px solid #f59e0b;
+}
+
+.ind-slip-attendance-row label {
+  font-size: 10px;
+  font-weight: 750;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.ind-slip-attendance-row .val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
 /* Mobile Bottom Navigation Bar Base Styles */
 .ind-mobile-bottom-nav {
   display: none;
@@ -609,6 +720,16 @@
   .ind-profile-badge {
     width: 100%;
     box-sizing: border-box;
+  }
+
+  .ind-payslip-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ind-slip-attendance-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
   }
 
   /* Fixed premium mobile bottom bar layout */
