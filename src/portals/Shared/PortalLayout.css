@@ -198,3 +198,168 @@
     padding: 0 20px;
   }
 }
+
+/* Global Header Printer Status Button Styles inside Portal Header */
+.header-printer-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 10px;
+}
+
+.header-print-status-btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.1, 0.8, 0.3, 1);
+  outline: none;
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.header-print-status-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+  color: #FFFFFF;
+}
+
+.header-print-status-btn.connected.ble {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10B981;
+  color: #10B981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.header-print-status-btn.connected.ble:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34D399;
+}
+
+.header-print-status-btn.connected.usb {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3B82F6;
+  color: #3B82F6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.1);
+}
+
+.header-print-status-btn.connected.usb:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: #60A5FA;
+}
+
+@media (max-width: 640px) {
+  .header-printer-status-bar {
+    display: none; /* Hide on extremely small viewports to prevent layout wrapping */
+  }
+}
+
+/* Printer Modal Styles specifically for PortalLayout */
+.portal-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.portal-custom-modal {
+  background: #FFFFFF;
+  width: 400px;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.portal-modal-icon-box {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.portal-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.portal-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.portal-modal-btn {
+  flex: 1;
+  height: 36px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.portal-modal-btn.cancel {
+  background: #EDF2F7;
+  color: var(--text-secondary);
+}
+
+.portal-modal-btn.cancel:hover {
+  background: #E2E8F0;
+}
+
+.portal-modal-btn.confirm {
+  background: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.portal-modal-btn.confirm:hover {
+  background: var(--primary-light);
+}
+
+.portal-ws-save-btn {
+  background: var(--primary-color);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  height: 36px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.portal-ws-save-btn:hover {
+  background: var(--primary-light);
+}
+

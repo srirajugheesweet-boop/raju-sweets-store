@@ -192,7 +192,7 @@ const PUnitPortal = () => {
   };
 
   const handlePrintTrigger = (order, boxesList, notes = '') => {
-    if (bluetoothConnected && printerCharacteristicRef.current) {
+    if (bluetoothConnected) {
       printDirectToBluetooth(order, boxesList, notes);
     } else if (qzConnected && selectedQZPrinter) {
       printDirectToQZ(order, boxesList, notes);
