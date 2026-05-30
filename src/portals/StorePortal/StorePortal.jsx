@@ -171,7 +171,7 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
   );
 };
 
-const DEFAULT_ITEM_IMAGE = 'https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&q=80&w=200';
+const DEFAULT_ITEM_IMAGE = logo;
 
 // --- Accordion Payment Section Component with Inline Form ---
 const AccordionPaymentSection = ({ order, isMobile = false }) => {
@@ -753,10 +753,14 @@ const StorePortal = () => {
   // --- ADD ORDER FUNCTIONALITY STATES ---
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
+  const [activeModalTab, setActiveModalTab] = useState('items'); // 'items' or 'summary'
 
   const [orderCustomers, setOrderCustomers] = useState([]);
   const [orderItems, setOrderItems] = useState([]);
   const [orderPUnits, setOrderPUnits] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedPUnit, setSelectedPUnit] = useState('');
@@ -1097,10 +1101,11 @@ const StorePortal = () => {
     if (showAddModal) {
       const fetchModalData = async () => {
         try {
-          const [custSnap, itemSnap, puSnap] = await Promise.all([
+          const [custSnap, itemSnap, puSnap, catSnap] = await Promise.all([
             getDocs(query(collection(db, 'customers'), orderBy('firstName', 'asc'))),
             getDocs(query(collection(db, 'items'))),
-            getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc')))
+            getDocs(query(collection(db, 'packing_units'), orderBy('name', 'asc'))),
+            getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')))
           ]);
 
           const fetchedCustomers = custSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1112,6 +1117,7 @@ const StorePortal = () => {
           setOrderItems(fetchedItems);
 
           setOrderPUnits(puSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (error) {
           console.error("Error fetching modal data:", error);
           toast.error("Failed to load customer or item list.");
@@ -1303,6 +1309,9 @@ const StorePortal = () => {
     setDeliveryDate('');
     setDeliveryTime('');
     setEditingOrderId(null);
+    setItemSearchQuery('');
+    setSelectedCategoryFilter('All');
+    setActiveModalTab('items');
   };
 
   const saveOrder = async () => {
@@ -1990,6 +1999,12 @@ const StorePortal = () => {
   const filteredBills = bills.filter(bill => {
     const formattedBillDate = bill.date || (bill.createdAt?.toDate ? bill.createdAt.toDate().toLocaleDateString() : '');
     return isSameDay(formattedBillDate, billsFilterDate);
+  });
+
+  const filteredItemsForOrder = orderItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(itemSearchQuery.toLowerCase());
+    const matchesCategory = selectedCategoryFilter === 'All' || item.categoryId === selectedCategoryFilter;
+    return matchesSearch && matchesCategory;
   });
 
   const orderTotalAmount = orderCart.reduce((sum, item) => sum + item.total, 0);
@@ -3028,7 +3043,14 @@ const StorePortal = () => {
                         return (
                           <div key={item.id} className="st-pos-item-card">
                             <div className="st-pos-item-img" onClick={() => handleItemClick(item)}>
-                              <img src={(!item.image || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} alt={item.name} />
+                              <img 
+                                src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                                alt={item.name} 
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = DEFAULT_ITEM_IMAGE;
+                                }}
+                              />
                               {inCart && (
                                 <div className="st-cart-badge">
                                   {item.unit === 'Weight' ? `${inCart.quantity}kg` : inCart.quantity}
@@ -3712,9 +3734,31 @@ const StorePortal = () => {
               <button className="items-close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
 
+            {/* Mobile Modal Tabs */}
+            <div className="ord-modal-tabs-mobile" style={{ display: 'flex' }}>
+              <button 
+                type="button" 
+                className={`ord-modal-tab-btn-mobile ${activeModalTab === 'items' ? 'active' : ''}`}
+                onClick={() => setActiveModalTab('items')}
+              >
+                <Plus size={16} /> 1. Select Items
+              </button>
+              <button 
+                type="button" 
+                className={`ord-modal-tab-btn-mobile ${activeModalTab === 'summary' ? 'active' : ''}`}
+                onClick={() => setActiveModalTab('summary')}
+                style={{ position: 'relative' }}
+              >
+                <ShoppingBag size={16} /> 2. Checkout
+                {orderCart.length > 0 && (
+                  <span className="cart-badge-dot">{orderCart.length}</span>
+                )}
+              </button>
+            </div>
+
             <div className="ord-modal-content">
               {/* Left Panel: Form & Selection */}
-              <div className="ord-items-panel" style={{ overflowY: 'auto' }}>
+              <div className={`ord-items-panel ${activeModalTab === 'items' ? 'show-mobile' : 'hide-mobile'}`} style={{ overflowY: 'auto' }}>
                 <div className="ord-panel-header">
                   <div className="ord-panel-top" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
                     <CustomDropdown 
@@ -3865,24 +3909,72 @@ const StorePortal = () => {
                   <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0 }}>Select Sweets & Products</h3>
                 </div>
 
+                {/* Item Search and Category Filter Row */}
+                <div className="ord-search-filter-row">
+                  <div className="ord-item-search-wrapper">
+                    <Search size={16} className="ord-item-search-icon" />
+                    <input
+                      type="text"
+                      className="ord-item-search-input"
+                      placeholder="Search item by name..."
+                      value={itemSearchQuery}
+                      onChange={(e) => setItemSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="ord-category-pills-row">
+                    <button
+                      type="button"
+                      className={`ord-category-pill ${selectedCategoryFilter === 'All' ? 'active' : ''}`}
+                      onClick={() => setSelectedCategoryFilter('All')}
+                    >
+                      All
+                    </button>
+                    {categories.map(cat => (
+                      <button
+                        type="button"
+                        key={cat.id}
+                        className={`ord-category-pill ${selectedCategoryFilter === cat.id ? 'active' : ''}`}
+                        onClick={() => setSelectedCategoryFilter(cat.id)}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="ord-items-grid" style={{ paddingBottom: '30px' }}>
-                  {orderItems.map(item => (
-                    <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClickOrder(item)}>
-                      <img src={(!item.image || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} alt={item.name} className="ord-item-img" />
-                      <div className="ord-item-details">
-                        <h4>{item.name}</h4>
-                        <div className="ord-price-row">
-                          <span className="price">₹{item.price}</span>
-                          <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                  {filteredItemsForOrder.length > 0 ? (
+                    filteredItemsForOrder.map(item => (
+                      <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClickOrder(item)}>
+                        <img 
+                          src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                          alt={item.name} 
+                          className="ord-item-img" 
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = DEFAULT_ITEM_IMAGE;
+                          }}
+                        />
+                        <div className="ord-item-details">
+                          <h4>{item.name}</h4>
+                          <div className="ord-price-row">
+                            <span className="price">₹{item.price}</span>
+                            <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0', opacity: 0.5 }}>
+                      <Package size={32} style={{ margin: '0 auto 10px' }} />
+                      <p>No matching items found</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
               {/* Right Panel: Summary */}
-              <div className="ord-summary-panel">
+              <div className={`ord-summary-panel ${activeModalTab === 'summary' ? 'show-mobile' : 'hide-mobile'}`}>
                 <h2><FileText size={20} /> Order Cart & Summary</h2>
                 
                 <div className="ord-summary-list">
@@ -3925,6 +4017,14 @@ const StorePortal = () => {
                   <div className="ord-total-row">
                     <span>Total Amount</span>
                     <span>₹{orderTotalAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
+                    <span>Total Paid</span>
+                    <span>₹{(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: '#dc2626', fontWeight: '700', marginTop: '2px' }}>
+                    <span>Balance Due</span>
+                    <span>₹{Math.max(0, orderTotalAmount - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
                   </div>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>

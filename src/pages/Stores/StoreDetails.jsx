@@ -653,7 +653,14 @@ const StoreDetails = () => {
                     return (
                       <div key={item.id} className="billing-item-card">
                         <div className="billing-item-img" onClick={() => handleItemClick(item)}>
-                          <img src={(!item.image || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} alt={item.name} />
+                          <img 
+                            src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                            alt={item.name} 
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = DEFAULT_ITEM_IMAGE;
+                            }}
+                          />
                           {inCart && (
                             <div className="item-cart-badge">{item.unit === 'Weight' ? inCart.quantity + 'kg' : inCart.quantity}</div>
                           )}

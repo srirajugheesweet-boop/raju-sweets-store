@@ -46,6 +46,8 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Orders.css';
 
+const DEFAULT_ITEM_IMAGE = logo;
+
 // --- Custom Searchable Dropdown ---
 const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -2133,7 +2135,15 @@ const Orders = () => {
                   {filteredItemsForOrder.length > 0 ? (
                     filteredItemsForOrder.map(item => (
                       <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClick(item)}>
-                        <img src={item.image} alt={item.name} className="ord-item-img" />
+                        <img 
+                          src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                          alt={item.name} 
+                          className="ord-item-img" 
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = DEFAULT_ITEM_IMAGE;
+                          }}
+                        />
                         <div className="ord-item-details">
                           <h4>{item.name}</h4>
                           <div className="ord-price-row">
@@ -2196,6 +2206,14 @@ const Orders = () => {
                   <div className="ord-total-row">
                     <span>Total Amount</span>
                     <span>₹{totalAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
+                    <span>Total Paid</span>
+                    <span>₹{(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: '#dc2626', fontWeight: '700', marginTop: '2px' }}>
+                    <span>Balance Due</span>
+                    <span>₹{Math.max(0, totalAmount - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>

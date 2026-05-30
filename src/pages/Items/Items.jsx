@@ -311,8 +311,12 @@ const Items = () => {
                 <div key={item.id} className="item-card">
                   <div className="item-img-box">
                     <img 
-                      src={(!item.image || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                      src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
                       alt={item.name} 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = DEFAULT_ITEM_IMAGE;
+                      }}
                     />
                     <div className="item-card-actions">
                       <button onClick={() => handleEdit(item)} className="item-mini-btn edit"><Edit size={14} /></button>
