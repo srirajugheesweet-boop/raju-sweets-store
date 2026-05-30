@@ -880,8 +880,37 @@ const PUnitPortal = () => {
                                 <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{order.deliveryTime || ''}</div>
                               </p>
                             )}
-                          </div>
                         </div>
+                      </div>
+
+                      {tab !== 'history' && (
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '4px' }}>
+                            <button 
+                              type="button"
+                              onClick={() => handleOpenEditOrder(order)}
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: '800',
+                                background: '#eff6ff',
+                                color: '#2563eb',
+                                border: '1px solid #bfdbfe',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                outline: 'none'
+                              }}
+                              className="pu-edit-order-main-btn"
+                            >
+                              <Edit size={13} /> Edit Order (Adjust Quantities)
+                            </button>
+                          </div>
+                        )}
 
                         {/* Comprehensive Packing & Box Details Card */}
                         <div className="pu-instructions" style={{ borderLeft: '3px solid var(--primary-color)', background: '#faf5ff', padding: '14px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative', marginTop: '10px', marginBottom: '12px', border: '1px solid #f3e8ff', borderLeftWidth: '3px' }}>
@@ -901,29 +930,14 @@ const PUnitPortal = () => {
                                 </button>
                               )}
                               {tab !== 'history' && (
-                                <>
-                                  <button 
-                                    type="button"
-                                    onClick={() => handleOpenEditOrder(order)}
-                                    className="pu-mini-action-btn edit-order"
-                                    title="Edit order items & quantities"
-                                    style={{
-                                      background: '#eff6ff',
-                                      color: '#2563eb',
-                                      border: '1px solid #bfdbfe'
-                                    }}
-                                  >
-                                    <Edit size={12} /> Edit Order
-                                  </button>
-                                  <button 
-                                    type="button"
-                                    onClick={() => handleOpenEditDetails(order)}
-                                    className="pu-mini-action-btn edit"
-                                    title="Edit packing details"
-                                  >
-                                    <Edit size={12} /> Edit Details
-                                  </button>
-                                </>
+                                <button 
+                                  type="button"
+                                  onClick={() => handleOpenEditDetails(order)}
+                                  className="pu-mini-action-btn edit"
+                                  title="Edit packing details"
+                                >
+                                  <Edit size={12} /> Edit
+                                </button>
                               )}
                             </div>
                           </div>
