@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
-import { 
-  BarChart3, 
-  ShoppingBag, 
-  Package, 
-  Clock, 
-  CheckCircle2, 
+import {
+  BarChart3,
+  ShoppingBag,
+  Package,
+  Clock,
+  CheckCircle2,
   Calendar,
   AlertCircle,
   Edit,
@@ -21,11 +21,11 @@ import {
 import { printRawToQZ, getLogoESCPOS } from '../../utils/qzTray';
 import { usePrinter } from '../../context/PrinterContext';
 import { db } from '../../config/firebase';
-import { 
-  collection, 
-  query, 
-  onSnapshot, 
-  doc, 
+import {
+  collection,
+  query,
+  onSnapshot,
+  doc,
   getDoc,
   updateDoc,
   serverTimestamp
@@ -65,10 +65,10 @@ const PUnitPortal = () => {
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
     if (!orderDateStr || !selectedDateStr) return false;
-    
+
     // selectedDateStr is always YYYY-MM-DD
     const [selYear, selMonth, selDay] = selectedDateStr.split('-').map(Number);
-    
+
     try {
       // 1. Slash format (DD/MM/YYYY or MM/DD/YYYY)
       if (orderDateStr.includes('/')) {
@@ -89,7 +89,7 @@ const PUnitPortal = () => {
           }
         }
       }
-      
+
       // 2. Dash format (YYYY-MM-DD)
       if (orderDateStr.includes('-')) {
         const parts = orderDateStr.split('-');
@@ -102,13 +102,13 @@ const PUnitPortal = () => {
           }
         }
       }
-      
+
       // 3. Fallback date parse
       const parsed = new Date(orderDateStr);
       if (!isNaN(parsed.getTime())) {
-        return parsed.getFullYear() === selYear && 
-               parsed.getMonth() === (selMonth - 1) && 
-               parsed.getDate() === selDay;
+        return parsed.getFullYear() === selYear &&
+          parsed.getMonth() === (selMonth - 1) &&
+          parsed.getDate() === selDay;
       }
     } catch (e) {
       console.error("Error parsing order date:", e);
@@ -122,7 +122,7 @@ const PUnitPortal = () => {
   const handleOpenEditDetails = (order) => {
     setEditingOrderDetails(order);
     setPUnitDescription(order.pUnitDescription || '');
-    
+
     // Check if the order already has dynamic boxes
     if (order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0) {
       setBoxes(order.boxes.map((b, idx) => ({ id: b.id || `box_${Date.now()}_${idx}_${Math.random()}`, ...b })));
@@ -165,7 +165,7 @@ const PUnitPortal = () => {
   const handleSavePackingDetails = async (e) => {
     e.preventDefault();
     if (!editingOrderDetails) return;
-    
+
     const emptyBox = boxes.find(b => !b.contents.trim());
     if (emptyBox) {
       toast.error(`Please enter contents for Box #${emptyBox.boxNum}`);
@@ -175,9 +175,9 @@ const PUnitPortal = () => {
     setSavingDetails(true);
     try {
       const orderRef = doc(db, 'orders', editingOrderDetails.id);
-      
+
       const plainTextContents = boxes.map(b => `Box ${b.boxNum}: ${b.contents.trim()}`).join('\n');
-      
+
       await updateDoc(orderRef, {
         boxesPacked: boxes.length,
         boxes: boxes,
@@ -188,7 +188,7 @@ const PUnitPortal = () => {
 
       toast.success("Packing details saved!");
       setEditingOrderDetails(null);
-      
+
       // Auto-trigger printing of slips (direct BLE or system printer dialog fallback)
       handlePrintTrigger(editingOrderDetails, boxes, pUnitDescription);
     } catch (error) {
@@ -214,13 +214,13 @@ const PUnitPortal = () => {
     try {
       for (const box of boxesList) {
         const encoder = new TextEncoder();
-        
+
         const INIT = new Uint8Array([0x1b, 0x40]);
         const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
         const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
         const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
         const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
-        
+
         let bytes = [];
         bytes.push(...INIT);
         bytes.push(...CENTER);
@@ -229,36 +229,37 @@ const PUnitPortal = () => {
         bytes.push(...NORMAL_SIZE);
         bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
         bytes.push(...encoder.encode("--------------------------------\n"));
-        
+
         bytes.push(...DOUBLE_SIZE);
         bytes.push(...encoder.encode(`BOX ${box.boxNum} OF ${boxesList.length}\n`));
         bytes.push(...NORMAL_SIZE);
         bytes.push(...encoder.encode("--------------------------------\n"));
-        
+
         bytes.push(...LEFT);
         bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+        bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
         bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
         bytes.push(...encoder.encode("--------------------------------\n"));
-        
+
         bytes.push(...encoder.encode("Items in Box:\n"));
         bytes.push(...encoder.encode(`${box.contents}\n`));
-        
+
         if (notes) {
           bytes.push(...encoder.encode("--------------------------------\n"));
           bytes.push(...encoder.encode(`Note: ${notes}\n`));
         }
-        
+
         bytes.push(...encoder.encode("--------------------------------\n"));
 
         // --- Dynamic ESC/POS QR Code Rasterization ---
         const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
         const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
-        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrDataUrl)}`;
-        
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=${encodeURIComponent(qrDataUrl)}`;
+
         try {
-          const qrBytes = await getLogoESCPOS(qrImgUrl, 120); // Scale to 120 dots width for standard thermal print
+          const qrBytes = await getLogoESCPOS(qrImgUrl, 340); // Scale to 340 dots width for maximum physical size
           if (qrBytes && qrBytes.length > 0) {
             bytes.push(...CENTER);
             bytes.push(...qrBytes);
@@ -268,11 +269,11 @@ const PUnitPortal = () => {
         } catch (qrErr) {
           console.error("ESCPOS QR generation error:", qrErr);
         }
-        
+
         bytes.push(...CENTER);
         bytes.push(...encoder.encode(`Packed by Unit: ${pUnitDetails?.name || id || 'Facility'}\n`));
         bytes.push(...encoder.encode("Thank you for your order!\n\n"));
-        
+
         const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
         bytes.push(...CUT);
 
@@ -296,54 +297,55 @@ const PUnitPortal = () => {
     try {
       for (const box of boxesList) {
         const encoder = new TextEncoder();
-        
+
         // ESC/POS Commands
         const INIT = new Uint8Array([0x1b, 0x40]);
         const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
         const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
         const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
         const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
-        
+
         let bytes = [];
-        
+
         bytes.push(...INIT);
-        
+
         bytes.push(...CENTER);
         bytes.push(...DOUBLE_SIZE);
         bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
         bytes.push(...NORMAL_SIZE);
         bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
         bytes.push(...encoder.encode("--------------------------------\n"));
-        
+
         bytes.push(...DOUBLE_SIZE);
         bytes.push(...encoder.encode(`BOX ${box.boxNum} OF ${boxesList.length}\n`));
         bytes.push(...NORMAL_SIZE);
         bytes.push(...encoder.encode("--------------------------------\n"));
-        
+
         bytes.push(...LEFT);
         bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+        bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
         bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
         bytes.push(...encoder.encode("--------------------------------\n"));
-        
+
         bytes.push(...encoder.encode("Items in Box:\n"));
         bytes.push(...encoder.encode(`${box.contents}\n`));
-        
+
         if (notes) {
           bytes.push(...encoder.encode("--------------------------------\n"));
           bytes.push(...encoder.encode(`Note: ${notes}\n`));
         }
-        
+
         bytes.push(...encoder.encode("--------------------------------\n"));
 
         // --- Dynamic ESC/POS QR Code Rasterization ---
         const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
         const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
-        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrDataUrl)}`;
-        
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=${encodeURIComponent(qrDataUrl)}`;
+
         try {
-          const qrBytes = await getLogoESCPOS(qrImgUrl, 120); // Scale to 120 dots width for standard thermal print
+          const qrBytes = await getLogoESCPOS(qrImgUrl, 340); // Scale to 340 dots width for maximum physical size
           if (qrBytes && qrBytes.length > 0) {
             bytes.push(...CENTER);
             bytes.push(...qrBytes);
@@ -353,20 +355,20 @@ const PUnitPortal = () => {
         } catch (qrErr) {
           console.error("ESCPOS QR generation error:", qrErr);
         }
-        
+
         bytes.push(...CENTER);
         bytes.push(...encoder.encode(`Packed by Unit: ${pUnitDetails?.name || id || 'Facility'}\n`));
         bytes.push(...encoder.encode("Thank you for your order!\n\n"));
-        
+
         const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
         bytes.push(...CUT);
 
         const dataArray = new Uint8Array(bytes);
-        
+
         await printRawBLE(dataArray);
         await new Promise(resolve => setTimeout(resolve, 800));
       }
-      
+
       toast.dismiss('bt-print-job');
       toast.success("Printed successfully to Bluetooth printer!");
     } catch (err) {
@@ -384,8 +386,8 @@ const PUnitPortal = () => {
     const preloadPromises = boxesList.map((box, index) => {
       const boxIdToUse = box.id || `box_${Date.now()}_${index}_${Math.random()}`;
       const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
-      const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrDataUrl)}`;
-      
+      const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrDataUrl)}`;
+
       return new Promise((resolve) => {
         const img = new Image();
         img.src = qrImgUrl;
@@ -403,23 +405,24 @@ const PUnitPortal = () => {
             <title>Box Slips - Order #${order.orderId}</title>
             <style>
               @media print {
-                @page { size: 58mm auto; margin: 0; }
-                body { margin: 0; padding: 0; background: white; width: 58mm; }
+                @page { size: auto; margin: 0; }
+                body { margin: 0; padding: 0; background: white; width: 100%; }
               }
               body {
                 font-family: 'Courier New', Courier, monospace;
-                width: 58mm;
+                width: 100%;
+                max-width: 80mm;
                 margin: 0 auto;
-                padding: 8px;
+                padding: 10px;
                 box-sizing: border-box;
-                font-size: 11px;
-                line-height: 1.3;
+                font-size: 13px;
+                line-height: 1.4;
                 color: #000;
               }
               .slip {
                 border-bottom: 2px dashed #000;
-                padding-bottom: 12px;
-                margin-bottom: 12px;
+                padding-bottom: 15px;
+                margin-bottom: 15px;
                 page-break-after: always;
                 text-align: left;
               }
@@ -430,66 +433,65 @@ const PUnitPortal = () => {
                 padding-bottom: 0;
               }
               .title {
-                font-size: 14px;
+                font-size: 18px;
                 font-weight: bold;
                 text-align: center;
                 text-transform: uppercase;
                 margin: 4px 0 2px 0;
               }
               .subtitle {
-                font-size: 9px;
+                font-size: 11px;
                 text-align: center;
                 border-bottom: 1px solid #000;
-                padding-bottom: 4px;
-                margin-bottom: 6px;
+                padding-bottom: 6px;
+                margin-bottom: 8px;
               }
               .info-label {
                 font-weight: bold;
               }
               .info-row {
-                margin: 3px 0;
+                margin: 4px 0;
               }
               .divider {
                 border-top: 1px dashed #000;
-                margin: 6px 0;
+                margin: 8px 0;
               }
               .box-header {
-                font-size: 13px;
+                font-size: 15px;
                 font-weight: bold;
                 text-align: center;
                 background: #000;
                 color: #fff;
-                padding: 4px;
-                margin: 8px 0;
+                padding: 5px;
+                margin: 10px 0;
               }
               .box-desc {
-                font-size: 11px;
+                font-size: 13px;
                 white-space: pre-wrap;
                 background: #f4f4f5;
-                padding: 6px;
+                padding: 8px;
                 border-radius: 4px;
-                margin-top: 4px;
+                margin-top: 6px;
                 border: 1px solid #ddd;
               }
               .qr-container {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                margin: 12px 0;
-                padding: 6px;
-                border: 1px dashed #000;
-                border-radius: 6px;
+                display: block;
+                margin: 18px -10px 10px -10px;
+                padding: 0;
+                border: none;
+                width: calc(100% + 20px);
                 text-align: center;
+                box-sizing: border-box;
               }
               .qr-image {
-                width: 110px;
-                height: 110px;
-                margin-bottom: 4px;
+                width: 100% !important;
+                height: auto !important;
+                aspect-ratio: 1 / 1;
+                margin: 0 auto 6px auto;
                 display: block;
               }
               .qr-caption {
-                font-size: 8px;
+                font-size: 10px;
                 font-weight: bold;
                 color: #000;
                 text-transform: uppercase;
@@ -497,21 +499,21 @@ const PUnitPortal = () => {
               }
               .footer {
                 text-align: center;
-                font-size: 8px;
-                margin-top: 12px;
+                font-size: 10px;
+                margin-top: 15px;
                 border-top: 1px solid #000;
-                padding-top: 4px;
+                padding-top: 6px;
                 color: #555;
               }
             </style>
           </head>
           <body>
             ${boxesList.map((box, index) => {
-              const preloaded = preloadedData[index] || {};
-              const boxIdToUse = preloaded.boxId || `box_${Date.now()}_${index}_${Math.random()}`;
-              const qrImgUrl = preloaded.imgUrl || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse)}`;
-              
-              return `
+        const preloaded = preloadedData[index] || {};
+        const boxIdToUse = preloaded.boxId || `box_${Date.now()}_${index}_${Math.random()}`;
+        const qrImgUrl = preloaded.imgUrl || `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse)}`;
+
+        return `
                 <div class="slip">
                   <div class="title">Raju Ghee Sweets</div>
                   <div class="subtitle">Quality Sweets & Savouries</div>
@@ -519,6 +521,7 @@ const PUnitPortal = () => {
                   <div class="box-header">BOX ${box.boxNum} OF ${boxesList.length}</div>
                   
                   <div class="info-row"><span class="info-label">Order ID:</span> #${order.orderId}</div>
+                  <div class="info-row"><span class="info-label">Store:</span> ${order.storeName || 'Outlet Store'}</div>
                   <div class="info-row"><span class="info-label">Date:</span> ${new Date().toLocaleDateString()}</div>
                   
                   <div class="divider"></div>
@@ -549,7 +552,7 @@ const PUnitPortal = () => {
                   </div>
                 </div>
               `;
-            }).join('')}
+      }).join('')}
           </body>
         </html>
       `;
@@ -572,10 +575,10 @@ const PUnitPortal = () => {
     setTempItems(
       order.items
         ? order.items.map(item => ({
-            ...item,
-            // Keep quantity as string for a seamless typing experience (decimals/erasing)
-            quantity: item.quantity !== undefined ? item.quantity.toString() : '0'
-          }))
+          ...item,
+          // Keep quantity as string for a seamless typing experience (decimals/erasing)
+          quantity: item.quantity !== undefined ? item.quantity.toString() : '0'
+        }))
         : []
     );
   };
@@ -583,12 +586,12 @@ const PUnitPortal = () => {
   const handleItemQuantityChange = (idx, value) => {
     const updated = [...tempItems];
     updated[idx].quantity = value;
-    
+
     // Recalculate dynamic item total on the fly
     const qty = parseFloat(value) || 0;
     const price = parseFloat(updated[idx].price) || 0;
     updated[idx].total = parseFloat((qty * price).toFixed(2));
-    
+
     setTempItems(updated);
   };
 
@@ -610,7 +613,7 @@ const PUnitPortal = () => {
 
       const newTotalAmount = parseFloat(updatedItemsForFirestore.reduce((sum, item) => sum + item.total, 0).toFixed(2));
       const receivedAmt = parseFloat(editingOrderItems.receivedAmount) || 0;
-      
+
       let newPaymentStatus = 'Pending';
       if (receivedAmt > 0) {
         if (receivedAmt >= newTotalAmount - 0.01) {
@@ -729,7 +732,7 @@ const PUnitPortal = () => {
         return { ...item };
       });
       const overallStatus = calculateOverallOrderStatus(newItems);
-      await updateDoc(orderRef, { 
+      await updateDoc(orderRef, {
         items: newItems,
         status: overallStatus
       });
@@ -807,15 +810,15 @@ const PUnitPortal = () => {
             {/* --- ORDERS & HISTORY VIEW --- */}
             {(tab === 'orders' || tab === 'history') && (
               <div className="pu-orders-view animate-fade-in">
-                
+
 
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
                   <div>
                     <h2>{tab === 'orders' ? 'Active Packing Orders' : 'Packing History'} ({displayedOrders.length})</h2>
                     <p style={{ color: '#64748b', fontSize: '13px', margin: '2px 0 0 0' }}>
-                      {tab === 'orders' 
-                        ? 'Manage active sweet packaging workflows for this unit' 
+                      {tab === 'orders'
+                        ? 'Manage active sweet packaging workflows for this unit'
                         : 'View history of all orders for this unit'}
                     </p>
                   </div>
@@ -919,8 +922,8 @@ const PUnitPortal = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <Calendar size={18} style={{ color: 'var(--primary-color)' }} />
                       <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>Filter History by Date:</span>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         value={historyDate}
                         onChange={(e) => setHistoryDate(e.target.value)}
                         style={{
@@ -962,10 +965,10 @@ const PUnitPortal = () => {
                       <ShoppingBag size={48} className="pu-empty-icon" />
                       <h3>{tab === 'orders' ? 'No Active Orders' : 'No Order History'}</h3>
                       <p>
-                        {tab === 'orders' 
-                          ? 'There are no active orders waiting to be packed.' 
-                          : historyDate 
-                            ? `No orders found in history for ${new Date(historyDate).toLocaleDateString()}.` 
+                        {tab === 'orders'
+                          ? 'There are no active orders waiting to be packed.'
+                          : historyDate
+                            ? `No orders found in history for ${new Date(historyDate).toLocaleDateString()}.`
                             : 'No orders found in history.'}
                       </p>
                     </div>
@@ -975,8 +978,25 @@ const PUnitPortal = () => {
                         <div className="pu-order-header">
                           <div>
                             <h3>Order #{order.orderId}</h3>
-                            <p className="pu-customer-name">👤 {order.customerName}</p>
-                            <p className="pu-customer-phone">📞 {order.customerPhone}</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
+                              <p className="pu-customer-name" style={{ margin: 0 }}>👤 {order.customerName}</p>
+                              <p className="pu-customer-phone" style={{ margin: 0 }}>📞 {order.customerPhone || 'No Phone'}</p>
+                              <span style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '4px', 
+                                fontSize: '11px', 
+                                fontWeight: '700', 
+                                color: '#475569', 
+                                background: '#f1f5f9', 
+                                padding: '2px 8px', 
+                                borderRadius: '6px', 
+                                width: 'fit-content',
+                                marginTop: '2px'
+                              }}>
+                                🏪 {order.storeName || 'Outlet Store'}
+                              </span>
+                            </div>
                           </div>
                           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
                             <span className={`pu-status-badge ${order.status}`}>
@@ -988,12 +1008,12 @@ const PUnitPortal = () => {
                                 <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{order.deliveryTime || ''}</div>
                               </p>
                             )}
+                          </div>
                         </div>
-                      </div>
 
-                      {tab !== 'history' && (
+                        {tab !== 'history' && (
                           <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '4px' }}>
-                            <button 
+                            <button
                               type="button"
                               onClick={() => handleOpenEditOrder(order)}
                               style={{
@@ -1038,7 +1058,7 @@ const PUnitPortal = () => {
                                 </button>
                               )}
                               {tab !== 'history' && (
-                                <button 
+                                <button
                                   type="button"
                                   onClick={() => handleOpenEditDetails(order)}
                                   className="pu-mini-action-btn edit"
@@ -1049,7 +1069,7 @@ const PUnitPortal = () => {
                               )}
                             </div>
                           </div>
-                          
+
                           <div style={{ fontSize: '12px', color: '#475569' }}>
                             <strong>📋 Packing Notes:</strong> {order.pUnitDescription || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>None specified</span>}
                           </div>
@@ -1062,8 +1082,8 @@ const PUnitPortal = () => {
                               {order.boxes.map((box, bIdx) => {
                                 const isScanned = box.status === 'received_at_store' || box.received;
                                 return (
-                                  <div 
-                                    key={bIdx} 
+                                  <div
+                                    key={bIdx}
                                     className="pu-packing-box-item animate-fade-in"
                                     style={{
                                       background: isScanned ? '#d1fae5' : 'white',
@@ -1095,7 +1115,7 @@ const PUnitPortal = () => {
                         </div>
 
                         {/* Dropdown Toggle Button */}
-                        <button 
+                        <button
                           type="button"
                           className="pu-dropdown-toggle-btn"
                           onClick={() => toggleDropdown(order.id)}
@@ -1123,7 +1143,7 @@ const PUnitPortal = () => {
                         {/* Dropdown list with animation */}
                         <AnimatePresence>
                           {openDropdowns[order.id] && (
-                            <motion.div 
+                            <motion.div
                               className="pu-items-dropdown-list"
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
@@ -1138,10 +1158,10 @@ const PUnitPortal = () => {
                             >
                               {order.items?.map((item, idx) => {
                                 const isMovedToPacking = item.status === 'moved_to_packing';
-                                
+
                                 return (
-                                  <div 
-                                    key={idx} 
+                                  <div
+                                    key={idx}
                                     style={{
                                       display: 'flex',
                                       justifyContent: 'space-between',
@@ -1164,7 +1184,7 @@ const PUnitPortal = () => {
                                     </div>
 
                                     {tab === 'history' ? (
-                                      <span 
+                                      <span
                                         style={{
                                           padding: '4px 8px',
                                           fontSize: '11px',
@@ -1238,215 +1258,215 @@ const PUnitPortal = () => {
               </div>
             )}
 
-      {/* Edit Order Items Modal */}
-      <AnimatePresence>
-        {editingOrderItems && (
-          <div className="pu-modal-overlay">
-            <motion.div 
-              className="pu-modal-content"
-              style={{ maxWidth: '480px' }}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-            >
-              <div className="pu-modal-header">
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ShoppingBag size={18} style={{ color: 'var(--primary-color)' }} />
-                  Edit Items - Order #{editingOrderItems.orderId}
-                </h3>
-                <button type="button" className="pu-modal-close" onClick={() => setEditingOrderItems(null)}>
-                  <X size={18} />
-                </button>
-              </div>
+            {/* Edit Order Items Modal */}
+            <AnimatePresence>
+              {editingOrderItems && (
+                <div className="pu-modal-overlay">
+                  <motion.div
+                    className="pu-modal-content"
+                    style={{ maxWidth: '480px' }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                  >
+                    <div className="pu-modal-header">
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ShoppingBag size={18} style={{ color: 'var(--primary-color)' }} />
+                        Edit Items - Order #{editingOrderItems.orderId}
+                      </h3>
+                      <button type="button" className="pu-modal-close" onClick={() => setEditingOrderItems(null)}>
+                        <X size={18} />
+                      </button>
+                    </div>
 
-              <form onSubmit={handleSaveEditedOrder} className="pu-modal-form">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: '800', color: '#334155' }}>
-                    Adjust Weights (kg) or Pieces (pcs)
-                  </label>
-                  
-                  <div className="pu-edit-order-items-list" style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    maxHeight: '300px',
-                    overflowY: 'auto',
-                    padding: '8px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    background: '#f8fafc'
-                  }}>
-                    {tempItems.map((item, idx) => (
-                      <div key={idx} className="pu-edit-order-item-row" style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '12px',
-                        background: 'white',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0'
-                      }}>
-                        <div style={{ flex: 2, minWidth: '120px' }}>
-                          <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{item.name}</h4>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>Unit type: {item.unit === 'Weight' ? 'Weight-based' : 'Piece-based'}</span>
-                        </div>
+                    <form onSubmit={handleSaveEditedOrder} className="pu-modal-form">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <label style={{ fontSize: '13px', fontWeight: '800', color: '#334155' }}>
+                          Adjust Weights (kg) or Pieces (pcs)
+                        </label>
 
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                          <input 
-                            type="number"
-                            step={item.unit === 'Weight' ? '0.001' : '1'}
-                            min="0"
-                            required
-                            value={item.quantity}
-                            onChange={(e) => handleItemQuantityChange(idx, e.target.value)}
-                            className="pu-edit-order-input"
-                            style={{
-                              width: '80px',
-                              height: '32px',
-                              padding: '0 8px',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '6px',
-                              fontSize: '13px',
-                              fontWeight: '700',
-                              color: '#334155',
-                              boxSizing: 'border-box',
-                              textAlign: 'center',
-                              outline: 'none'
-                            }}
-                          />
-                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', minWidth: '30px' }}>
-                            {item.unit === 'Weight' ? 'kg' : 'pcs'}
-                          </span>
+                        <div className="pu-edit-order-items-list" style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                          maxHeight: '300px',
+                          overflowY: 'auto',
+                          padding: '8px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '10px',
+                          background: '#f8fafc'
+                        }}>
+                          {tempItems.map((item, idx) => (
+                            <div key={idx} className="pu-edit-order-item-row" style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '12px',
+                              background: 'white',
+                              padding: '10px 14px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0'
+                            }}>
+                              <div style={{ flex: 2, minWidth: '120px' }}>
+                                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{item.name}</h4>
+                                <span style={{ fontSize: '11px', color: '#64748b' }}>Unit type: {item.unit === 'Weight' ? 'Weight-based' : 'Piece-based'}</span>
+                              </div>
+
+                              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                <input
+                                  type="number"
+                                  step={item.unit === 'Weight' ? '0.001' : '1'}
+                                  min="0"
+                                  required
+                                  value={item.quantity}
+                                  onChange={(e) => handleItemQuantityChange(idx, e.target.value)}
+                                  className="pu-edit-order-input"
+                                  style={{
+                                    width: '80px',
+                                    height: '32px',
+                                    padding: '0 8px',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '6px',
+                                    fontSize: '13px',
+                                    fontWeight: '700',
+                                    color: '#334155',
+                                    boxSizing: 'border-box',
+                                    textAlign: 'center',
+                                    outline: 'none'
+                                  }}
+                                />
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', minWidth: '30px' }}>
+                                  {item.unit === 'Weight' ? 'kg' : 'pcs'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="pu-modal-footer">
-                  <button 
-                    type="button" 
-                    onClick={() => setEditingOrderItems(null)} 
-                    className="pu-modal-btn cancel"
-                    disabled={savingItems}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="pu-modal-btn save"
-                    disabled={savingItems}
-                  >
-                    {savingItems ? (
-                      <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', margin: 0 }}></div>
-                    ) : (
-                      'Save Changes'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Edit Dynamic Packing Details Modal */}
-      <AnimatePresence>
-        {editingOrderDetails && (
-          <div className="pu-modal-overlay">
-            <motion.div 
-              className="pu-modal-content"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-            >
-              <div className="pu-modal-header">
-                <h3>Packing Details - Order #{editingOrderDetails.orderId}</h3>
-                <button type="button" className="pu-modal-close" onClick={() => setEditingOrderDetails(null)}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSavePackingDetails} className="pu-modal-form">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '800', color: '#334155' }}>Configure Boxes *</label>
-                    <button 
-                      type="button" 
-                      onClick={handleAddBox}
-                      className="pu-add-box-btn"
-                    >
-                      <Plus size={14} style={{ marginRight: '4px' }} /> Add Box
-                    </button>
-                  </div>
-
-                  <div className="pu-modal-boxes-container">
-                    {boxes.map((box, index) => (
-                      <div key={box.id || index} className="pu-modal-box-row animate-fade-in">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)' }}>BOX #{box.boxNum}</span>
-                          {boxes.length > 1 && (
-                            <button 
-                              type="button" 
-                              onClick={() => handleRemoveBox(index)}
-                              className="pu-remove-box-btn"
-                              title="Remove box"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                      <div className="pu-modal-footer">
+                        <button
+                          type="button"
+                          onClick={() => setEditingOrderItems(null)}
+                          className="pu-modal-btn cancel"
+                          disabled={savingItems}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="pu-modal-btn save"
+                          disabled={savingItems}
+                        >
+                          {savingItems ? (
+                            <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', margin: 0 }}></div>
+                          ) : (
+                            'Save Changes'
                           )}
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* Edit Dynamic Packing Details Modal */}
+            <AnimatePresence>
+              {editingOrderDetails && (
+                <div className="pu-modal-overlay">
+                  <motion.div
+                    className="pu-modal-content"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                  >
+                    <div className="pu-modal-header">
+                      <h3>Packing Details - Order #{editingOrderDetails.orderId}</h3>
+                      <button type="button" className="pu-modal-close" onClick={() => setEditingOrderDetails(null)}>
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSavePackingDetails} className="pu-modal-form">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '13px', fontWeight: '800', color: '#334155' }}>Configure Boxes *</label>
+                          <button
+                            type="button"
+                            onClick={handleAddBox}
+                            className="pu-add-box-btn"
+                          >
+                            <Plus size={14} style={{ marginRight: '4px' }} /> Add Box
+                          </button>
                         </div>
+
+                        <div className="pu-modal-boxes-container">
+                          {boxes.map((box, index) => (
+                            <div key={box.id || index} className="pu-modal-box-row animate-fade-in">
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)' }}>BOX #{box.boxNum}</span>
+                                {boxes.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveBox(index)}
+                                    className="pu-remove-box-btn"
+                                    title="Remove box"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                required
+                                rows={2}
+                                placeholder={`Specify sweets, quantities or items packed in Box #${box.boxNum}...`}
+                                value={box.contents}
+                                onChange={(e) => handleBoxContentsChange(index, e.target.value)}
+                                className="pu-modal-textarea"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pu-modal-field">
+                        <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155', display: 'block', marginBottom: '6px' }}>Packing Instructions / Notes</label>
                         <textarea
-                          required
                           rows={2}
-                          placeholder={`Specify sweets, quantities or items packed in Box #${box.boxNum}...`}
-                          value={box.contents}
-                          onChange={(e) => handleBoxContentsChange(index, e.target.value)}
+                          placeholder="Enter instructions, notes or packing details..."
+                          value={pUnitDescription}
+                          onChange={(e) => setPUnitDescription(e.target.value)}
                           className="pu-modal-textarea"
                         />
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="pu-modal-field">
-                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#334155', display: 'block', marginBottom: '6px' }}>Packing Instructions / Notes</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Enter instructions, notes or packing details..."
-                    value={pUnitDescription}
-                    onChange={(e) => setPUnitDescription(e.target.value)}
-                    className="pu-modal-textarea"
-                  />
+                      <div className="pu-modal-footer">
+                        <button
+                          type="button"
+                          onClick={() => setEditingOrderDetails(null)}
+                          className="pu-modal-btn cancel"
+                          disabled={savingDetails}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="pu-modal-btn save"
+                          disabled={savingDetails}
+                        >
+                          {savingDetails ? (
+                            <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', margin: 0 }}></div>
+                          ) : (
+                            'Save & Print Slips'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
                 </div>
-
-                <div className="pu-modal-footer">
-                  <button 
-                    type="button" 
-                    onClick={() => setEditingOrderDetails(null)} 
-                    className="pu-modal-btn cancel"
-                    disabled={savingDetails}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="pu-modal-btn save"
-                    disabled={savingDetails}
-                  >
-                    {savingDetails ? (
-                      <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', margin: 0 }}></div>
-                    ) : (
-                      'Save & Print Slips'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              )}
+            </AnimatePresence>
 
           </>
         )}
