@@ -3950,26 +3950,37 @@ const StorePortal = () => {
 
                 <div className="ord-items-grid" style={{ paddingBottom: '30px' }}>
                   {filteredItemsForOrder.length > 0 ? (
-                    filteredItemsForOrder.map(item => (
-                      <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClickOrder(item)}>
-                        <img 
-                          src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
-                          alt={item.name} 
-                          className="ord-item-img" 
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = DEFAULT_ITEM_IMAGE;
-                          }}
-                        />
-                        <div className="ord-item-details">
-                          <h4>{item.name}</h4>
-                          <div className="ord-price-row">
-                            <span className="price">₹{item.price}</span>
-                            <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                    filteredItemsForOrder.map(item => {
+                      const cartItem = orderCart.find(ci => ci.id === item.id);
+                      const isInCart = !!cartItem;
+                      return (
+                        <div key={item.id} className={`ord-selectable-card ${isInCart ? 'in-cart' : ''}`} onClick={() => handleItemClickOrder(item)}>
+                          <div className="ord-item-img-container">
+                            <img 
+                              src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                              alt={item.name} 
+                              className="ord-item-img" 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = DEFAULT_ITEM_IMAGE;
+                              }}
+                            />
+                            {isInCart && (
+                              <div className="ord-card-cart-badge">
+                                {cartItem.quantity} {item.unit === 'Weight' ? 'kg' : 'pcs'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="ord-item-details">
+                            <h4>{item.name}</h4>
+                            <div className="ord-price-row">
+                              <span className="price">₹{item.price}</span>
+                              <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0', opacity: 0.5 }}>
                       <Package size={32} style={{ margin: '0 auto 10px' }} />

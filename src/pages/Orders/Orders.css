@@ -488,6 +488,12 @@ tr.row-expanded > td {
   margin-bottom: 15px;
 }
 
+.ord-delivery-fields-row {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
 .ord-global-desc {
   flex: 1;
   height: 38px;
@@ -576,43 +582,106 @@ tr.row-expanded > td {
 /* Item Grid */
 .ord-items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
   overflow-y: auto;
   padding-bottom: 15px;
+  flex: 1;
+  min-height: 0;
+  justify-items: center;
 }
 
 .ord-selectable-card {
   background: white;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  border: 1.5px solid var(--border-color);
   overflow: hidden;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 125px;
+  max-width: 165px;
+  min-height: 155px;
+  max-height: 165px;
+  box-sizing: border-box;
 }
 
 .ord-selectable-card:hover {
   border-color: var(--primary-color);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.ord-selectable-card.in-cart {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+  background: #F0FDF4 !important;
+}
+
+.ord-card-cart-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #10B981;
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+  backdrop-filter: blur(4px);
+  z-index: 5;
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ord-item-img-container {
+  width: 100%;
+  height: 80px;
+  min-height: 80px;
+  max-height: 80px;
+  overflow: hidden;
+  position: relative;
+  background: #f1f5f9;
 }
 
 .ord-item-img {
   width: 100%;
-  height: 90px;
+  height: 100%;
   object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.ord-selectable-card:hover .ord-item-img {
+  transform: scale(1.08);
 }
 
 .ord-item-details {
   padding: 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
 }
 
 .ord-item-details h4 {
   font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  height: 32px; /* Aligns all cards symmetrically */
+  line-height: 1.35;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .ord-price-row {
@@ -732,7 +801,7 @@ tr.row-expanded > td {
   color: var(--text-secondary);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
   .ord-modal-tabs-mobile {
     display: flex !important;
   }
@@ -765,6 +834,10 @@ tr.row-expanded > td {
   }
   .ord-panel-top > div:nth-child(3) {
     grid-column: span 2 !important; /* Packing Unit spans full row */
+  }
+  .ord-delivery-fields-row {
+    flex-direction: column !important;
+    gap: 12px !important;
   }
   .ord-items-grid {
     flex: 1 !important;
@@ -1483,24 +1556,30 @@ tr.row-expanded > td {
     max-width: 100% !important;
   }
 
-  /* Responsive Cozy 2-Column Grid Layout inside Modal */
+  /* Responsive Cozy Grid Layout inside Modal */
   .ord-items-grid {
     display: grid !important;
-    grid-template-columns: 1fr 1fr !important; /* Forces exactly two items per row */
-    gap: 10px !important;
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important; /* Extremely elegant responsive flow! */
+    gap: 8px !important;
     overflow-y: auto !important;
+    justify-items: center !important;
   }
 
   .ord-selectable-card {
     display: flex !important;
     flex-direction: column !important; /* Stacks image and text vertically */
-    height: auto !important;
+    width: 100% !important;
+    min-width: 110px !important;
+    max-width: 145px !important;
+    min-height: 135px !important;
+    max-height: 145px !important;
     background: #ffffff !important;
     border: 1.5px solid var(--border-color) !important;
     border-radius: 10px !important;
     overflow: hidden !important;
     text-align: left !important;
     box-shadow: var(--shadow-sm);
+    box-sizing: border-box !important;
   }
 
   .ord-selectable-card:hover {
@@ -1508,23 +1587,33 @@ tr.row-expanded > td {
     transform: none !important;
   }
 
+  .ord-item-img-container {
+    width: 100% !important;
+    height: 65px !important;
+    min-height: 65px !important;
+    max-height: 65px !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
   .ord-item-img {
     width: 100% !important;
-    height: 70px !important; /* Smaller, compact image height */
+    height: 100% !important;
     object-fit: cover !important;
     border-bottom: 1px solid var(--border-color) !important;
   }
 
   .ord-item-details {
-    padding: 8px !important; /* Cozy compact padding */
+    padding: 6px !important; /* Cozy compact padding */
     display: flex !important;
     flex-direction: column !important;
-    gap: 4px !important;
-    overflow: hidden !important;
+    justify-content: space-between !important;
+    flex: 1 !important;
+    min-height: 0 !important;
   }
 
   .ord-item-details h4 {
-    font-size: 11px !important; /* Cozy, legible size */
+    font-size: 10px !important; /* Cozy, legible size */
     color: var(--text-primary) !important;
     font-weight: 800 !important;
     margin: 0 !important;
@@ -1534,7 +1623,7 @@ tr.row-expanded > td {
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
-    height: 28px !important; /* Aligns all cards symmetrically */
+    height: 26px !important; /* Aligns all cards symmetrically */
   }
 
   .ord-price-row {

@@ -2037,8 +2037,8 @@ const Orders = () => {
                   </div>
 
                   {/* Delivery Date, Time & Packing Description */}
-                  <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <div className="ord-delivery-fields-row">
+                    <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
                       <input
                         type="date"
@@ -2056,7 +2056,7 @@ const Orders = () => {
                         }}
                       />
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Time *</label>
                       <input
                         type="time"
@@ -2074,7 +2074,7 @@ const Orders = () => {
                         }}
                       />
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ flex: 2, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Description</label>
                       <input
                         type="text"
@@ -2135,26 +2135,37 @@ const Orders = () => {
 
                 <div className="ord-items-grid">
                   {filteredItemsForOrder.length > 0 ? (
-                    filteredItemsForOrder.map(item => (
-                      <div key={item.id} className="ord-selectable-card" onClick={() => handleItemClick(item)}>
-                        <img 
-                          src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
-                          alt={item.name} 
-                          className="ord-item-img" 
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = DEFAULT_ITEM_IMAGE;
-                          }}
-                        />
-                        <div className="ord-item-details">
-                          <h4>{item.name}</h4>
-                          <div className="ord-price-row">
-                            <span className="price">₹{item.price}</span>
-                            <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                    filteredItemsForOrder.map(item => {
+                      const cartItem = cart.find(ci => ci.id === item.id);
+                      const isInCart = !!cartItem;
+                      return (
+                        <div key={item.id} className={`ord-selectable-card ${isInCart ? 'in-cart' : ''}`} onClick={() => handleItemClick(item)}>
+                          <div className="ord-item-img-container">
+                            <img 
+                              src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
+                              alt={item.name} 
+                              className="ord-item-img" 
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = DEFAULT_ITEM_IMAGE;
+                              }}
+                            />
+                            {isInCart && (
+                              <div className="ord-card-cart-badge">
+                                {cartItem.quantity} {item.unit === 'Weight' ? 'kg' : 'pcs'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="ord-item-details">
+                            <h4>{item.name}</h4>
+                            <div className="ord-price-row">
+                              <span className="price">₹{item.price}</span>
+                              <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px 0', opacity: 0.5 }}>
                       <Package size={32} style={{ margin: '0 auto 10px' }} />
