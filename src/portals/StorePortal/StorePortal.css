@@ -1769,3 +1769,44 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Live Camera Scanner Styles */
+.st-camera-scan-modal {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  overflow: hidden;
+}
+
+.st-camera-laser-sweep {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #10b981, transparent);
+  box-shadow: 0 0 12px #10b981, 0 0 4px #34d399;
+  z-index: 5;
+  animation: laser-sweep-camera 2s ease-in-out infinite;
+}
+
+@keyframes laser-sweep-camera {
+  0%, 100% { top: 0%; }
+  50% { top: 100%; }
+}
+
+.st-open-camera-btn:hover {
+  background: linear-gradient(135deg, #6d28d9, #5b21b6) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(109, 40, 217, 0.3) !important;
+}
+
+.st-open-camera-btn:active {
+  transform: translateY(0);
+}
+
+/* html5-qrcode video overriding defaults to fit neatly */
+#st-camera-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 10px;
+}
+

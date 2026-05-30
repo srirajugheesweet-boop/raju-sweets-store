@@ -56,7 +56,8 @@ import {
   Save,
   History,
   ChevronRight,
-  QrCode
+  QrCode,
+  Camera
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -816,7 +817,9 @@ const StorePortal = () => {
   const [scanSuccessBox, setScanSuccessBox] = useState(null);
   const [scanError, setScanError] = useState(null);
   const [recentScans, setRecentScans] = useState([]);
+  const [cameraActive, setCameraActive] = useState(false);
   const scanInputRef = useRef(null);
+  const html5QrCodeRef = useRef(null);
 
   // Synth pleasant chimes for hardware scanners
   const playSuccessSound = () => {
@@ -866,24 +869,10 @@ const StorePortal = () => {
     } catch (e) {}
   };
 
-  // Auto-focus scanner input when scan tab mounts
-  useEffect(() => {
-    if (tab === 'scan' && scanInputRef.current) {
-      scanInputRef.current.focus();
-    }
-  }, [tab]);
-
-  // Keep scanner focused globally to intercept typing gun inputs
-  const handleScanPageClick = () => {
-    if (tab === 'scan' && scanInputRef.current) {
-      scanInputRef.current.focus();
-    }
-  };
-
-  const handleScanSubmit = async (e) => {
-    if (e) e.preventDefault();
-    const cleanInput = scanInput.trim();
-    if (!cleanInput) return;
+  // Unified Scanner Payload Database Processor
+  const processScanPayload = async (payloadText) => {
+    const cleanInput = payloadText.trim();
+    if (!cleanInput) return false;
 
     setScanLoading(true);
     setScanError(null);
@@ -938,14 +927,9 @@ const StorePortal = () => {
           orderId: order.orderId,
           alreadyReceived: true
         });
-        setScanInput('');
         playSuccessSound();
         toast.success(`Box #${targetBox.boxNum} is already received!`);
-        
-        setTimeout(() => {
-          if (scanInputRef.current) scanInputRef.current.focus();
-        }, 100);
-        return;
+        return true;
       }
 
       const updatedBoxes = order.boxes.map((b, idx) => {
@@ -991,20 +975,108 @@ const StorePortal = () => {
       setRecentScans(prev => [successInfo, ...prev]);
       playSuccessSound();
       toast.success(`Box #${targetBox.boxNum} received at store!`);
+      return true;
 
     } catch (err) {
-      console.error("Scan Submission Error:", err);
+      console.error("Scan Processing Error:", err);
       setScanError(err.message || "Failed to process box scan.");
       playErrorSound();
       toast.error(err.message || "Failed to process scan.");
+      return false;
     } finally {
       setScanLoading(false);
-      setScanInput('');
-      setTimeout(() => {
-        if (scanInputRef.current) scanInputRef.current.focus();
-      }, 100);
     }
   };
+
+  // Auto-focus scanner input when scan tab mounts
+  useEffect(() => {
+    if (tab === 'scan' && scanInputRef.current && !cameraActive) {
+      scanInputRef.current.focus();
+    }
+  }, [tab, cameraActive]);
+
+  // Keep scanner focused globally to intercept typing gun inputs
+  const handleScanPageClick = () => {
+    if (tab === 'scan' && scanInputRef.current && !cameraActive) {
+      scanInputRef.current.focus();
+    }
+  };
+
+  const handleScanSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const cleanInput = scanInput.trim();
+    if (!cleanInput) return;
+
+    await processScanPayload(cleanInput);
+    setScanInput('');
+    setTimeout(() => {
+      if (scanInputRef.current) scanInputRef.current.focus();
+    }, 100);
+  };
+
+  // Camera QR Scanner Lifecycle Controllers
+  const startCamera = async () => {
+    setCameraActive(true);
+    setScanError(null);
+    setScanSuccessBox(null);
+    
+    // Dynamic import to support client-side bundling safely
+    const { Html5Qrcode } = await import('html5-qrcode');
+    
+    setTimeout(async () => {
+      try {
+        const html5QrCode = new Html5Qrcode("st-camera-reader");
+        html5QrCodeRef.current = html5QrCode;
+        
+        const config = { 
+          fps: 10, 
+          qrbox: (width, height) => {
+            const size = Math.min(width, height) * 0.7;
+            return { width: size, height: size };
+          } 
+        };
+        
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          async (decodedText) => {
+            // Stop camera and process payload
+            await stopCamera();
+            await processScanPayload(decodedText);
+          },
+          (errorMessage) => {
+            // silent during frame drops
+          }
+        );
+      } catch (err) {
+        console.error("Camera access failure:", err);
+        setScanError("Failed to access camera. Make sure webcam/camera permissions are granted.");
+        setCameraActive(false);
+        playErrorSound();
+      }
+    }, 200);
+  };
+
+  const stopCamera = async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop();
+        }
+      } catch (e) {
+        console.error("Failed to stop camera:", e);
+      }
+      html5QrCodeRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  // Clean-up scanner on tab unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [tab]);
 
   // Store Worksheet - Fetch Items on tab active
   useEffect(() => {
@@ -3535,6 +3607,35 @@ const StorePortal = () => {
                   </p>
                 </form>
 
+                <div style={{ margin: '15px 0', width: '100%', height: '1.5px', background: '#e2e8f0' }}></div>
+
+                <button
+                  type="button"
+                  className="st-open-camera-btn"
+                  onClick={startCamera}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    maxWidth: '420px',
+                    height: '46px',
+                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontWeight: '800',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(109, 40, 217, 0.2)',
+                    transition: 'all 0.2s',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <Camera size={18} /> Open Camera Scanner
+                </button>
+
                 {scanLoading && (
                   <div className="st-scan-loading-spinner-container">
                     <RefreshCw size={24} className="spin-icon text-primary" style={{ color: 'var(--primary-color)' }} />
@@ -3612,6 +3713,76 @@ const StorePortal = () => {
             </div>
           </div>
         )}
+
+      {/* Dynamic Camera Scanner Overlay Modal */}
+      <AnimatePresence>
+        {cameraActive && (
+          <div className="modal-overlay" style={{ zIndex: 6000 }}>
+            <motion.div
+              className="st-camera-scan-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{
+                width: '450px',
+                maxWidth: '90vw',
+                background: 'white',
+                borderRadius: '16px',
+                padding: '24px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '15px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-color)' }}>
+                  <Camera size={20} />
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>
+                    Live Camera Scanner
+                  </h3>
+                </div>
+                <button 
+                  onClick={stopCamera} 
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '50%' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                <div style={{ 
+                  position: 'relative', 
+                  width: '320px', 
+                  height: '320px', 
+                  maxWidth: '100%',
+                  borderRadius: '12px', 
+                  overflow: 'hidden', 
+                  border: '2.5px solid #10b981',
+                  background: '#0f172a'
+                }}>
+                  <div className="st-camera-laser-sweep"></div>
+                  
+                  {/* html5-qrcode live stream node */}
+                  <div id="st-camera-reader" style={{ width: '100%', height: '100%', overflow: 'hidden' }}></div>
+                </div>
+                
+                <p style={{ margin: '0', fontSize: '11px', color: '#64748b', fontWeight: '600', textAlign: 'center', lineHeight: '1.4' }}>
+                  Point your computer webcam or mobile camera at the printed QR code on the box slip. It will automatically scan and receive.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button className="modal-btn cancel" onClick={stopCamera} style={{ height: '38px', borderRadius: '8px', fontWeight: '700' }}>
+                  Cancel / Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       </div>
 
