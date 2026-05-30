@@ -30,6 +30,7 @@ import StorePortal from './portals/StorePortal/StorePortal';
 import EmployeePortal from './portals/EmployeePortal/EmployeePortal';
 import IndividualPortal from './portals/IndividualPortal/IndividualPortal';
 import StoreWorkSheet from './pages/StoreWorkSheet/StoreWorkSheet';
+import ScanBox from './pages/ScanBox/ScanBox';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -86,6 +87,7 @@ function App() {
           <Route path="/employee-portal/:tab" element={<ProtectedRoute><EmployeePortal /></ProtectedRoute>} />
           <Route path="/individual-portal" element={<ProtectedRoute><IndividualPortal /></ProtectedRoute>} />
           <Route path="/individual-portal/:tab" element={<ProtectedRoute><IndividualPortal /></ProtectedRoute>} />
+          <Route path="/scan-box/:orderId/:boxId" element={<ProtectedRoute><ScanBox /></ProtectedRoute>} />
 
           {/* Super Admin Module Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />

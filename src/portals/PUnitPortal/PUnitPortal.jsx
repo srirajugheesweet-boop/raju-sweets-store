@@ -18,7 +18,7 @@ import {
   Printer,
   X
 } from 'lucide-react';
-import { printRawToQZ } from '../../utils/qzTray';
+import { printRawToQZ, getLogoESCPOS } from '../../utils/qzTray';
 import { usePrinter } from '../../context/PrinterContext';
 import { db } from '../../config/firebase';
 import { 
@@ -26,6 +26,7 @@ import {
   query, 
   onSnapshot, 
   doc, 
+  getDoc,
   updateDoc,
   serverTimestamp
 } from 'firebase/firestore';
@@ -59,6 +60,7 @@ const PUnitPortal = () => {
   const [editingOrderItems, setEditingOrderItems] = useState(null);
   const [tempItems, setTempItems] = useState([]);
   const [savingItems, setSavingItems] = useState(false);
+  const [pUnitDetails, setPUnitDetails] = useState(null);
 
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
@@ -249,8 +251,26 @@ const PUnitPortal = () => {
         }
         
         bytes.push(...encoder.encode("--------------------------------\n"));
+
+        // --- Dynamic ESC/POS QR Code Rasterization ---
+        const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
+        const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrDataUrl)}`;
+        
+        try {
+          const qrBytes = await getLogoESCPOS(qrImgUrl, 120); // Scale to 120 dots width for standard thermal print
+          if (qrBytes && qrBytes.length > 0) {
+            bytes.push(...CENTER);
+            bytes.push(...qrBytes);
+            bytes.push(...encoder.encode("\nScan to Receive at Store\n"));
+            bytes.push(...encoder.encode("--------------------------------\n"));
+          }
+        } catch (qrErr) {
+          console.error("ESCPOS QR generation error:", qrErr);
+        }
+        
         bytes.push(...CENTER);
-        bytes.push(...encoder.encode(`Packed by Unit: ${id || 'Facility'}\n`));
+        bytes.push(...encoder.encode(`Packed by Unit: ${pUnitDetails?.name || id || 'Facility'}\n`));
         bytes.push(...encoder.encode("Thank you for your order!\n\n"));
         
         const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
@@ -316,9 +336,26 @@ const PUnitPortal = () => {
         }
         
         bytes.push(...encoder.encode("--------------------------------\n"));
+
+        // --- Dynamic ESC/POS QR Code Rasterization ---
+        const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
+        const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrDataUrl)}`;
+        
+        try {
+          const qrBytes = await getLogoESCPOS(qrImgUrl, 120); // Scale to 120 dots width for standard thermal print
+          if (qrBytes && qrBytes.length > 0) {
+            bytes.push(...CENTER);
+            bytes.push(...qrBytes);
+            bytes.push(...encoder.encode("\nScan to Receive at Store\n"));
+            bytes.push(...encoder.encode("--------------------------------\n"));
+          }
+        } catch (qrErr) {
+          console.error("ESCPOS QR generation error:", qrErr);
+        }
         
         bytes.push(...CENTER);
-        bytes.push(...encoder.encode(`Packed by Unit: ${id || 'Facility'}\n`));
+        bytes.push(...encoder.encode(`Packed by Unit: ${pUnitDetails?.name || id || 'Facility'}\n`));
         bytes.push(...encoder.encode("Thank you for your order!\n\n"));
         
         const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
@@ -341,137 +378,191 @@ const PUnitPortal = () => {
   };
 
   const handlePrintBoxes = (order, boxesList, notes = '') => {
-    if (bluetoothConnected) {
-      toast.success(`Sending ${boxesList.length} box ticket rolls to ${connectedDevice}...`);
-    }
+    const loadingToastId = toast.loading("Generating QR Codes & preparing slips...");
 
-    const printContent = `
-      <html>
-        <head>
-          <title>Box Slips - Order #${order.orderId}</title>
-          <style>
-            @media print {
-              @page { size: 58mm auto; margin: 0; }
-              body { margin: 0; padding: 0; background: white; width: 58mm; }
-            }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              width: 58mm;
-              margin: 0 auto;
-              padding: 8px;
-              box-sizing: border-box;
-              font-size: 11px;
-              line-height: 1.3;
-              color: #000;
-            }
-            .slip {
-              border-bottom: 2px dashed #000;
-              padding-bottom: 12px;
-              margin-bottom: 12px;
-              page-break-after: always;
-            }
-            .slip:last-child {
-              border-bottom: none;
-              page-break-after: avoid;
-              margin-bottom: 0;
-              padding-bottom: 0;
-            }
-            .title {
-              font-size: 14px;
-              font-weight: bold;
-              text-align: center;
-              text-transform: uppercase;
-              margin: 4px 0 2px 0;
-            }
-            .subtitle {
-              font-size: 9px;
-              text-align: center;
-              border-bottom: 1px solid #000;
-              padding-bottom: 4px;
-              margin-bottom: 6px;
-            }
-            .info-label {
-              font-weight: bold;
-            }
-            .info-row {
-              margin: 3px 0;
-            }
-            .divider {
-              border-top: 1px dashed #000;
-              margin: 6px 0;
-            }
-            .box-header {
-              font-size: 13px;
-              font-weight: bold;
-              text-align: center;
-              background: #000;
-              color: #fff;
-              padding: 4px;
-              margin: 8px 0;
-            }
-            .box-desc {
-              font-size: 11px;
-              white-space: pre-wrap;
-              background: #f4f4f5;
-              padding: 6px;
-              border-radius: 4px;
-              margin-top: 4px;
-              border: 1px solid #ddd;
-            }
-            .footer {
-              text-align: center;
-              font-size: 8px;
-              margin-top: 12px;
-              border-top: 1px solid #000;
-              padding-top: 4px;
-              color: #555;
-            }
-          </style>
-        </head>
-        <body>
-          \${boxesList.map((box, index) => \`
-            <div class="slip">
-              <div class="title">Raju Ghee Sweets</div>
-              <div class="subtitle">Quality Sweets & Savouries</div>
-              
-              <div class="box-header">BOX \${box.boxNum} OF \${boxesList.length}</div>
-              
-              <div class="info-row"><span class="info-label">Order ID:</span> #\${order.orderId}</div>
-              <div class="info-row"><span class="info-label">Date:</span> \${new Date().toLocaleDateString()}</div>
-              
-              <div class="divider"></div>
-              
-              <div class="info-row"><span class="info-label">Customer:</span> \${order.customerName}</div>
-              <div class="info-row"><span class="info-label">Phone:</span> \${order.customerPhone || 'N/A'}</div>
-              
-              <div class="divider"></div>
-              
-              <div class="info-row"><span class="info-label">Items in Box:</span></div>
-              <div class="box-desc">\${box.contents}</div>
-              
-              \${notes ? \`
-                <div class="divider"></div>
-                <div class="info-row"><span class="info-label">Note:</span> \${notes}</div>
-              \` : ''}
-              
-              <div class="footer">
-                <p>Packed by Packing Unit: \${id || 'Facility'}</p>
-                <p>Thank you for your order!</p>
-              </div>
-            </div>
-          \`).join('')}
-        </body>
-      </html>
-    `;
+    // Preload all QR Code images so they load instantly in the print window
+    const preloadPromises = boxesList.map((box, index) => {
+      const boxIdToUse = box.id || `box_${Date.now()}_${index}_${Math.random()}`;
+      const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
+      const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrDataUrl)}`;
+      
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = qrImgUrl;
+        img.onload = () => resolve({ boxId: boxIdToUse, imgUrl: qrImgUrl });
+        img.onerror = () => resolve({ boxId: boxIdToUse, imgUrl: qrImgUrl }); // Resolve anyway to avoid blocking
+      });
+    });
 
-    const printWindow = window.open('', '_blank', 'width=600,height=800');
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+    Promise.all(preloadPromises).then((preloadedData) => {
+      toast.dismiss(loadingToastId);
+
+      const printContent = `
+        <html>
+          <head>
+            <title>Box Slips - Order #${order.orderId}</title>
+            <style>
+              @media print {
+                @page { size: 58mm auto; margin: 0; }
+                body { margin: 0; padding: 0; background: white; width: 58mm; }
+              }
+              body {
+                font-family: 'Courier New', Courier, monospace;
+                width: 58mm;
+                margin: 0 auto;
+                padding: 8px;
+                box-sizing: border-box;
+                font-size: 11px;
+                line-height: 1.3;
+                color: #000;
+              }
+              .slip {
+                border-bottom: 2px dashed #000;
+                padding-bottom: 12px;
+                margin-bottom: 12px;
+                page-break-after: always;
+                text-align: left;
+              }
+              .slip:last-child {
+                border-bottom: none;
+                page-break-after: avoid;
+                margin-bottom: 0;
+                padding-bottom: 0;
+              }
+              .title {
+                font-size: 14px;
+                font-weight: bold;
+                text-align: center;
+                text-transform: uppercase;
+                margin: 4px 0 2px 0;
+              }
+              .subtitle {
+                font-size: 9px;
+                text-align: center;
+                border-bottom: 1px solid #000;
+                padding-bottom: 4px;
+                margin-bottom: 6px;
+              }
+              .info-label {
+                font-weight: bold;
+              }
+              .info-row {
+                margin: 3px 0;
+              }
+              .divider {
+                border-top: 1px dashed #000;
+                margin: 6px 0;
+              }
+              .box-header {
+                font-size: 13px;
+                font-weight: bold;
+                text-align: center;
+                background: #000;
+                color: #fff;
+                padding: 4px;
+                margin: 8px 0;
+              }
+              .box-desc {
+                font-size: 11px;
+                white-space: pre-wrap;
+                background: #f4f4f5;
+                padding: 6px;
+                border-radius: 4px;
+                margin-top: 4px;
+                border: 1px solid #ddd;
+              }
+              .qr-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                margin: 12px 0;
+                padding: 6px;
+                border: 1px dashed #000;
+                border-radius: 6px;
+                text-align: center;
+              }
+              .qr-image {
+                width: 110px;
+                height: 110px;
+                margin-bottom: 4px;
+                display: block;
+              }
+              .qr-caption {
+                font-size: 8px;
+                font-weight: bold;
+                color: #000;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+              }
+              .footer {
+                text-align: center;
+                font-size: 8px;
+                margin-top: 12px;
+                border-top: 1px solid #000;
+                padding-top: 4px;
+                color: #555;
+              }
+            </style>
+          </head>
+          <body>
+            ${boxesList.map((box, index) => {
+              const preloaded = preloadedData[index] || {};
+              const boxIdToUse = preloaded.boxId || `box_${Date.now()}_${index}_${Math.random()}`;
+              const qrImgUrl = preloaded.imgUrl || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse)}`;
+              
+              return `
+                <div class="slip">
+                  <div class="title">Raju Ghee Sweets</div>
+                  <div class="subtitle">Quality Sweets & Savouries</div>
+                  
+                  <div class="box-header">BOX ${box.boxNum} OF ${boxesList.length}</div>
+                  
+                  <div class="info-row"><span class="info-label">Order ID:</span> #${order.orderId}</div>
+                  <div class="info-row"><span class="info-label">Date:</span> ${new Date().toLocaleDateString()}</div>
+                  
+                  <div class="divider"></div>
+                  
+                  <div class="info-row"><span class="info-label">Customer:</span> ${order.customerName}</div>
+                  <div class="info-row"><span class="info-label">Phone:</span> ${order.customerPhone || 'N/A'}</div>
+                  
+                  <div class="divider"></div>
+                  
+                  <div class="info-row"><span class="info-label">Items in Box:</span></div>
+                  <div class="box-desc">${box.contents}</div>
+                  
+                  ${notes ? `
+                    <div class="divider"></div>
+                    <div class="info-row"><span class="info-label">Note:</span> ${notes}</div>
+                  ` : ''}
+                  
+                  <div class="divider"></div>
+                  
+                  <div class="qr-container">
+                    <img class="qr-image" src="${qrImgUrl}" alt="Box QR Code" />
+                    <span class="qr-caption">Scan to Receive at Store</span>
+                  </div>
+                  
+                  <div class="footer">
+                    <p>Packed by Packing Unit: ${pUnitDetails?.name || id || 'Facility'}</p>
+                    <p>Thank you for your order!</p>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank', 'width=600,height=800');
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    });
   };
 
   // --- Order Items Editing Handlers ---
@@ -559,6 +650,23 @@ const PUnitPortal = () => {
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/punit-portal/${id}/orders` },
     { label: 'History', icon: <Clock size={20} />, path: `/punit-portal/${id}/history` }
   ];
+
+  // Fetch packing unit details (like Name) from Firestore securely
+  useEffect(() => {
+    if (!id) return;
+    const fetchPUnit = async () => {
+      try {
+        const docRef = doc(db, 'packing_units', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setPUnitDetails(docSnap.data());
+        }
+      } catch (err) {
+        console.error("Error fetching packing unit details:", err);
+      }
+    };
+    fetchPUnit();
+  }, [id]);
 
   // Subscribe to all orders from Firestore in real-time
   useEffect(() => {
@@ -951,11 +1059,31 @@ const PUnitPortal = () => {
 
                           {order.boxes && Array.isArray(order.boxes) && order.boxes.length > 0 ? (
                             <div className="pu-packing-boxes-list">
-                              {order.boxes.map((box, bIdx) => (
-                                <div key={bIdx} className="pu-packing-box-item animate-fade-in">
-                                  <strong>Box {box.boxNum}:</strong> <span>{box.contents}</span>
-                                </div>
-                              ))}
+                              {order.boxes.map((box, bIdx) => {
+                                const isScanned = box.status === 'received_at_store' || box.received;
+                                return (
+                                  <div 
+                                    key={bIdx} 
+                                    className="pu-packing-box-item animate-fade-in"
+                                    style={{
+                                      background: isScanned ? '#d1fae5' : 'white',
+                                      borderColor: isScanned ? '#10b981' : '#f1f5f9',
+                                      color: isScanned ? '#065f46' : '#475569',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      gap: '10px'
+                                    }}
+                                  >
+                                    <span>
+                                      <strong>Box {box.boxNum}:</strong> <span>{box.contents}</span>
+                                    </span>
+                                    {isScanned && (
+                                      <span style={{ fontSize: '9px', background: '#10b981', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: '800', whiteSpace: 'nowrap' }}>✓ RECEIVED AT STORE</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
                             order.boxContents && (
