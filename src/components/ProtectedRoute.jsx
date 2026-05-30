@@ -19,6 +19,26 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Strict Role-Based Security:
+  // If the user is authenticated via Descope (portal operator), they are restricted
+  // to their specialized portals or onboarding, and must never access Super Admin views.
+  if (isAuthenticated && !currentUser) {
+    const allowedPatterns = [
+      /^\/onboarding/,
+      /^\/munit-portal/,
+      /^\/punit-portal/,
+      /^\/store-portal/,
+      /^\/employee-portal/
+    ];
+    
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(location.pathname));
+    
+    if (!isAllowed) {
+      console.warn(`Unauthorized access attempt by portal user to: ${location.pathname}. Redirecting to Onboarding.`);
+      return <Navigate to="/onboarding" replace />;
+    }
+  }
+
   return children;
 };
 
