@@ -55,6 +55,11 @@ const PUnitPortal = () => {
   const [historyDate, setHistoryDate] = useState('');
   const [packingSubTab, setPackingSubTab] = useState('pending'); // 'pending' | 'completed' | 'moved'
 
+  // Editing Order Items State
+  const [editingOrderItems, setEditingOrderItems] = useState(null);
+  const [tempItems, setTempItems] = useState([]);
+  const [savingItems, setSavingItems] = useState(false);
+
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
     if (!orderDateStr || !selectedDateStr) return false;
@@ -469,6 +474,86 @@ const PUnitPortal = () => {
     }, 500);
   };
 
+  // --- Order Items Editing Handlers ---
+  const handleOpenEditOrder = (order) => {
+    setEditingOrderItems(order);
+    // Deep clone the items array to keep the editing sandbox clean
+    setTempItems(
+      order.items
+        ? order.items.map(item => ({
+            ...item,
+            // Keep quantity as string for a seamless typing experience (decimals/erasing)
+            quantity: item.quantity !== undefined ? item.quantity.toString() : '0'
+          }))
+        : []
+    );
+  };
+
+  const handleItemQuantityChange = (idx, value) => {
+    const updated = [...tempItems];
+    updated[idx].quantity = value;
+    
+    // Recalculate dynamic item total on the fly
+    const qty = parseFloat(value) || 0;
+    const price = parseFloat(updated[idx].price) || 0;
+    updated[idx].total = parseFloat((qty * price).toFixed(2));
+    
+    setTempItems(updated);
+  };
+
+  const handleSaveEditedOrder = async (e) => {
+    e.preventDefault();
+    if (!editingOrderItems) return;
+
+    setSavingItems(true);
+    try {
+      const updatedItemsForFirestore = tempItems.map(item => {
+        const qty = parseFloat(item.quantity) || 0;
+        const price = parseFloat(item.price) || 0;
+        return {
+          ...item,
+          quantity: qty,
+          total: parseFloat((qty * price).toFixed(2))
+        };
+      });
+
+      const newTotalAmount = parseFloat(updatedItemsForFirestore.reduce((sum, item) => sum + item.total, 0).toFixed(2));
+      const receivedAmt = parseFloat(editingOrderItems.receivedAmount) || 0;
+      
+      let newPaymentStatus = 'Pending';
+      if (receivedAmt > 0) {
+        if (receivedAmt >= newTotalAmount - 0.01) {
+          newPaymentStatus = 'Done';
+        } else {
+          newPaymentStatus = 'Partial';
+        }
+      }
+
+      const balanceDue = Math.max(0, newTotalAmount - receivedAmt);
+      const overallStatus = calculateOverallOrderStatus(updatedItemsForFirestore);
+
+      const orderRef = doc(db, 'orders', editingOrderItems.id);
+      await updateDoc(orderRef, {
+        items: updatedItemsForFirestore,
+        totalAmount: newTotalAmount,
+        receivedAmount: receivedAmt,
+        paymentStatus: newPaymentStatus,
+        paymentDue: balanceDue,     // Explicitly update paymentDue field
+        balanceDue: balanceDue,     // Explicitly update balanceDue field for safety
+        status: overallStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      toast.success("Order items and payment totals updated successfully!");
+      setEditingOrderItems(null);
+    } catch (error) {
+      console.error("Save Order Edit Error:", error);
+      toast.error("Failed to update order items");
+    } finally {
+      setSavingItems(false);
+    }
+  };
+
   const links = [
     { label: 'Analytics', icon: <BarChart3 size={20} />, path: `/punit-portal/${id}/analytics` },
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/punit-portal/${id}/orders` },
@@ -816,14 +901,29 @@ const PUnitPortal = () => {
                                 </button>
                               )}
                               {tab !== 'history' && (
-                                <button 
-                                  type="button"
-                                  onClick={() => handleOpenEditDetails(order)}
-                                  className="pu-mini-action-btn edit"
-                                  title="Edit packing details"
-                                >
-                                  <Edit size={12} /> Edit
-                                </button>
+                                <>
+                                  <button 
+                                    type="button"
+                                    onClick={() => handleOpenEditOrder(order)}
+                                    className="pu-mini-action-btn edit-order"
+                                    title="Edit order items & quantities"
+                                    style={{
+                                      background: '#eff6ff',
+                                      color: '#2563eb',
+                                      border: '1px solid #bfdbfe'
+                                    }}
+                                  >
+                                    <Edit size={12} /> Edit Order
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    onClick={() => handleOpenEditDetails(order)}
+                                    className="pu-mini-action-btn edit"
+                                    title="Edit packing details"
+                                  >
+                                    <Edit size={12} /> Edit Details
+                                  </button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -995,6 +1095,119 @@ const PUnitPortal = () => {
                 </div>
               </div>
             )}
+
+      {/* Edit Order Items Modal */}
+      <AnimatePresence>
+        {editingOrderItems && (
+          <div className="pu-modal-overlay">
+            <motion.div 
+              className="pu-modal-content"
+              style={{ maxWidth: '480px' }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="pu-modal-header">
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShoppingBag size={18} style={{ color: 'var(--primary-color)' }} />
+                  Edit Items - Order #{editingOrderItems.orderId}
+                </h3>
+                <button type="button" className="pu-modal-close" onClick={() => setEditingOrderItems(null)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditedOrder} className="pu-modal-form">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '800', color: '#334155' }}>
+                    Adjust Weights (kg) or Pieces (pcs)
+                  </label>
+                  
+                  <div className="pu-edit-order-items-list" style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    padding: '8px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    background: '#f8fafc'
+                  }}>
+                    {tempItems.map((item, idx) => (
+                      <div key={idx} className="pu-edit-order-item-row" style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        background: 'white',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ flex: 2, minWidth: '120px' }}>
+                          <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{item.name}</h4>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>Unit type: {item.unit === 'Weight' ? 'Weight-based' : 'Piece-based'}</span>
+                        </div>
+
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                          <input 
+                            type="number"
+                            step={item.unit === 'Weight' ? '0.001' : '1'}
+                            min="0"
+                            required
+                            value={item.quantity}
+                            onChange={(e) => handleItemQuantityChange(idx, e.target.value)}
+                            className="pu-edit-order-input"
+                            style={{
+                              width: '80px',
+                              height: '32px',
+                              padding: '0 8px',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              fontWeight: '700',
+                              color: '#334155',
+                              boxSizing: 'border-box',
+                              textAlign: 'center',
+                              outline: 'none'
+                            }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', minWidth: '30px' }}>
+                            {item.unit === 'Weight' ? 'kg' : 'pcs'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pu-modal-footer">
+                  <button 
+                    type="button" 
+                    onClick={() => setEditingOrderItems(null)} 
+                    className="pu-modal-btn cancel"
+                    disabled={savingItems}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="pu-modal-btn save"
+                    disabled={savingItems}
+                  >
+                    {savingItems ? (
+                      <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', margin: 0 }}></div>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Dynamic Packing Details Modal */}
       <AnimatePresence>

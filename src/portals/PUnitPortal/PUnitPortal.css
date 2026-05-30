@@ -553,3 +553,49 @@
     transform: scale(1.05);
   }
 }
+
+/* Edit Order Items Modal Specifics */
+.pu-edit-order-input {
+  transition: all 0.2s ease-in-out;
+  background-color: #ffffff;
+}
+
+.pu-edit-order-input:focus {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  background-color: #f0fdfa;
+}
+
+.pu-edit-order-items-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pu-edit-order-items-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.pu-edit-order-items-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.pu-edit-order-items-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@media (max-width: 480px) {
+  .pu-edit-order-item-row {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  
+  .pu-edit-order-item-row div {
+    text-align: left !important;
+  }
+  
+  .pu-edit-order-input {
+    max-width: 120px;
+  }
+}
