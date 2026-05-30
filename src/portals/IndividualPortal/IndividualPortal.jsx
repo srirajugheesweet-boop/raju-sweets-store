@@ -163,10 +163,10 @@ const IndividualPortal = () => {
   };
 
   const tabs = [
-    { id: 'info', label: 'Employee Info', icon: <User size={16} /> },
-    { id: 'timesheet', label: 'Timesheet', icon: <Clock size={16} /> },
-    { id: 'leaves', label: 'Leaves', icon: <Calendar size={16} /> },
-    { id: 'advance', label: 'Advance', icon: <CreditCard size={16} /> },
+    { id: 'info', label: 'Employee Info', mobileLabel: 'Profile', icon: <User size={20} /> },
+    { id: 'timesheet', label: 'Timesheet', mobileLabel: 'Timesheet', icon: <Clock size={20} /> },
+    { id: 'leaves', label: 'Leaves', mobileLabel: 'Leaves', icon: <Calendar size={20} /> },
+    { id: 'advance', label: 'Advance', mobileLabel: 'Advance', icon: <CreditCard size={20} /> },
   ];
 
   if (loading) {
@@ -220,7 +220,7 @@ const IndividualPortal = () => {
                 className={`ind-tab-btn ${activeTab === tabItem.id ? 'active' : ''}`}
                 onClick={() => navigate(`/individual-portal/${tabItem.id}`)}
               >
-                <span className="ind-tab-icon">{tabItem.icon}</span>
+                <span className="ind-tab-icon">{React.cloneElement(tabItem.icon, { size: 16 })}</span>
                 <span className="ind-tab-label">{tabItem.label}</span>
               </button>
             ))}
@@ -591,6 +591,20 @@ const IndividualPortal = () => {
           )}
 
         </div>
+      </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="ind-mobile-bottom-nav">
+        {tabs.map(tabItem => (
+          <button
+            key={tabItem.id}
+            className={`ind-mobile-nav-btn ${activeTab === tabItem.id ? 'active' : ''}`}
+            onClick={() => navigate(`/individual-portal/${tabItem.id}`)}
+          >
+            <span className="ind-mobile-nav-icon">{React.cloneElement(tabItem.icon, { size: 20 })}</span>
+            <span className="ind-mobile-nav-label">{tabItem.mobileLabel}</span>
+          </button>
+        ))}
       </div>
     </PortalLayout>
   );
