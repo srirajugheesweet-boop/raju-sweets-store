@@ -192,7 +192,7 @@ const IndividualPortal = () => {
 
     const salary = Number(employee.salary || 0);
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const perDayPay = salary / daysInMonth;
+    const perDayPay = salary / 30;
     const acceptedLeaves = Number(employee.acceptedLeaves || 0);
 
     // Dynamic past vs current month day evaluation limit

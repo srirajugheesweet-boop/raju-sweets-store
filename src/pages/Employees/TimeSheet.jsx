@@ -234,7 +234,7 @@ const TimeSheet = () => {
 
     const salary = Number(emp.salary || 0);
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const perDayPay = salary / daysInMonth;
+    const perDayPay = salary / 30;
     const acceptedLeaves = Number(emp.acceptedLeaves || 0);
 
     // Dynamic past vs current month day evaluation limit
