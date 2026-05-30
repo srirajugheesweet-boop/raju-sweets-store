@@ -475,7 +475,7 @@ tr.row-expanded > td {
   display: flex;
   flex-direction: column;
   padding: 18px;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .ord-panel-header {
@@ -584,10 +584,10 @@ tr.row-expanded > td {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 12px;
-  overflow-y: auto;
+  overflow-y: visible;
   padding-bottom: 15px;
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  min-height: auto;
   justify-items: center;
 }
 
@@ -802,47 +802,91 @@ tr.row-expanded > td {
 }
 
 @media (max-width: 768px) {
+  .ord-full-modal {
+    position: fixed !important;
+    inset: 0 !important;
+    background: white !important;
+    z-index: 2000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important; /* Outer modal handles scroll peacefully */
+    height: 100vh !important;
+  }
+
+  .ord-modal-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1010 !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+
   .ord-modal-tabs-mobile {
     display: flex !important;
+    position: sticky !important;
+    top: 55px !important; /* Standard sticky header position */
+    z-index: 1009 !important;
+    background: white !important;
+    border-bottom: 1px solid var(--border-color) !important;
   }
+
   .ord-modal-content {
-    flex-direction: column !important;
-    overflow: hidden !important;
+    display: block !important; /* Disable flex height constraints */
+    overflow: visible !important;
+    flex: none !important;
+    height: auto !important;
   }
+
   .ord-items-panel.hide-mobile,
   .ord-summary-panel.hide-mobile {
     display: none !important;
   }
+
   .ord-items-panel.show-mobile,
   .ord-summary-panel.show-mobile {
-    display: flex !important;
-    flex-direction: column !important; /* Stacks all children vertically as column */
+    display: block !important; /* Flow naturally */
     width: 100% !important;
-    flex: 1 !important;
-    overflow-y: auto !important;
+    overflow: visible !important; /* Disable internal panel scrolls */
+    height: auto !important;
+    flex: none !important;
   }
+
   .ord-summary-panel {
     border-left: none !important;
     border-top: none !important;
     border-bottom: none !important;
     padding: 16px !important;
   }
+
+  .ord-summary-list {
+    overflow-y: visible !important; /* Flow summary naturally */
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
   .ord-panel-top {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important; /* Displays two dropdowns per row */
     gap: 12px !important;
   }
+
   .ord-panel-top > div:nth-child(3) {
     grid-column: span 2 !important; /* Packing Unit spans full row */
   }
+
   .ord-delivery-fields-row {
     flex-direction: column !important;
     gap: 12px !important;
   }
+
   .ord-items-grid {
-    flex: 1 !important;
-    min-height: 250px !important;
+    flex: none !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow-y: visible !important;
   }
+
   .ord-desc-fields {
     margin-top: 10px !important;
   }
@@ -1561,7 +1605,7 @@ tr.row-expanded > td {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)) !important; /* Extremely elegant responsive flow! */
     gap: 8px !important;
-    overflow-y: auto !important;
+    overflow-y: visible !important;
     justify-items: center !important;
   }
 
