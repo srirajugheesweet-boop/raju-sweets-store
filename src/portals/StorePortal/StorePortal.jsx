@@ -55,7 +55,8 @@ import {
   ClipboardList,
   Save,
   History,
-  ChevronRight
+  ChevronRight,
+  QrCode
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -809,6 +810,202 @@ const StorePortal = () => {
   const [wsPreviewSheet, setWsPreviewSheet] = useState(null);
   const [activeWorksheet, setActiveWorksheet] = useState(null);
 
+  // Store Scan QR Box states
+  const [scanInput, setScanInput] = useState('');
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanSuccessBox, setScanSuccessBox] = useState(null);
+  const [scanError, setScanError] = useState(null);
+  const [recentScans, setRecentScans] = useState([]);
+  const scanInputRef = useRef(null);
+
+  // Synth pleasant chimes for hardware scanners
+  const playSuccessSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc1 = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.value = 523.25; // C5
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      osc1.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.3);
+
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.value = 659.25; // E5
+        gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.35);
+      }, 90);
+    } catch (e) {
+      console.warn("AudioContext failed to initialize:", e);
+    }
+  };
+
+  const playErrorSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = 160;
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.45);
+    } catch (e) {}
+  };
+
+  // Auto-focus scanner input when scan tab mounts
+  useEffect(() => {
+    if (tab === 'scan' && scanInputRef.current) {
+      scanInputRef.current.focus();
+    }
+  }, [tab]);
+
+  // Keep scanner focused globally to intercept typing gun inputs
+  const handleScanPageClick = () => {
+    if (tab === 'scan' && scanInputRef.current) {
+      scanInputRef.current.focus();
+    }
+  };
+
+  const handleScanSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const cleanInput = scanInput.trim();
+    if (!cleanInput) return;
+
+    setScanLoading(true);
+    setScanError(null);
+    setScanSuccessBox(null);
+
+    let orderId = '';
+    let boxId = '';
+
+    try {
+      const match = cleanInput.match(/\/scan-box\/([^\/]+)\/([^\/]+)/);
+      if (match) {
+        orderId = match[1];
+        boxId = match[2];
+      } else {
+        const parts = cleanInput.split('/');
+        if (parts.length >= 2) {
+          orderId = parts[parts.length - 2];
+          boxId = parts[parts.length - 1];
+        } else {
+          throw new Error("Invalid scanned content. Expected scan URL or Order/Box path.");
+        }
+      }
+
+      if (!orderId || !boxId) {
+        throw new Error("Missing Order ID or Box ID inside scanned content.");
+      }
+
+      const orderRef = doc(db, 'orders', orderId);
+      const orderSnap = await getDoc(orderRef);
+
+      if (!orderSnap.exists()) {
+        throw new Error(`Order #${orderId} not found in database.`);
+      }
+
+      const order = { id: orderSnap.id, ...orderSnap.data() };
+
+      if (!order.boxes || !Array.isArray(order.boxes)) {
+        throw new Error("No boxes are recorded on this order.");
+      }
+
+      const boxIndex = order.boxes.findIndex(b => b.id === boxId);
+      if (boxIndex === -1) {
+        throw new Error("Scanned Box ID does not match any box in this order.");
+      }
+
+      const targetBox = order.boxes[boxIndex];
+
+      if (targetBox.status === 'received_at_store' || targetBox.received) {
+        setScanSuccessBox({
+          boxNum: targetBox.boxNum,
+          contents: targetBox.contents,
+          orderId: order.orderId,
+          alreadyReceived: true
+        });
+        setScanInput('');
+        playSuccessSound();
+        toast.success(`Box #${targetBox.boxNum} is already received!`);
+        
+        setTimeout(() => {
+          if (scanInputRef.current) scanInputRef.current.focus();
+        }, 100);
+        return;
+      }
+
+      const updatedBoxes = order.boxes.map((b, idx) => {
+        if (idx === boxIndex) {
+          return {
+            ...b,
+            received: true,
+            status: 'received_at_store',
+            receivedAt: new Date().toISOString()
+          };
+        }
+        return b;
+      });
+
+      const boxContentsLower = (targetBox.contents || '').toLowerCase();
+      const updatedItems = order.items.map(item => {
+        const nameMatch = boxContentsLower.includes(item.name.toLowerCase());
+        const isEligible = item.status === 'packing_complete' || item.status === 'moved_to_packing';
+        
+        if (nameMatch || isEligible) {
+          return { ...item, status: 'received_at_store' };
+        }
+        return item;
+      });
+
+      const overallStatus = calculateOverallOrderStatus(updatedItems);
+
+      await updateDoc(orderRef, {
+        boxes: updatedBoxes,
+        items: updatedItems,
+        status: overallStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      const successInfo = {
+        boxNum: targetBox.boxNum,
+        contents: targetBox.contents,
+        orderId: order.orderId,
+        scannedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+
+      setScanSuccessBox(successInfo);
+      setRecentScans(prev => [successInfo, ...prev]);
+      playSuccessSound();
+      toast.success(`Box #${targetBox.boxNum} received at store!`);
+
+    } catch (err) {
+      console.error("Scan Submission Error:", err);
+      setScanError(err.message || "Failed to process box scan.");
+      playErrorSound();
+      toast.error(err.message || "Failed to process scan.");
+    } finally {
+      setScanLoading(false);
+      setScanInput('');
+      setTimeout(() => {
+        if (scanInputRef.current) scanInputRef.current.focus();
+      }, 100);
+    }
+  };
+
   // Store Worksheet - Fetch Items on tab active
   useEffect(() => {
     if (tab === 'worksheet') {
@@ -959,7 +1156,8 @@ const StorePortal = () => {
     { label: 'Customers', icon: <Users size={20} />, path: `/store-portal/${id}/customers` },
     { label: 'Payments', icon: <CreditCard size={20} />, path: `/store-portal/${id}/payments` },
     { label: 'Store Worksheet', icon: <ClipboardList size={20} />, path: `/store-portal/${id}/worksheet` },
-    { label: 'Billing & POS', icon: <CreditCard size={20} />, path: `/store-portal/${id}/billing` }
+    { label: 'Billing & POS', icon: <CreditCard size={20} />, path: `/store-portal/${id}/billing` },
+    { label: 'Scan Box', icon: <QrCode size={20} />, path: `/store-portal/${id}/scan` }
   ];
 
   // Helper function to match dates across local format variations securely
@@ -3290,6 +3488,128 @@ const StorePortal = () => {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* --- SCAN BOX WORKFLOW VIEW --- */}
+        {tab === 'scan' && (
+          <div className="st-scan-view animate-fade-in" onClick={handleScanPageClick}>
+            <div className="st-view-header">
+              <div>
+                <h2>Handheld QR Scanner Terminal</h2>
+                <p className="st-view-desc">Scan box QR codes using physical handheld scanner guns to mark them received at this outlet.</p>
+              </div>
+            </div>
+
+            <div className="st-scan-container">
+              {/* Left Column: Scanner Terminal */}
+              <div className="st-scan-card st-scan-terminal-card">
+                <div className="st-scan-target">
+                  <div className="st-scan-radar">
+                    <div className="st-scan-circle st-circle-1"></div>
+                    <div className="st-scan-circle st-circle-2"></div>
+                    <div className="st-scan-laser"></div>
+                    <QrCode size={64} className="st-scan-qr-icon" />
+                  </div>
+                </div>
+
+                <div className="st-scan-status-badge">
+                  <div className="st-pulse-dot"></div>
+                  <span>AWAITING BARCODE GUN SCAN</span>
+                </div>
+
+                <form onSubmit={handleScanSubmit} className="st-scan-form">
+                  <input
+                    ref={scanInputRef}
+                    type="text"
+                    className={`st-scan-input-capture ${scanError ? 'error' : scanSuccessBox ? 'success' : ''}`}
+                    placeholder="Aim scanner at box QR and pull trigger..."
+                    value={scanInput}
+                    onChange={(e) => setScanInput(e.target.value)}
+                    disabled={scanLoading}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  <p className="st-scan-tip">
+                    ℹ️ Keeps keyboard focus automatically. Click anywhere on this page to restore focus.
+                  </p>
+                </form>
+
+                {scanLoading && (
+                  <div className="st-scan-loading-spinner-container">
+                    <RefreshCw size={24} className="spin-icon text-primary" style={{ color: 'var(--primary-color)' }} />
+                    <span>Verifying box payload...</span>
+                  </div>
+                )}
+
+                {scanError && (
+                  <div className="st-scan-alert error animate-fade-in">
+                    <AlertCircle size={20} />
+                    <div className="st-alert-text">
+                      <strong>Scan Failed:</strong> {scanError}
+                    </div>
+                    <button className="st-alert-close" onClick={() => setScanError(null)}>×</button>
+                  </div>
+                )}
+
+                {scanSuccessBox && (
+                  <div className="st-scan-alert success animate-fade-in">
+                    <CheckCircle2 size={24} />
+                    <div className="st-alert-text">
+                      {scanSuccessBox.alreadyReceived ? (
+                        <>
+                          <strong>Already Checked In!</strong>
+                          <p>Box #{scanSuccessBox.boxNum} of Order #{scanSuccessBox.orderId} is already marked as received.</p>
+                        </>
+                      ) : (
+                        <>
+                          <strong>Box Received successfully! ✓</strong>
+                          <p style={{ margin: '4px 0 0 0', fontWeight: '800' }}>Box #{scanSuccessBox.boxNum} • Order #{scanSuccessBox.orderId}</p>
+                          {scanSuccessBox.contents && (
+                            <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#065f46', background: '#d1fae5', padding: '6px 10px', borderRadius: '6px', fontStyle: 'italic' }}>
+                              Contents: {scanSuccessBox.contents}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Shift Scan Log */}
+              <div className="st-scan-card st-scan-log-card">
+                <div className="st-log-header">
+                  <h3>Shift Scan History</h3>
+                  <span className="st-log-count">{recentScans.length} Boxes Scanned</span>
+                </div>
+
+                <div className="st-log-list">
+                  {recentScans.length > 0 ? (
+                    recentScans.map((scan, idx) => (
+                      <div key={idx} className="st-log-row animate-fade-in">
+                        <div className="st-log-icon">
+                          <CheckCircle2 size={16} color="#10b981" />
+                        </div>
+                        <div className="st-log-info">
+                          <div className="st-log-title">
+                            Box #{scan.boxNum} <span className="st-log-order">Order #{scan.orderId}</span>
+                          </div>
+                          <span className="st-log-contents">{scan.contents}</span>
+                        </div>
+                        <span className="st-log-time">{scan.scannedAt}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="st-log-empty">
+                      <QrCode size={36} style={{ opacity: 0.3 }} />
+                      <p>No scans processed in this shift yet.</p>
+                      <span>Scanned boxes will appear here for verification.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

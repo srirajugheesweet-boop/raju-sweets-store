@@ -1359,3 +1359,413 @@
   font-size: 13px;
 }
 
+/* ==========================================================================
+   Store Scanning Terminal Portal Styles
+   ========================================================================== */
+.st-scan-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 80vh;
+}
+
+.st-scan-container {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 25px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .st-scan-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.st-scan-card {
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.st-scan-terminal-card {
+  align-items: center;
+  text-align: center;
+  background: radial-gradient(circle at top right, rgba(124, 58, 237, 0.03), white 70%);
+}
+
+.st-scan-terminal-card:hover {
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.05);
+}
+
+.st-scan-target {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+  border-radius: 24px;
+  background: #faf5ff;
+  border: 2px dashed #d8b4fe;
+  padding: 10px;
+}
+
+.st-scan-radar {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.st-scan-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(168, 85, 247, 0.2);
+  animation: radar-expand 2s linear infinite;
+}
+
+.st-circle-1 {
+  width: 80px;
+  height: 80px;
+  animation-delay: 0s;
+}
+
+.st-circle-2 {
+  width: 140px;
+  height: 140px;
+  animation-delay: 1s;
+}
+
+.st-scan-laser {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #a855f7, transparent);
+  box-shadow: 0 0 10px #c084fc;
+  z-index: 2;
+  animation: laser-sweep 2.5s ease-in-out infinite;
+}
+
+.st-scan-qr-icon {
+  color: #7c3aed;
+  z-index: 1;
+  opacity: 0.85;
+}
+
+.st-scan-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  padding: 6px 16px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6d28d9;
+  letter-spacing: 0.05em;
+  margin-bottom: 24px;
+}
+
+.st-pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #a855f7;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #a855f7;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.st-scan-form {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 20px;
+}
+
+.st-scan-input-capture {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  background: white;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  outline: none;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.st-scan-input-capture:focus {
+  border-color: #a855f7;
+  background: white;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.2);
+}
+
+.st-scan-input-capture.success {
+  border-color: #10b981;
+  background: #f0fdf4;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.2);
+}
+
+.st-scan-input-capture.error {
+  border-color: #ef4444;
+  background: #fef2f2;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.2);
+}
+
+.st-scan-tip {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.st-scan-loading-spinner-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  margin-top: 15px;
+}
+
+.st-scan-alert {
+  width: 100%;
+  max-width: 440px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+  text-align: left;
+  position: relative;
+  animation: slide-up-alert 0.3s ease-out;
+}
+
+.st-scan-alert.success {
+  background: #f0fdf4;
+  border: 1.5px solid #a7f3d0;
+  color: #065f46;
+}
+
+.st-scan-alert.success svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.st-scan-alert.error {
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  color: #991b1b;
+}
+
+.st-scan-alert.error svg {
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.st-alert-text {
+  flex: 1;
+  font-size: 13px;
+}
+
+.st-alert-text strong {
+  font-weight: 800;
+  font-size: 14px;
+  display: block;
+}
+
+.st-alert-text p {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+.st-alert-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: currentColor;
+  opacity: 0.6;
+  padding: 0;
+  transition: opacity 0.2s ease;
+}
+
+.st-alert-close:hover {
+  opacity: 1;
+}
+
+/* Scan Log Card Styling */
+.st-scan-log-card {
+  padding: 24px;
+}
+
+.st-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1.5px solid #f1f5f9;
+  padding-bottom: 14px;
+}
+
+.st-log-header h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.st-log-count {
+  font-size: 11px;
+  font-weight: 800;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.st-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.st-log-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.st-log-list::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+.st-log-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.st-log-row:hover {
+  background: white;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+}
+
+.st-log-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 28px;
+  height: 28px;
+  background: #e6fcf5;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.st-log-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.st-log-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.st-log-order {
+  font-weight: 600;
+  color: #64748b;
+  margin-left: 6px;
+  font-size: 10px;
+}
+
+.st-log-contents {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.st-log-time {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.st-log-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.st-log-empty p {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 12px 0 4px 0;
+  color: #475569;
+}
+
+.st-log-empty span {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Animations */
+@keyframes laser-sweep {
+  0%, 100% { top: 0%; }
+  50% { top: 100%; }
+}
+
+@keyframes radar-expand {
+  0% { transform: scale(0.2); opacity: 0.8; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 8px #a855f7; }
+  50% { transform: scale(1.25); box-shadow: 0 0 16px #a855f7; }
+}
+
+@keyframes slide-up-alert {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
