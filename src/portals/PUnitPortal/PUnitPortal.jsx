@@ -53,6 +53,7 @@ const PUnitPortal = () => {
   const [pUnitDescription, setPUnitDescription] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
   const [historyDate, setHistoryDate] = useState('');
+  const [packingSubTab, setPackingSubTab] = useState('pending'); // 'pending' | 'completed' | 'moved'
 
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
@@ -555,13 +556,30 @@ const PUnitPortal = () => {
   // Filter orders assigned to this packing unit
   const assignedOrders = orders.filter(order => order.pUnitId === id);
 
-  // Filter active packing orders based on sweet packaging status
-  const activeOrders = assignedOrders.filter(order => {
-    if (!order.items || order.items.length === 0) return false;
-    const hasPackingItem = order.items.some(i => i.status === 'moved_to_packing' || i.status === 'packing_complete');
-    const allMovedToStore = order.items.every(i => i.status === 'moved_to_store' || i.status === 'delivered');
-    return hasPackingItem && !allMovedToStore;
-  });
+  // Calculate Active Sub-tab counts
+  const pendingCount = assignedOrders.filter(order => order.items?.some(i => i.status === 'moved_to_packing')).length;
+  const completedCount = assignedOrders.filter(order => order.items?.some(i => i.status === 'packing_complete') && !order.items?.some(i => i.status === 'moved_to_packing')).length;
+  const movedCount = assignedOrders.filter(order => order.items?.some(i => i.status === 'moved_to_store') && !order.items?.some(i => i.status === 'moved_to_packing') && !order.items?.some(i => i.status === 'packing_complete')).length;
+
+  // Filter active packing orders based on sweet packaging status and selected sub-tab
+  const getSubTabActiveOrders = () => {
+    return assignedOrders.filter(order => {
+      if (!order.items || order.items.length === 0) return false;
+
+      const hasPending = order.items.some(i => i.status === 'moved_to_packing');
+      const hasCompleted = order.items.some(i => i.status === 'packing_complete');
+      const hasMoved = order.items.some(i => i.status === 'moved_to_store');
+
+      if (packingSubTab === 'pending') {
+        return hasPending;
+      } else if (packingSubTab === 'completed') {
+        return hasCompleted && !hasPending;
+      } else if (packingSubTab === 'moved') {
+        return hasMoved && !hasPending && !hasCompleted;
+      }
+      return false;
+    });
+  };
 
   // Filter history orders based on selected date filter
   const historyOrders = assignedOrders.filter(order => {
@@ -570,8 +588,8 @@ const PUnitPortal = () => {
     return isSameDay(orderDateStr, historyDate);
   });
 
-  // Decide which orders to display: 'orders' tab shows only active, 'history' tab shows all history
-  const displayedOrders = tab === 'orders' ? activeOrders : historyOrders;
+  // Decide which orders to display: 'orders' tab shows only active filtered by sub-tab, 'history' tab shows all history
+  const displayedOrders = tab === 'orders' ? getSubTabActiveOrders() : historyOrders;
 
   return (
     <PortalLayout title="Packing Portal" links={links}>
@@ -612,6 +630,84 @@ const PUnitPortal = () => {
                     Packing Unit: {id}
                   </span>
                 </div>
+
+                {/* Sub-Tabs Selector for Active Packing Orders */}
+                {tab === 'orders' && (
+                  <div style={{
+                    display: 'flex',
+                    gap: '10px',
+                    background: '#f1f5f9',
+                    padding: '6px',
+                    borderRadius: '12px',
+                    marginBottom: '20px',
+                    flexWrap: 'wrap',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setPackingSubTab('pending')}
+                      style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        border: 'none',
+                        background: packingSubTab === 'pending' ? 'white' : 'transparent',
+                        color: packingSubTab === 'pending' ? 'var(--primary-color)' : '#64748b',
+                        boxShadow: packingSubTab === 'pending' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                        outline: 'none'
+                      }}
+                    >
+                      ⏳ Pending Packing ({pendingCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPackingSubTab('completed')}
+                      style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        border: 'none',
+                        background: packingSubTab === 'completed' ? 'white' : 'transparent',
+                        color: packingSubTab === 'completed' ? '#7c3aed' : '#64748b',
+                        boxShadow: packingSubTab === 'completed' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                        outline: 'none'
+                      }}
+                    >
+                      📦 Packing Completed ({completedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPackingSubTab('moved')}
+                      style={{
+                        flex: 1,
+                        minWidth: '120px',
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        border: 'none',
+                        background: packingSubTab === 'moved' ? 'white' : 'transparent',
+                        color: packingSubTab === 'moved' ? '#ea580c' : '#64748b',
+                        boxShadow: packingSubTab === 'moved' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                        outline: 'none'
+                      }}
+                    >
+                      🚚 Moved to Store ({movedCount})
+                    </button>
+                  </div>
+                )}
 
                 {/* Date Filter Bar for History */}
                 {tab === 'history' && (
@@ -842,31 +938,50 @@ const PUnitPortal = () => {
                                         {(item.status || 'preparation_started').replace(/_/g, ' ').toUpperCase()}
                                       </span>
                                     ) : (
-                                      <select
-                                        className="pu-select-status"
-                                        value={item.status || 'preparation_started'}
-                                        onChange={(e) => handleUpdateSingleItemStatus(order.id, idx, e.target.value)}
-                                        style={{
-                                          padding: '4px 6px',
-                                          fontSize: '11px',
-                                          height: '30px',
-                                          borderRadius: '6px',
-                                          border: '1px solid',
-                                          borderColor: isMovedToPacking ? '#86efac' : '#fdba74',
-                                          background: 'white',
-                                          color: isMovedToPacking ? '#166534' : '#9a3412',
-                                          cursor: 'pointer',
-                                          outline: 'none'
-                                        }}
-                                      >
-                                        <option value="preparation_started">Prep Started</option>
-                                        <option value="preparation_complete">Prep Completed</option>
-                                        <option value="moved_to_packing">Moved to Packing</option>
-                                        <option value="packing_complete">Packing Completed</option>
-                                        <option value="moved_to_store">Moved to Store</option>
-                                        <option value="received_at_store">Received at Store</option>
-                                        <option value="delivered">Delivered</option>
-                                      </select>
+                                      <div style={{ display: 'flex', gap: '6px' }}>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateSingleItemStatus(order.id, idx, item.status === 'packing_complete' ? 'moved_to_packing' : 'packing_complete')}
+                                          style={{
+                                            padding: '4px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            border: '1px solid ' + (item.status === 'packing_complete' ? '#c084fc' : '#cbd5e1'),
+                                            background: item.status === 'packing_complete' ? '#f3e8ff' : '#ffffff',
+                                            color: item.status === 'packing_complete' ? '#6b21a8' : '#64748b',
+                                            height: '28px',
+                                            lineHeight: '1',
+                                            outline: 'none',
+                                            boxShadow: item.status === 'packing_complete' ? '0 1px 3px rgba(107, 33, 168, 0.1)' : 'none'
+                                          }}
+                                        >
+                                          Packing Complete
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateSingleItemStatus(order.id, idx, item.status === 'moved_to_store' ? 'moved_to_packing' : 'moved_to_store')}
+                                          style={{
+                                            padding: '4px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            border: '1px solid ' + (item.status === 'moved_to_store' ? '#fdba74' : '#cbd5e1'),
+                                            background: item.status === 'moved_to_store' ? '#ffedd5' : '#ffffff',
+                                            color: item.status === 'moved_to_store' ? '#9a3412' : '#64748b',
+                                            height: '28px',
+                                            lineHeight: '1',
+                                            outline: 'none',
+                                            boxShadow: item.status === 'moved_to_store' ? '0 1px 3px rgba(154, 52, 18, 0.1)' : 'none'
+                                          }}
+                                        >
+                                          Moved to Store
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 );
