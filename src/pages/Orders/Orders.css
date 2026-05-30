@@ -113,9 +113,15 @@
 .ord-status-badge.moved_to_packing { background: #F3E8FF; color: #6B21A8; }
 .ord-status-badge.packing_complete { background: #D1FAE5; color: #065F46; }
 .ord-status-badge.moved_to_store { background: #FFEDD5; color: #9A3412; }
+.ord-status-badge.moved-to-store { background: #FFEDD5; color: #9A3412; }
+.ord-status-badge.partially-moved-to-store { background: #FFFBEB; color: #B45309; }
+.ord-status-badge.received-at-store { background: #D1FAE5; color: #065F46; }
+.ord-status-badge.received_at_store { background: #D1FAE5; color: #065F46; }
+.ord-status-badge.partially-ready-for-delivery { background: #E0E7FF; color: #4338CA; }
 .ord-status-badge.pickup_confirmed { background: #DBEAFE; color: #1E40AF; }
 .ord-status-badge.delivered { background: #ECFDF5; color: #065F46; }
 .ord-status-badge.ready-for-delivery { background: #EEF2FF; color: #3730A3; }
+
 
 
 .ord-status-badge.Pending { background: #FEE2E2; color: #991B1B; }

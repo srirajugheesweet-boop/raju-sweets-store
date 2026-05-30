@@ -489,17 +489,56 @@ const PUnitPortal = () => {
     return () => unsubscribe();
   }, []);
 
+  const calculateOverallOrderStatus = (items) => {
+    if (!items || items.length === 0) return 'new';
+    const getStatus = (item) => (item.status || 'preparation_started').toLowerCase().trim();
+    const allDelivered = items.every(item => getStatus(item) === 'delivered');
+    if (allDelivered) return 'Delivered';
+    const allReceived = items.every(item => {
+      const st = getStatus(item);
+      return st === 'received_at_store' || st === 'delivered';
+    });
+    if (allReceived) return 'Ready for Delivery';
+    const someReceived = items.some(item => {
+      const st = getStatus(item);
+      return st === 'received_at_store' || st === 'delivered';
+    });
+    if (someReceived) return 'Partially Ready for Delivery';
+    const allMoved = items.every(item => {
+      const st = getStatus(item);
+      return st === 'moved_to_store' || st === 'received_at_store' || st === 'delivered';
+    });
+    if (allMoved) return 'Moved to Store';
+    const someMoved = items.some(item => {
+      const st = getStatus(item);
+      return st === 'moved_to_store' || st === 'received_at_store' || st === 'delivered';
+    });
+    if (someMoved) return 'Partially Moved to Store';
+    const hasProgressed = items.some(item => {
+      const st = getStatus(item);
+      return st !== 'preparation_started' && st !== 'new' && st !== '';
+    });
+    if (hasProgressed) return 'In Progress';
+    return 'new';
+  };
+
   const handleUpdateSingleItemStatus = async (orderDocId, itemIndex, newStatus) => {
     try {
       const orderRef = doc(db, 'orders', orderDocId);
       const order = orders.find(o => o.id === orderDocId);
       if (!order) return;
 
-      const newItems = [...order.items];
-      if (newItems[itemIndex]) {
-        newItems[itemIndex].status = newStatus;
-      }
-      await updateDoc(orderRef, { items: newItems });
+      const newItems = order.items.map((item, idx) => {
+        if (idx === itemIndex) {
+          return { ...item, status: newStatus };
+        }
+        return { ...item };
+      });
+      const overallStatus = calculateOverallOrderStatus(newItems);
+      await updateDoc(orderRef, { 
+        items: newItems,
+        status: overallStatus
+      });
       toast.success("Item status updated successfully");
     } catch (err) {
       console.error(err);
@@ -825,6 +864,7 @@ const PUnitPortal = () => {
                                         <option value="moved_to_packing">Moved to Packing</option>
                                         <option value="packing_complete">Packing Completed</option>
                                         <option value="moved_to_store">Moved to Store</option>
+                                        <option value="received_at_store">Received at Store</option>
                                         <option value="delivered">Delivered</option>
                                       </select>
                                     )}

@@ -606,7 +606,7 @@ const StorePortal = () => {
   const getAccordionTab = (orderId) => accordionTabs[orderId] || 'items';
   const setAccordionTab = (orderId, tabName) => setAccordionTabs(prev => ({ ...prev, [orderId]: tabName }));
 
-  const [previewTab, setPreviewTab] = useState('payment');
+  const [previewTab, setPreviewTab] = useState('items');
   const [previewInstallments, setPreviewInstallments] = useState([]);
   const [addPayAmount, setAddPayAmount] = useState('');
   const [addPayMode, setAddPayMode] = useState('UPI');
@@ -1151,12 +1151,33 @@ const StorePortal = () => {
     const allDelivered = items.every(item => getStatus(item) === 'delivered');
     if (allDelivered) return 'Delivered';
     
-    // Check if ALL items are either moved_to_store or delivered
-    const allMovedOrDelivered = items.every(item => {
+    // Check if ALL items are at least received_at_store
+    const allReceived = items.every(item => {
       const st = getStatus(item);
-      return st === 'moved_to_store' || st === 'delivered';
+      return st === 'received_at_store' || st === 'delivered';
     });
-    if (allMovedOrDelivered) return 'Ready for Delivery';
+    if (allReceived) return 'Ready for Delivery';
+    
+    // Check if SOME items are at least received_at_store
+    const someReceived = items.some(item => {
+      const st = getStatus(item);
+      return st === 'received_at_store' || st === 'delivered';
+    });
+    if (someReceived) return 'Partially Ready for Delivery';
+    
+    // Check if ALL items are at least moved_to_store
+    const allMoved = items.every(item => {
+      const st = getStatus(item);
+      return st === 'moved_to_store' || st === 'received_at_store' || st === 'delivered';
+    });
+    if (allMoved) return 'Moved to Store';
+    
+    // Check if SOME items are at least moved_to_store
+    const someMoved = items.some(item => {
+      const st = getStatus(item);
+      return st === 'moved_to_store' || st === 'received_at_store' || st === 'delivered';
+    });
+    if (someMoved) return 'Partially Moved to Store';
     
     // Check if ANY item has progressed beyond preparation_started (or new/empty status)
     const hasProgressed = items.some(item => {
@@ -2130,6 +2151,9 @@ const StorePortal = () => {
                     <option value="All">All Statuses</option>
                     <option value="new">New</option>
                     <option value="In Progress">In Progress</option>
+                    <option value="Partially Moved to Store">Partially Moved to Store</option>
+                    <option value="Moved to Store">Moved to Store</option>
+                    <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
                     <option value="Ready for Delivery">Ready for Delivery</option>
                     <option value="Delivered">Delivered</option>
                   </select>
@@ -2307,7 +2331,7 @@ const StorePortal = () => {
                           </td>
                           <td>
                             <div className="ord-actions-cell" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                              <button className="ord-action-btn view" title="Preview" onClick={() => { setPreviewTab('payment'); setPreviewOrder(order); }}><Eye size={16} /></button>
+                              <button className="ord-action-btn view" title="Preview" onClick={() => { setPreviewTab('items'); setPreviewOrder(order); }}><Eye size={16} /></button>
                               <button className="ord-action-btn print" title="Print" onClick={() => handlePrintOrder(order)}><Printer size={16} /></button>
                             </div>
                           </td>
@@ -2321,11 +2345,11 @@ const StorePortal = () => {
                                 <div className="ord-preview-tabs" style={{ marginBottom: '15px' }}>
                                   <button
                                     type="button"
-                                    className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'payment' ? 'active' : ''}`}
-                                    onClick={() => setAccordionTab(order.id, 'payment')}
+                                    className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'items' ? 'active' : ''}`}
+                                    onClick={() => setAccordionTab(order.id, 'items')}
                                     style={{ fontSize: '13px', padding: '8px 12px' }}
                                   >
-                                    Payment History
+                                    Items Included
                                   </button>
                                   <button
                                     type="button"
@@ -2337,17 +2361,55 @@ const StorePortal = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'items' ? 'active' : ''}`}
-                                    onClick={() => setAccordionTab(order.id, 'items')}
+                                    className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'payment' ? 'active' : ''}`}
+                                    onClick={() => setAccordionTab(order.id, 'payment')}
                                     style={{ fontSize: '13px', padding: '8px 12px' }}
                                   >
-                                    Items Included
+                                    Payment History
                                   </button>
                                 </div>
 
-                                {/* Tab Panel: Payment Timeline */}
-                                {getAccordionTab(order.id) === 'payment' && (
-                                  <AccordionPaymentSection order={order} />
+                                {/* Tab Panel: Items Included */}
+                                {getAccordionTab(order.id) === 'items' && (
+                                  <div className="ord-tab-panel animate-fade-in" style={{ padding: '10px 0' }}>
+                                    <h4 style={{ fontSize: '13px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
+                                    <table className="ord-items-subtable">
+                                      <thead>
+                                        <tr>
+                                          <th>Item Name</th>
+                                          <th>Description</th>
+                                          <th>Quantity</th>
+                                          <th>Amount</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {order.items.map((item, idx) => (
+                                          <tr key={idx}>
+                                            <td style={{ fontWeight: '700' }}>{item.name}</td>
+                                            <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
+                                            <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                                            <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                                            <td>
+                                              <select
+                                                className="ord-item-status-select"
+                                                value={item.status || 'preparation_started'}
+                                                onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                              >
+                                                <option value="preparation_started">Preparation Started</option>
+                                                <option value="preparation_complete">Preparation Complete</option>
+                                                <option value="moved_to_packing">Moved to Packing</option>
+                                                <option value="packing_complete">Packing Complete</option>
+                                                <option value="moved_to_store">Moved to Store</option>
+                                                <option value="received_at_store">Received at Store</option>
+                                                <option value="delivered">Delivered</option>
+                                              </select>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
                                 )}
 
                                 {/* Tab Panel: Packing Details */}
@@ -2403,46 +2465,9 @@ const StorePortal = () => {
                                   </div>
                                 )}
 
-                                {/* Tab Panel: Items Included */}
-                                {getAccordionTab(order.id) === 'items' && (
-                                  <div className="ord-tab-panel animate-fade-in" style={{ padding: '10px 0' }}>
-                                    <h4 style={{ fontSize: '13px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
-                                    <table className="ord-items-subtable">
-                                      <thead>
-                                        <tr>
-                                          <th>Item Name</th>
-                                          <th>Description</th>
-                                          <th>Quantity</th>
-                                          <th>Amount</th>
-                                          <th>Status</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {order.items.map((item, idx) => (
-                                          <tr key={idx}>
-                                            <td style={{ fontWeight: '700' }}>{item.name}</td>
-                                            <td style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description || '-'}</td>
-                                            <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
-                                            <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
-                                            <td>
-                                              <select
-                                                className="ord-item-status-select"
-                                                value={item.status || 'preparation_started'}
-                                                onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
-                                              >
-                                                <option value="preparation_started">Preparation Started</option>
-                                                <option value="preparation_complete">Preparation Complete</option>
-                                                <option value="moved_to_packing">Moved to Packing</option>
-                                                <option value="packing_complete">Packing Complete</option>
-                                                <option value="moved_to_store">Moved to Store</option>
-                                                <option value="delivered">Delivered</option>
-                                              </select>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
+                                {/* Tab Panel: Payment Timeline */}
+                                {getAccordionTab(order.id) === 'payment' && (
+                                  <AccordionPaymentSection order={order} />
                                 )}
                               </div>
                             </td>
@@ -2548,7 +2573,7 @@ const StorePortal = () => {
 
                       {/* Card Actions - strictly omit Edit and Delete */}
                       <div className="ord-mobile-card-actions">
-                        <button className="ord-mobile-action-btn view" title="Preview" onClick={() => { setPreviewTab('payment'); setPreviewOrder(order); }}><Eye size={14} /> Preview</button>
+                        <button className="ord-mobile-action-btn view" title="Preview" onClick={() => { setPreviewTab('items'); setPreviewOrder(order); }}><Eye size={14} /> Preview</button>
                         <button className="ord-mobile-action-btn print" title="Print" onClick={() => handlePrintOrder(order)}><Printer size={14} /> Print</button>
                       </div>
 
@@ -2559,11 +2584,11 @@ const StorePortal = () => {
                           <div className="ord-preview-tabs" style={{ marginBottom: '12px', overflowX: 'auto', display: 'flex', whiteSpace: 'nowrap' }}>
                             <button
                               type="button"
-                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'payment' ? 'active' : ''}`}
-                              onClick={() => setAccordionTab(order.id, 'payment')}
+                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'items' ? 'active' : ''}`}
+                              onClick={() => setAccordionTab(order.id, 'items')}
                               style={{ fontSize: '12px', padding: '6px 10px', flexShrink: 0 }}
                             >
-                              Payment
+                              Items Included
                             </button>
                             <button
                               type="button"
@@ -2575,17 +2600,62 @@ const StorePortal = () => {
                             </button>
                             <button
                               type="button"
-                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'items' ? 'active' : ''}`}
-                              onClick={() => setAccordionTab(order.id, 'items')}
+                              className={`ord-preview-tab-btn ${getAccordionTab(order.id) === 'payment' ? 'active' : ''}`}
+                              onClick={() => setAccordionTab(order.id, 'payment')}
                               style={{ fontSize: '12px', padding: '6px 10px', flexShrink: 0 }}
                             >
-                              Items Included
+                              Payment
                             </button>
                           </div>
 
-                          {/* Tab Panel: Payment Timeline */}
-                          {getAccordionTab(order.id) === 'payment' && (
-                            <AccordionPaymentSection order={order} isMobile={true} />
+                          {/* Tab Panel: Items Included */}
+                          {getAccordionTab(order.id) === 'items' && (
+                            <div className="ord-tab-panel animate-fade-in">
+                              <h4>Order Items</h4>
+                              <div style={{ overflowX: 'auto' }}>
+                                <table className="ord-items-subtable">
+                                  <thead>
+                                    <tr>
+                                      <th>Item Name</th>
+                                      <th>Qty</th>
+                                      <th>Amount</th>
+                                      <th>Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {order.items.map((item, idx) => (
+                                      <tr key={idx}>
+                                        <td style={{ fontWeight: '700' }}>
+                                          {item.name}
+                                          {item.description && (
+                                            <div style={{ fontSize: '11px', color: '#f59e0b', fontStyle: 'italic', marginTop: '2px' }}>
+                                              Note: {item.description}
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
+                                        <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                                        <td>
+                                          <select
+                                            className="ord-item-status-select"
+                                            value={item.status || 'preparation_started'}
+                                            onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
+                                          >
+                                            <option value="preparation_started">Preparation Started</option>
+                                            <option value="preparation_complete">Preparation Complete</option>
+                                            <option value="moved_to_packing">Moved to Packing</option>
+                                            <option value="packing_complete">Packing Complete</option>
+                                            <option value="moved_to_store">Moved to Store</option>
+                                            <option value="received_at_store">Received at Store</option>
+                                            <option value="delivered">Delivered</option>
+                                          </select>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
                           )}
 
                           {/* Tab Panel: Packing Details */}
@@ -2641,53 +2711,9 @@ const StorePortal = () => {
                             </div>
                           )}
 
-                          {/* Tab Panel: Items Included */}
-                          {getAccordionTab(order.id) === 'items' && (
-                            <div className="ord-tab-panel animate-fade-in">
-                              <h4>Order Items</h4>
-                              <div style={{ overflowX: 'auto' }}>
-                                <table className="ord-items-subtable">
-                                  <thead>
-                                    <tr>
-                                      <th>Item Name</th>
-                                      <th>Qty</th>
-                                      <th>Amount</th>
-                                      <th>Status</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {order.items.map((item, idx) => (
-                                      <tr key={idx}>
-                                        <td style={{ fontWeight: '700' }}>
-                                          {item.name}
-                                          {item.description && (
-                                            <div style={{ fontSize: '11px', color: '#f59e0b', fontStyle: 'italic', marginTop: '2px' }}>
-                                              Note: {item.description}
-                                            </div>
-                                          )}
-                                        </td>
-                                        <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
-                                        <td style={{ fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
-                                        <td>
-                                          <select
-                                            className="ord-item-status-select"
-                                            value={item.status || 'preparation_started'}
-                                            onChange={(e) => updateItemStatus(order.id, idx, e.target.value)}
-                                          >
-                                            <option value="preparation_started">Preparation Started</option>
-                                            <option value="preparation_complete">Preparation Complete</option>
-                                            <option value="moved_to_packing">Moved to Packing</option>
-                                            <option value="packing_complete">Packing Complete</option>
-                                            <option value="moved_to_store">Moved to Store</option>
-                                            <option value="delivered">Delivered</option>
-                                          </select>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
+                          {/* Tab Panel: Payment Timeline */}
+                          {getAccordionTab(order.id) === 'payment' && (
+                            <AccordionPaymentSection order={order} isMobile={true} />
                           )}
                         </div>
                       )}
@@ -4280,10 +4306,10 @@ const StorePortal = () => {
                   <div className="ord-preview-tabs">
                     <button
                       type="button"
-                      className={`ord-preview-tab-btn ${previewTab === 'payment' ? 'active' : ''}`}
-                      onClick={() => setPreviewTab('payment')}
+                      className={`ord-preview-tab-btn ${previewTab === 'items' ? 'active' : ''}`}
+                      onClick={() => setPreviewTab('items')}
                     >
-                      Payment History
+                      Items Included
                     </button>
                     <button
                       type="button"
@@ -4294,12 +4320,100 @@ const StorePortal = () => {
                     </button>
                     <button
                       type="button"
-                      className={`ord-preview-tab-btn ${previewTab === 'items' ? 'active' : ''}`}
-                      onClick={() => setPreviewTab('items')}
+                      className={`ord-preview-tab-btn ${previewTab === 'payment' ? 'active' : ''}`}
+                      onClick={() => setPreviewTab('payment')}
                     >
-                      Items Included
+                      Payment History
                     </button>
                   </div>
+
+                  {/* Tab Panel: Items Included */}
+                  {previewTab === 'items' && (
+                    <div className="ord-tab-panel">
+                      <table className="ord-preview-table">
+                        <thead>
+                          <tr>
+                            <th>Item Description</th>
+                            <th style={{ textAlign: 'center' }}>Qty</th>
+                            <th style={{ textAlign: 'center' }}>Status</th>
+                            <th style={{ textAlign: 'right' }}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewOrder.items.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <div style={{ fontWeight: '700' }}>{item.name}</div>
+                                {item.description && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.description}</div>}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                {item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pcs`}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span className={`ord-status-badge ${(item.status || 'preparation_started').toLowerCase().replace(/_/g, '-')}`} style={{ fontSize: '10px', padding: '3px 8px' }}>
+                                  {getStatusLabel(item.status || 'preparation_started')}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Tab Panel: Packing Details */}
+                  {previewTab === 'packing' && (
+                    <div className="ord-tab-panel animate-fade-in">
+                      <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '20px' }}>
+                        <div className="ord-payment-summary-card">
+                          <h4>Boxes Packed</h4>
+                          <p>{previewOrder.boxesPacked !== undefined ? `${previewOrder.boxesPacked} Boxes` : 'Not Packed yet'}</p>
+                        </div>
+                        <div className="ord-payment-summary-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <h4>Packing Instructions / Notes</h4>
+                          <p style={{ fontSize: '13px', fontWeight: '600', color: '#475569', margin: '4px 0 0 0' }}>
+                            {previewOrder.pUnitDescription || 'None specified'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="ord-installment-section">
+                        <h3>Packed Boxes Contents</h3>
+                        <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {previewOrder.boxes && Array.isArray(previewOrder.boxes) && previewOrder.boxes.length > 0 ? (
+                            previewOrder.boxes.map((box, bIdx) => (
+                              <div key={bIdx} className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                    📦 BOX #{box.boxNum}
+                                  </span>
+                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+                                    {box.contents}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : previewOrder.boxContents ? (
+                            <div className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
+                                  📦 Dynamic Box Contents
+                                </span>
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
+                                  {previewOrder.boxContents}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="ord-timeline-empty" style={{ padding: '30px', background: '#f8fafc', color: '#64748b' }}>
+                              No packing details or boxes recorded yet for this order.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Tab Panel: Payment History */}
                   {previewTab === 'payment' && (
@@ -4461,94 +4575,6 @@ const StorePortal = () => {
                           )}
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Tab Panel: Packing Details */}
-                  {previewTab === 'packing' && (
-                    <div className="ord-tab-panel animate-fade-in">
-                      <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '20px' }}>
-                        <div className="ord-payment-summary-card">
-                          <h4>Boxes Packed</h4>
-                          <p>{previewOrder.boxesPacked !== undefined ? `${previewOrder.boxesPacked} Boxes` : 'Not Packed yet'}</p>
-                        </div>
-                        <div className="ord-payment-summary-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                          <h4>Packing Instructions / Notes</h4>
-                          <p style={{ fontSize: '13px', fontWeight: '600', color: '#475569', margin: '4px 0 0 0' }}>
-                            {previewOrder.pUnitDescription || 'None specified'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="ord-installment-section">
-                        <h3>Packed Boxes Contents</h3>
-                        <div className="ord-installment-timeline" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {previewOrder.boxes && Array.isArray(previewOrder.boxes) && previewOrder.boxes.length > 0 ? (
-                            previewOrder.boxes.map((box, bIdx) => (
-                              <div key={bIdx} className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
-                                    📦 BOX #{box.boxNum}
-                                  </span>
-                                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
-                                    {box.contents}
-                                  </span>
-                                </div>
-                              </div>
-                            ))
-                          ) : previewOrder.boxContents ? (
-                            <div className="ord-installment-card" style={{ padding: '14px', background: '#faf5ff', border: '1px solid #f3e8ff', display: 'block', textAlign: 'left' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-color)', textTransform: 'uppercase' }}>
-                                  📦 Dynamic Box Contents
-                                </span>
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', whiteSpace: 'pre-wrap', marginTop: '4px' }}>
-                                  {previewOrder.boxContents}
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="ord-timeline-empty" style={{ padding: '30px', background: '#f8fafc', color: '#64748b' }}>
-                              No packing details or boxes recorded yet for this order.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tab Panel: Items Included */}
-                  {previewTab === 'items' && (
-                    <div className="ord-tab-panel">
-                      <table className="ord-preview-table">
-                        <thead>
-                          <tr>
-                            <th>Item Description</th>
-                            <th style={{ textAlign: 'center' }}>Qty</th>
-                            <th style={{ textAlign: 'center' }}>Status</th>
-                            <th style={{ textAlign: 'right' }}>Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previewOrder.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td>
-                                <div style={{ fontWeight: '700' }}>{item.name}</div>
-                                {item.description && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.description}</div>}
-                              </td>
-                              <td style={{ textAlign: 'center' }}>
-                                {item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pcs`}
-                              </td>
-                              <td style={{ textAlign: 'center' }}>
-                                <span className={`ord-status-badge ${(item.status || 'preparation_started').toLowerCase().replace(/_/g, '-')}`} style={{ fontSize: '10px', padding: '3px 8px' }}>
-                                  {getStatusLabel(item.status || 'preparation_started')}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'right', fontWeight: '700' }}>₹{item.total.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
                     </div>
                   )}
                 </div>
