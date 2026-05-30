@@ -243,6 +243,21 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
         bytes.push(...encoder.encode("--------------------------------\n"));
 
+        bytes.push(...encoder.encode("Order Items:\n"));
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            const itemQtyStr = `${item.quantity} ${item.unit === 'Weight' ? 'kg' : 'pcs'}`;
+            const nameLen = item.name.length;
+            const qtyLen = itemQtyStr.length;
+            const dotsCount = Math.max(1, 32 - nameLen - qtyLen);
+            const lineStr = `${item.name}${".".repeat(dotsCount)}${itemQtyStr}\n`;
+            bytes.push(...encoder.encode(lineStr));
+          });
+        } else {
+          bytes.push(...encoder.encode("No items found\n"));
+        }
+        bytes.push(...encoder.encode("--------------------------------\n"));
+
         bytes.push(...encoder.encode("Items in Box:\n"));
         bytes.push(...encoder.encode(`${box.contents}\n`));
 
@@ -327,6 +342,21 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
+        bytes.push(...encoder.encode("--------------------------------\n"));
+
+        bytes.push(...encoder.encode("Order Items:\n"));
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            const itemQtyStr = `${item.quantity} ${item.unit === 'Weight' ? 'kg' : 'pcs'}`;
+            const nameLen = item.name.length;
+            const qtyLen = itemQtyStr.length;
+            const dotsCount = Math.max(1, 32 - nameLen - qtyLen);
+            const lineStr = `${item.name}${".".repeat(dotsCount)}${itemQtyStr}\n`;
+            bytes.push(...encoder.encode(lineStr));
+          });
+        } else {
+          bytes.push(...encoder.encode("No items found\n"));
+        }
         bytes.push(...encoder.encode("--------------------------------\n"));
 
         bytes.push(...encoder.encode("Items in Box:\n"));
@@ -528,6 +558,18 @@ const PUnitPortal = () => {
                   
                   <div class="info-row"><span class="info-label">Customer:</span> ${order.customerName}</div>
                   <div class="info-row"><span class="info-label">Phone:</span> ${order.customerPhone || 'N/A'}</div>
+                  
+                  <div class="divider"></div>
+
+                  <div class="info-row"><span class="info-label">Order Items:</span></div>
+                  <div style="font-size: 11.5px; margin-top: 4px; padding-left: 2px;">
+                    ${order.items ? order.items.map(item => `
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span>• ${item.name}</span>
+                        <span style="font-weight: bold; font-family: monospace;">${item.quantity} ${item.unit === 'Weight' ? 'kg' : 'pcs'}</span>
+                      </div>
+                    `).join('') : '<div style="font-style: italic;">No items found</div>'}
+                  </div>
                   
                   <div class="divider"></div>
                   
