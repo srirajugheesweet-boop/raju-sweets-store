@@ -21,6 +21,24 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './MUnitPortal.css';
 
+// Helper to convert "HH:MM" (24-hour) to "H:MM AM/PM" (12-hour)
+const format12Hour = (time24) => {
+  if (!time24 || typeof time24 !== 'string') return '';
+  const parts = time24.split(':');
+  if (parts.length < 2) return time24;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  
+  if (isNaN(hours)) return time24;
+  
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 should be 12
+  
+  return `${hours}:${minutes} ${ampm}`;
+};
+
 const MUnitPortal = () => {
   const { id, tab } = useParams();
   const [orders, setOrders] = useState([]);
@@ -199,7 +217,9 @@ const MUnitPortal = () => {
                 customerName: order.customerName,
                 createdAt: order.createdAt,
                 itemDescription: item.description || '',
-                mUnitDescription: order.mUnitDescription || ''
+                mUnitDescription: order.mUnitDescription || '',
+                deliveryDate: order.deliveryDate || '',
+                deliveryTime: order.deliveryTime || ''
               });
             }
           }
@@ -445,33 +465,148 @@ const MUnitPortal = () => {
                             <span className="mu-breakdown-title">Source Orders:</span>
                             {worksheetSubTab === 'pending' ? (
                               <div className="mu-orders-checklist">
-                                {groupedItem.linkedOrders.map((link, lIdx) => (
-                                  <div key={lIdx} className="mu-checklist-item" title={`Customer: ${link.customerName}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '6px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                      <div className="mu-checklist-info">
-                                        <div className="mu-checklist-header-line">
-                                          <span className="mu-checklist-order-id">#{link.orderId}</span>
-                                          <span className="mu-checklist-qty">{link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}</span>
+                                {groupedItem.linkedOrders.map((link, lIdx) => {
+                                  const actualOrder = orders.find(o => o.id === link.orderDocId);
+                                  const actualItem = actualOrder?.items?.[link.itemIndex];
+                                  const currentStatus = actualItem?.status || 'preparation_started';
+
+                                  return (
+                                    <div 
+                                      key={lIdx} 
+                                      className="mu-checklist-item" 
+                                      title={`Customer: ${link.customerName}`} 
+                                      style={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
+                                        alignItems: 'stretch', 
+                                        gap: '10px',
+                                        background: '#ffffff',
+                                        border: '1px solid #edf2f7',
+                                        borderRadius: '12px',
+                                        padding: '12px 14px',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                    >
+                                      {/* Top Row: Order Details */}
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '10px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e3a8a' }}>#{link.orderId}</span>
+                                            <span style={{ 
+                                              fontSize: '11px', 
+                                              fontWeight: '800', 
+                                              color: '#d97706', 
+                                              background: '#fffbeb', 
+                                              padding: '2px 8px', 
+                                              borderRadius: '6px',
+                                              border: '1px solid #fef3c7'
+                                            }}>
+                                              {link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}
+                                            </span>
+                                          </div>
+                                          <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
+                                            👤 {link.customerName}
+                                          </span>
                                         </div>
-                                        <span className="mu-checklist-customer">{link.customerName}</span>
+
+                                        {/* Date and Time Badges */}
+                                        <div style={{ display: 'flex', gap: '6px', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                                          <span style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '4px', 
+                                            fontSize: '10px', 
+                                            fontWeight: '700', 
+                                            background: '#eff6ff', 
+                                            color: '#1d4ed8', 
+                                            padding: '3px 8px', 
+                                            borderRadius: '6px',
+                                            border: '1px solid #dbeafe',
+                                            whiteSpace: 'nowrap'
+                                          }}>
+                                            <Calendar size={11} /> {link.deliveryDate ? new Date(link.deliveryDate).toLocaleDateString() : 'No Date'}
+                                          </span>
+                                          {link.deliveryTime && (
+                                            <span style={{ 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              gap: '4px', 
+                                              fontSize: '10px', 
+                                              fontWeight: '700', 
+                                              background: '#faf5ff', 
+                                              color: '#7e22ce', 
+                                              padding: '3px 8px', 
+                                              borderRadius: '6px',
+                                              border: '1px solid #f3e8ff',
+                                              whiteSpace: 'nowrap'
+                                            }}>
+                                              <Clock size={11} /> {format12Hour(link.deliveryTime)}
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
-                                      <button
-                                        className="mu-checklist-check-btn"
-                                        onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, 'preparation_complete')}
-                                        title="Mark this order's item as done"
-                                      >
-                                        <CheckCircle2 size={14} />
-                                        <span>Done</span>
-                                      </button>
+
+                                      {/* Note section */}
+                                      {(link.itemDescription || link.mUnitDescription) && (
+                                        <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 10px', borderRadius: '8px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
+                                          {link.itemDescription && <div style={{ fontWeight: '700' }}>💡 Item Note: {link.itemDescription}</div>}
+                                          {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '4px' : '0', fontStyle: 'italic' }}>⚙️ Mfg Note: {link.mUnitDescription}</div>}
+                                        </div>
+                                      )}
+
+                                      {/* Buttons at bottom spanning full width */}
+                                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px', borderTop: '1px solid #f1f5f9', paddingTop: '10px', width: '100%' }}>
+                                        <button
+                                          onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, currentStatus === 'preparation_complete' ? 'preparation_started' : 'preparation_complete')}
+                                          style={{
+                                            flex: 1,
+                                            padding: '8px 12px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            border: '1.5px solid ' + (currentStatus === 'preparation_complete' ? '#10b981' : '#edf2f7'),
+                                            background: currentStatus === 'preparation_complete' ? '#e6fdf5' : '#ffffff',
+                                            color: currentStatus === 'preparation_complete' ? '#047857' : '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            boxShadow: currentStatus === 'preparation_complete' ? '0 2px 4px rgba(16, 185, 129, 0.1)' : 'none'
+                                          }}
+                                        >
+                                          <CheckCircle2 size={13} style={{ color: currentStatus === 'preparation_complete' ? '#10b981' : 'inherit' }} />
+                                          Prep Complete
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, currentStatus === 'moved_to_packing' ? 'preparation_started' : 'moved_to_packing')}
+                                          style={{
+                                            flex: 1,
+                                            padding: '8px 12px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            border: '1.5px solid ' + (currentStatus === 'moved_to_packing' ? '#3b82f6' : '#edf2f7'),
+                                            background: currentStatus === 'moved_to_packing' ? '#eff6ff' : '#ffffff',
+                                            color: currentStatus === 'moved_to_packing' ? '#1d4ed8' : '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            boxShadow: currentStatus === 'moved_to_packing' ? '0 2px 4px rgba(59, 130, 246, 0.1)' : 'none'
+                                          }}
+                                        >
+                                          <ArrowRight size={13} style={{ color: currentStatus === 'moved_to_packing' ? '#3b82f6' : 'inherit' }} />
+                                          Move to Packing
+                                        </button>
+                                      </div>
                                     </div>
-                                    {(link.itemDescription || link.mUnitDescription) && (
-                                      <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 8px', borderRadius: '6px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
-                                        {link.itemDescription && <div style={{ fontWeight: '700' }}>Item Note: {link.itemDescription}</div>}
-                                        {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '2px' : '0' }}>Mfg Note: {link.mUnitDescription}</div>}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
@@ -481,35 +616,137 @@ const MUnitPortal = () => {
                                   const currentStatus = actualItem?.status || 'preparation_complete';
 
                                   return (
-                                    <div key={lIdx} style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '10px' }}>
-                                        <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
-                                          <div>
-                                            <span className="bold" style={{ color: 'var(--primary-color)', marginRight: '5px' }}>#{link.orderId}</span>
-                                            <span>({link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'})</span>
+                                    <div 
+                                      key={lIdx} 
+                                      style={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
+                                        alignItems: 'stretch', 
+                                        gap: '10px',
+                                        background: '#ffffff',
+                                        border: '1px solid #edf2f7',
+                                        borderRadius: '12px',
+                                        padding: '12px 14px',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                    >
+                                      {/* Top Row: Order Details */}
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '10px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e3a8a' }}>#{link.orderId}</span>
+                                            <span style={{ 
+                                              fontSize: '11px', 
+                                              fontWeight: '800', 
+                                              color: '#d97706', 
+                                              background: '#fffbeb', 
+                                              padding: '2px 8px', 
+                                              borderRadius: '6px',
+                                              border: '1px solid #fef3c7'
+                                            }}>
+                                              {link.quantity} {groupedItem.unit === 'Weight' ? 'kg' : 'pcs'}
+                                            </span>
                                           </div>
-                                          <span style={{ color: '#64748b', fontSize: '10px' }}>{link.customerName}</span>
+                                          <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
+                                            👤 {link.customerName}
+                                          </span>
                                         </div>
-                                        <select
-                                          className="mu-select-status"
-                                          style={{ padding: '4px 6px', fontSize: '11px', height: '30px', width: 'auto', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'white' }}
-                                          value={currentStatus}
-                                          onChange={(e) => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, e.target.value)}
-                                        >
-                                          <option value="preparation_started">Prep Started</option>
-                                          <option value="preparation_complete">Prep Completed</option>
-                                          <option value="moved_to_packing">Moved to Packing</option>
-                                          <option value="packing_complete">Packing Completed</option>
-                                          <option value="moved_to_store">Moved to Store</option>
-                                          <option value="delivered">Delivered</option>
-                                        </select>
+
+                                        {/* Date and Time Badges */}
+                                        <div style={{ display: 'flex', gap: '6px', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                                          <span style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '4px', 
+                                            fontSize: '10px', 
+                                            fontWeight: '700', 
+                                            background: '#eff6ff', 
+                                            color: '#1d4ed8', 
+                                            padding: '3px 8px', 
+                                            borderRadius: '6px',
+                                            border: '1px solid #dbeafe',
+                                            whiteSpace: 'nowrap'
+                                          }}>
+                                            <Calendar size={11} /> {link.deliveryDate ? new Date(link.deliveryDate).toLocaleDateString() : 'No Date'}
+                                          </span>
+                                          {link.deliveryTime && (
+                                            <span style={{ 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              gap: '4px', 
+                                              fontSize: '10px', 
+                                              fontWeight: '700', 
+                                              background: '#faf5ff', 
+                                              color: '#7e22ce', 
+                                              padding: '3px 8px', 
+                                              borderRadius: '6px',
+                                              border: '1px solid #f3e8ff',
+                                              whiteSpace: 'nowrap'
+                                            }}>
+                                              <Clock size={11} /> {format12Hour(link.deliveryTime)}
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
+
+                                      {/* Note section */}
                                       {(link.itemDescription || link.mUnitDescription) && (
-                                        <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 8px', borderRadius: '6px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
-                                          {link.itemDescription && <div style={{ fontWeight: '700' }}>Item Note: {link.itemDescription}</div>}
-                                          {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '2px' : '0' }}>Mfg Note: {link.mUnitDescription}</div>}
+                                        <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 10px', borderRadius: '8px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
+                                          {link.itemDescription && <div style={{ fontWeight: '700' }}>💡 Item Note: {link.itemDescription}</div>}
+                                          {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '4px' : '0', fontStyle: 'italic' }}>⚙️ Mfg Note: {link.mUnitDescription}</div>}
                                         </div>
                                       )}
+
+                                      {/* Buttons at bottom spanning full width */}
+                                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px', borderTop: '1px solid #f1f5f9', paddingTop: '10px', width: '100%' }}>
+                                        <button
+                                          onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, currentStatus === 'preparation_complete' ? 'preparation_started' : 'preparation_complete')}
+                                          style={{
+                                            flex: 1,
+                                            padding: '8px 12px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            border: '1.5px solid ' + (currentStatus === 'preparation_complete' ? '#10b981' : '#edf2f7'),
+                                            background: currentStatus === 'preparation_complete' ? '#e6fdf5' : '#ffffff',
+                                            color: currentStatus === 'preparation_complete' ? '#047857' : '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            boxShadow: currentStatus === 'preparation_complete' ? '0 2px 4px rgba(16, 185, 129, 0.1)' : 'none'
+                                          }}
+                                        >
+                                          <CheckCircle2 size={13} style={{ color: currentStatus === 'preparation_complete' ? '#10b981' : 'inherit' }} />
+                                          Prep Complete
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateSingleItemStatus(link.orderDocId, link.itemIndex, currentStatus === 'moved_to_packing' ? 'preparation_started' : 'moved_to_packing')}
+                                          style={{
+                                            flex: 1,
+                                            padding: '8px 12px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            border: '1.5px solid ' + (currentStatus === 'moved_to_packing' ? '#3b82f6' : '#edf2f7'),
+                                            background: currentStatus === 'moved_to_packing' ? '#eff6ff' : '#ffffff',
+                                            color: currentStatus === 'moved_to_packing' ? '#1d4ed8' : '#64748b',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            boxShadow: currentStatus === 'moved_to_packing' ? '0 2px 4px rgba(59, 130, 246, 0.1)' : 'none'
+                                          }}
+                                        >
+                                          <ArrowRight size={13} style={{ color: currentStatus === 'moved_to_packing' ? '#3b82f6' : 'inherit' }} />
+                                          Move to Packing
+                                        </button>
+                                      </div>
                                     </div>
                                   );
                                 })}
@@ -564,7 +801,7 @@ const MUnitPortal = () => {
                           <th>Order ID</th>
                           <th>Customer</th>
                           <th>My Items</th>
-                          <th>Date</th>
+                          <th>Delivery Details</th>
                           <th style={{ textAlign: 'center' }}>Details</th>
                         </tr>
                       </thead>
@@ -591,8 +828,44 @@ const MUnitPortal = () => {
                                 <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
                                   {myItemsCount} / {order.items.length} items
                                 </td>
-                                <td style={{ fontSize: '13px', color: '#64748b' }}>
-                                  {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'}
+                                <td style={{ fontSize: '13px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-start' }}>
+                                    <span style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '4px', 
+                                      fontSize: '11px', 
+                                      fontWeight: '700', 
+                                      background: '#eff6ff', 
+                                      color: '#1d4ed8', 
+                                      padding: '3px 8px', 
+                                      borderRadius: '6px',
+                                      border: '1px solid #dbeafe',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      <Calendar size={12} /> {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'No Date'}
+                                    </span>
+                                    {order.deliveryTime && (
+                                      <span style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '4px', 
+                                        fontSize: '11px', 
+                                        fontWeight: '700', 
+                                        background: '#faf5ff', 
+                                        color: '#7e22ce', 
+                                        padding: '3px 8px', 
+                                        borderRadius: '6px',
+                                        border: '1px solid #f3e8ff',
+                                        whiteSpace: 'nowrap'
+                                      }}>
+                                        <Clock size={12} /> {format12Hour(order.deliveryTime)}
+                                      </span>
+                                    )}
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', marginLeft: '2px' }}>
+                                      Ordered: {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'Pending'}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
                                   <button className="mu-btn-toggle" onClick={() => toggleOrderAccordion(order.id)}>
@@ -605,7 +878,19 @@ const MUnitPortal = () => {
                                 <tr className="mu-accordion-row">
                                   <td colSpan="5">
                                     <div className="mu-accordion-content">
-                                      <h4>My Assigned Items to Prepare</h4>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                                        <h4 style={{ margin: 0 }}>My Assigned Items to Prepare</h4>
+                                        <div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#eff6ff', border: '1px solid #dbeafe', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#1d4ed8' }}>
+                                            <Calendar size={13} /> Target: {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'No Date'}
+                                          </span>
+                                          {order.deliveryTime && (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#faf5ff', border: '1px solid #f3e8ff', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#7e22ce' }}>
+                                              <Clock size={13} /> Time: {format12Hour(order.deliveryTime)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
                                       <table className="mu-subtable">
                                         <thead>
                                           <tr>
@@ -625,18 +910,40 @@ const MUnitPortal = () => {
                                                 <td style={{ fontSize: '12px', color: '#64748b' }}>{item.description || '-'}</td>
                                                 <td>{item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
                                                 <td>
-                                                  <select
-                                                    className="mu-select-status"
-                                                    value={item.status || 'preparation_started'}
-                                                    onChange={(e) => handleUpdateSingleItemStatus(order.id, idx, e.target.value)}
-                                                  >
-                                                    <option value="preparation_started">Preparation Started</option>
-                                                    <option value="preparation_complete">Preparation Completed</option>
-                                                    <option value="moved_to_packing">Moved to Packing</option>
-                                                    <option value="packing_complete">Packing Completed</option>
-                                                    <option value="moved_to_store">Moved to Store</option>
-                                                    <option value="delivered">Delivered</option>
-                                                  </select>
+                                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button
+                                                      onClick={() => handleUpdateSingleItemStatus(order.id, idx, item.status === 'preparation_complete' ? 'preparation_started' : 'preparation_complete')}
+                                                      style={{
+                                                        padding: '6px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: '700',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s',
+                                                        border: '1.5px solid ' + (item.status === 'preparation_complete' ? '#059669' : '#e2e8f0'),
+                                                        background: item.status === 'preparation_complete' ? '#d1fae5' : 'white',
+                                                        color: item.status === 'preparation_complete' ? '#065f46' : '#64748b'
+                                                      }}
+                                                    >
+                                                      Prep Complete
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleUpdateSingleItemStatus(order.id, idx, item.status === 'moved_to_packing' ? 'preparation_started' : 'moved_to_packing')}
+                                                      style={{
+                                                        padding: '6px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: '700',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s',
+                                                        border: '1.5px solid ' + (item.status === 'moved_to_packing' ? '#2563eb' : '#e2e8f0'),
+                                                        background: item.status === 'moved_to_packing' ? '#dbeafe' : 'white',
+                                                        color: item.status === 'moved_to_packing' ? '#1e40af' : '#64748b'
+                                                      }}
+                                                    >
+                                                      Move to Packing
+                                                    </button>
+                                                  </div>
                                                 </td>
                                               </tr>
                                             );

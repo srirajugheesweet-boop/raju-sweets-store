@@ -10,7 +10,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  User
+  User,
+  ArrowRight
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -164,18 +165,54 @@ const ManufacturingUnitDetails = () => {
                       </div>
                       
                       <div className="mud-item-status-ctrl">
-                        <select 
-                          className="mud-status-select"
-                          value={item.status || 'preparation_started'}
-                          onChange={(e) => updateItemStatus(order.id, originalIndex, e.target.value)}
-                        >
-                          <option value="preparation_started">Preparation Started</option>
-                          <option value="preparation_complete">Preparation Complete</option>
-                          <option value="moved_to_packing">Moved to Packing</option>
-                          <option value="packing_complete">Packing Complete</option>
-                          <option value="moved_to_store">Moved to Store</option>
-                          <option value="delivered">Delivered</option>
-                        </select>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => updateItemStatus(order.id, originalIndex, item.status === 'preparation_complete' ? 'preparation_started' : 'preparation_complete')}
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              border: '1.5px solid ' + (item.status === 'preparation_complete' ? '#10b981' : '#edf2f7'),
+                              background: item.status === 'preparation_complete' ? '#e6fdf5' : '#ffffff',
+                              color: item.status === 'preparation_complete' ? '#047857' : '#64748b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              height: '28px',
+                              lineHeight: '1'
+                            }}
+                          >
+                            <CheckCircle2 size={12} style={{ color: item.status === 'preparation_complete' ? '#10b981' : 'inherit' }} />
+                            Prep Complete
+                          </button>
+                          <button
+                            onClick={() => updateItemStatus(order.id, originalIndex, item.status === 'moved_to_packing' ? 'preparation_started' : 'moved_to_packing')}
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              border: '1.5px solid ' + (item.status === 'moved_to_packing' ? '#3b82f6' : '#edf2f7'),
+                              background: item.status === 'moved_to_packing' ? '#eff6ff' : '#ffffff',
+                              color: item.status === 'moved_to_packing' ? '#1d4ed8' : '#64748b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              height: '28px',
+                              lineHeight: '1'
+                            }}
+                          >
+                            <ArrowRight size={12} style={{ color: item.status === 'moved_to_packing' ? '#3b82f6' : 'inherit' }} />
+                            Move to Packing
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
