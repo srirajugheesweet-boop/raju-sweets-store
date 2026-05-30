@@ -618,6 +618,8 @@ const StorePortal = () => {
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
+  const [stores, setStores] = useState([]);
+  const [storeFilter, setStoreFilter] = useState(id || 'All');
   const getTodayStr = () => new Date().toISOString().split('T')[0];
   const getTomorrowStr = () => {
     const tomorrow = new Date();
@@ -1321,12 +1323,29 @@ const StorePortal = () => {
     fetchStore();
   }, [id, navigate]);
 
+  // Fetch All Stores for Filter
+  useEffect(() => {
+    const fetchAllStores = async () => {
+      try {
+        console.log("StorePortal: Fetching all stores...");
+        const snap = await getDocs(collection(db, 'stores'));
+        const fetchedStores = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        fetchedStores.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        console.log("StorePortal: Fetched stores successfully:", fetchedStores);
+        setStores(fetchedStores);
+      } catch (error) {
+        console.error("Failed to load all stores in StorePortal:", error);
+        toast.error("Failed to load stores: " + error.message);
+      }
+    };
+    fetchAllStores();
+  }, []);
+
   // Fetch Orders of the Store
   useEffect(() => {
     if (tab === 'orders') {
       const q = query(
-        collection(db, 'orders'),
-        where('storeId', '==', id)
+        collection(db, 'orders')
       );
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -1335,7 +1354,7 @@ const StorePortal = () => {
       });
       return () => unsubscribe();
     }
-  }, [id, tab]);
+  }, [tab]);
 
   // Fetch Customers List (Read-Only)
   useEffect(() => {
@@ -2291,8 +2310,9 @@ const StorePortal = () => {
     const matchesDate = !deliveryDateFilter || ord.deliveryDate === deliveryDateFilter;
     const matchesStatus = statusFilter === 'All' || (ord.status || 'new').toLowerCase().trim() === statusFilter.toLowerCase().trim();
     const matchesPaymentStatus = paymentStatusFilter === 'All' || (ord.paymentStatus || 'Pending').toLowerCase().trim() === paymentStatusFilter.toLowerCase().trim();
+    const matchesStore = storeFilter === 'All' || ord.storeId === storeFilter;
 
-    return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus;
+    return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus && matchesStore;
   });
 
   const filteredCustomers = customers.filter(cust => 
@@ -2466,6 +2486,32 @@ const StorePortal = () => {
                     <option value="Pending">Pending</option>
                     <option value="Partial">Partial</option>
                     <option value="Done">Done</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Store:</span>
+                  <select
+                    value={storeFilter}
+                    onChange={(e) => setStoreFilter(e.target.value)}
+                    style={{
+                      height: '38px',
+                      padding: '0 12px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                      backgroundColor: '#ffffff',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="All">All Stores</option>
+                    {stores.map(st => (
+                      <option key={st.id} value={st.id}>{st.name}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2788,7 +2834,7 @@ const StorePortal = () => {
                         <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
                         <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
                         <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
-                        {(orderSearch || deliveryDateFilter || statusFilter !== 'All' || paymentStatusFilter !== 'All') && (
+                        {(orderSearch || deliveryDateFilter || statusFilter !== 'All' || paymentStatusFilter !== 'All' || storeFilter !== id) && (
                           <button
                             type="button"
                             onClick={() => {
@@ -2796,6 +2842,7 @@ const StorePortal = () => {
                               setDeliveryDateFilter('');
                               setStatusFilter('All');
                               setPaymentStatusFilter('All');
+                              setStoreFilter(id);
                             }}
                             style={{
                               marginTop: '15px',
@@ -3054,7 +3101,32 @@ const StorePortal = () => {
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)', background: '#ffffff', borderRadius: '12px' }}>
                   <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
                   <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
-                  <div style={{ fontSize: '12px' }}>Try selecting another delivery date.</div>
+                  <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
+                  {(orderSearch || deliveryDateFilter || statusFilter !== 'All' || paymentStatusFilter !== 'All' || storeFilter !== id) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOrderSearch('');
+                        setDeliveryDateFilter('');
+                        setStatusFilter('All');
+                        setPaymentStatusFilter('All');
+                        setStoreFilter(id);
+                      }}
+                      style={{
+                        marginTop: '15px',
+                        padding: '6px 16px',
+                        background: 'var(--primary-color)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        color: '#ffffff'
+                      }}
+                    >
+                      Clear All Filters
+                    </button>
+                  )}
                 </div>
               )}
             </div>

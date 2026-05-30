@@ -578,6 +578,7 @@ const Orders = () => {
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('All');
+  const [storeFilter, setStoreFilter] = useState('All');
   const [expandedOrders, setExpandedOrders] = useState([]);
   const [accordionTabs, setAccordionTabs] = useState({}); // { [orderId]: 'items' | 'payment' | 'packing' }
   const getAccordionTab = (orderId) => accordionTabs[orderId] || 'items';
@@ -706,6 +707,21 @@ const Orders = () => {
       setLoading(false);
     });
     return () => unsubscribe();
+  }, []);
+
+  // Fetch stores on mount for filters
+  useEffect(() => {
+    const fetchAllStores = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'stores'));
+        const fetched = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        fetched.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setStores(fetched);
+      } catch (error) {
+        console.error("Failed to load stores for filter in Orders:", error);
+      }
+    };
+    fetchAllStores();
   }, []);
 
   useEffect(() => {
@@ -1313,7 +1329,8 @@ const Orders = () => {
     const matchesDate = !deliveryDateFilter || o.deliveryDate === deliveryDateFilter;
     const matchesStatus = statusFilter === 'All' || (o.status || 'new').toLowerCase().trim() === statusFilter.toLowerCase().trim();
     const matchesPaymentStatus = paymentStatusFilter === 'All' || (o.paymentStatus || 'Pending').toLowerCase().trim() === paymentStatusFilter.toLowerCase().trim();
-    return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus;
+    const matchesStore = storeFilter === 'All' || o.storeId === storeFilter;
+    return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus && matchesStore;
   });
 
   return (
@@ -1406,6 +1423,32 @@ const Orders = () => {
               <option value="Pending">Pending</option>
               <option value="Partial">Partial</option>
               <option value="Done">Done</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Store:</span>
+            <select
+              value={storeFilter}
+              onChange={(e) => setStoreFilter(e.target.value)}
+              style={{
+                height: '38px',
+                padding: '0 12px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                fontSize: '13px',
+                color: 'var(--text-primary)',
+                backgroundColor: '#ffffff',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="All">All Stores</option>
+              {stores.map(st => (
+                <option key={st.id} value={st.id}>{st.name}</option>
+              ))}
             </select>
           </div>
 
@@ -1732,7 +1775,7 @@ const Orders = () => {
                   <Calendar size={32} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
                   <div style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>No Orders Found</div>
                   <div style={{ fontSize: '12px' }}>Try clearing the filters or selecting another delivery date.</div>
-                  {(searchQuery || deliveryDateFilter || statusFilter !== 'All' || paymentStatusFilter !== 'All') && (
+                  {(searchQuery || deliveryDateFilter || statusFilter !== 'All' || paymentStatusFilter !== 'All' || storeFilter !== 'All') && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1740,6 +1783,7 @@ const Orders = () => {
                         setDeliveryDateFilter('');
                         setStatusFilter('All');
                         setPaymentStatusFilter('All');
+                        setStoreFilter('All');
                       }}
                       style={{
                         marginTop: '15px',
