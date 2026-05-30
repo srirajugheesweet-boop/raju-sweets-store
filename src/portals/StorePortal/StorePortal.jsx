@@ -988,12 +988,17 @@ const StorePortal = () => {
     }
   };
 
-  // Auto-focus scanner input when scan tab mounts
+  // Automatically trigger camera QR scanner when scan tab mounts and store loads
   useEffect(() => {
-    if (tab === 'scan' && scanInputRef.current && !cameraActive) {
-      scanInputRef.current.focus();
+    if (tab === 'scan' && !loading) {
+      startCamera();
+    } else {
+      stopCamera();
     }
-  }, [tab, cameraActive]);
+    return () => {
+      stopCamera();
+    };
+  }, [tab, loading]);
 
   // Keep scanner focused globally to intercept typing gun inputs
   const handleScanPageClick = () => {
@@ -1053,6 +1058,13 @@ const StorePortal = () => {
         setScanError("Failed to access camera. Make sure webcam/camera permissions are granted.");
         setCameraActive(false);
         playErrorSound();
+        
+        // Focus the barcode gun input as fallback
+        setTimeout(() => {
+          if (scanInputRef.current) {
+            scanInputRef.current.focus();
+          }
+        }, 100);
       }
     }, 200);
   };
@@ -1069,14 +1081,16 @@ const StorePortal = () => {
       html5QrCodeRef.current = null;
     }
     setCameraActive(false);
+    
+    // Focus the barcode gun input when the camera modal is closed/cancelled
+    setTimeout(() => {
+      if (scanInputRef.current) {
+        scanInputRef.current.focus();
+      }
+    }, 100);
   };
 
-  // Clean-up scanner on tab unmount
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [tab]);
+
 
   // Store Worksheet - Fetch Items on tab active
   useEffect(() => {
@@ -3600,7 +3614,6 @@ const StorePortal = () => {
                     onChange={(e) => setScanInput(e.target.value)}
                     disabled={scanLoading}
                     autoComplete="off"
-                    autoFocus
                   />
                   <p className="st-scan-tip">
                     ℹ️ Keeps keyboard focus automatically. Click anywhere on this page to restore focus.
