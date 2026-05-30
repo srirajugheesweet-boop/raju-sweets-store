@@ -3802,7 +3802,7 @@ const StorePortal = () => {
                     />
                   </div>
 
-                  {/* Delivery Date & Time */}
+                  {/* Delivery Date, Time & Packing Instructions */}
                   <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
@@ -3840,9 +3840,27 @@ const StorePortal = () => {
                         }}
                       />
                     </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Instructions</label>
+                      <input 
+                        type="text"
+                        placeholder="Packaging and gift wrapping notes..."
+                        value={pUnitDescription}
+                        onChange={(e) => setPUnitDescription(e.target.value)}
+                        style={{
+                          height: '38px',
+                          padding: '0 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
                   </div>
 
-                  {/* Manufacturing & Packing Descriptions */}
+                  {/* Global Instructions (Full Width) */}
                   <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Global Instructions</label>
@@ -3850,44 +3868,6 @@ const StorePortal = () => {
                         placeholder="General order instructions..."
                         value={globalDescription}
                         onChange={(e) => setGlobalDescription(e.target.value)}
-                        style={{
-                          height: '50px',
-                          padding: '8px 12px',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          fontFamily: 'inherit',
-                          width: '100%'
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Manufacturing Unit Instructions</label>
-                      <textarea 
-                        placeholder="Special instructions for manufacturing..."
-                        value={mUnitDescription}
-                        onChange={(e) => setMUnitDescription(e.target.value)}
-                        style={{
-                          height: '50px',
-                          padding: '8px 12px',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          fontFamily: 'inherit',
-                          width: '100%'
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Instructions</label>
-                      <textarea 
-                        placeholder="Packaging and gift wrapping notes..."
-                        value={pUnitDescription}
-                        onChange={(e) => setPUnitDescription(e.target.value)}
                         style={{
                           height: '50px',
                           padding: '8px 12px',
@@ -4125,7 +4105,7 @@ const StorePortal = () => {
                 </div>
 
                 <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Item Description / Note</label>
+                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Manufacturing description</label>
                   <textarea 
                     placeholder="e.g. less sugar, extra packing..."
                     value={orderWeightInput.description}

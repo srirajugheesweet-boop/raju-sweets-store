@@ -2010,7 +2010,7 @@ const Orders = () => {
                     />
                   </div>
 
-                  {/* Delivery Date & Time */}
+                  {/* Delivery Date, Time & Packing Description */}
                   <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
@@ -2048,45 +2048,21 @@ const Orders = () => {
                         }}
                       />
                     </div>
-                  </div>
-
-                  {/* Manufacturing & Packing Descriptions */}
-                  <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Manufacturing Unit Description</label>
-                      <textarea
-                        placeholder="Special instructions for manufacturing..."
-                        value={mUnitDescription}
-                        onChange={(e) => setMUnitDescription(e.target.value)}
-                        style={{
-                          height: '50px',
-                          padding: '8px 12px',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          fontFamily: 'inherit',
-                          width: '100%'
-                        }}
-                      />
-                    </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Description</label>
-                      <textarea
+                      <input
+                        type="text"
                         placeholder="Packaging and gift wrapping notes..."
                         value={pUnitDescription}
                         onChange={(e) => setPUnitDescription(e.target.value)}
                         style={{
-                          height: '50px',
-                          padding: '8px 12px',
+                          height: '38px',
+                          padding: '0 12px',
                           border: '1px solid var(--border-color)',
                           borderRadius: '8px',
-                          fontSize: '13px',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          fontFamily: 'inherit',
-                          width: '100%'
+                          fontSize: '14px',
+                          width: '100%',
+                          boxSizing: 'border-box'
                         }}
                       />
                     </div>
@@ -2312,7 +2288,7 @@ const Orders = () => {
                 </div>
 
                 <div className="ord-weight-input-group">
-                  <label>Item Description / Note</label>
+                  <label>Manufacturing description</label>
                   <textarea
                     placeholder="e.g. less sugar, extra packing..."
                     value={weightInput.description}
