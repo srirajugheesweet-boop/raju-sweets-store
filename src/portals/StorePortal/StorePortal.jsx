@@ -1625,6 +1625,32 @@ const StorePortal = () => {
     setOrderCart(prev => prev.filter(c => c.id !== id));
   };
 
+  const getTodayNextOrderSequence = async () => {
+    try {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const q = query(
+        collection(db, 'orders'),
+        where('createdAt', '>=', startOfDay)
+      );
+      const snapshot = await getDocs(q);
+      let maxSeq = 0;
+      snapshot.docs.forEach(doc => {
+        const oId = doc.data().orderId;
+        if (oId && oId.includes('-')) {
+          const prefix = parseInt(oId.split('-')[0], 10);
+          if (!isNaN(prefix) && prefix > maxSeq) {
+            maxSeq = prefix;
+          }
+        }
+      });
+      return maxSeq + 1;
+    } catch (err) {
+      console.error("Error calculating daily sequence prefix in StorePortal:", err);
+      return 1;
+    }
+  };
+
   const generateOrderId = () => {
     const now = new Date();
     const pad = (n) => n.toString().padStart(2, '0');
@@ -1668,7 +1694,14 @@ const StorePortal = () => {
     setFormErrors({});
     setSavingOrder(true);
     try {
-      const orderId = editingOrderId ? orders.find(o => o.id === editingOrderId)?.orderId : generateOrderId();
+      let orderId = '';
+      if (editingOrderId) {
+        orderId = orders.find(o => o.id === editingOrderId)?.orderId || generateOrderId();
+      } else {
+        const seq = await getTodayNextOrderSequence();
+        const baseId = generateOrderId();
+        orderId = `${seq}-${baseId}`;
+      }
       const customer = orderCustomers.find(c => c.id === selectedCustomer);
       const totalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
       const recAmtVal = parseFloat(receivedAmount) || 0;
