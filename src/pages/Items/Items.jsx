@@ -132,7 +132,8 @@ const Items = () => {
     price: '',
     mUnitId: '',
     categoryId: '',
-    image: ''
+    image: '',
+    showInWorksheet: true
   });
   const [imageFile, setImageFile] = useState(null);
 
@@ -256,7 +257,7 @@ const Items = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '' });
+    setFormData({ name: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '', showInWorksheet: true });
     setImageFile(null);
     setShowAddForm(false);
     setEditingItem(null);
@@ -270,7 +271,8 @@ const Items = () => {
       price: item.price,
       mUnitId: item.mUnitId,
       categoryId: item.categoryId || '',
-      image: item.image
+      image: item.image,
+      showInWorksheet: item.showInWorksheet !== false
     });
     setShowAddForm(true);
   };
@@ -286,6 +288,19 @@ const Items = () => {
       toast.error("Failed to delete item");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleWorksheetVisibility = async (item, checked) => {
+    try {
+      await updateDoc(doc(db, 'items', item.id), {
+        showInWorksheet: checked,
+        updatedAt: serverTimestamp()
+      });
+      toast.success(`${item.name} ${checked ? 'enabled' : 'disabled'} in store worksheet`);
+    } catch (error) {
+      console.error("Failed to toggle item visibility:", error);
+      toast.error("Failed to update item visibility");
     }
   };
 
@@ -643,6 +658,17 @@ const Items = () => {
                       <Tag size={12} />
                       <span>{categories.find(cat => cat.id === item.categoryId)?.name || 'Uncategorized'}</span>
                     </div>
+                    <div className="item-worksheet-toggle" style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>Show in Worksheet</span>
+                      <label className="switch">
+                        <input 
+                          type="checkbox" 
+                          checked={item.showInWorksheet !== false} 
+                          onChange={(e) => handleToggleWorksheetVisibility(item, e.target.checked)}
+                        />
+                        <span className="slider round"></span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               ))
@@ -738,7 +764,7 @@ const Items = () => {
                   required
                 />
 
-                <CustomSelect
+                 <CustomSelect
                   label="Category"
                   options={categories.map(cat => ({ value: cat.id, label: cat.name }))}
                   value={formData.categoryId}
@@ -746,6 +772,21 @@ const Items = () => {
                   placeholder="Select category"
                   icon={<Tag size={16} />}
                 />
+
+                <div className="items-input-group" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '5px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Show in Worksheet</label>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Enable to list in store worksheet</span>
+                  </div>
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.showInWorksheet} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, showInWorksheet: e.target.checked }))}
+                    />
+                    <span className="slider round"></span>
+                  </label>
+                </div>
 
                 <div className="items-form-actions">
                   <button type="button" onClick={resetForm} className="items-btn-cancel">Cancel</button>

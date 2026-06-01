@@ -31,6 +31,7 @@ import EmployeePortal from './portals/EmployeePortal/EmployeePortal';
 import IndividualPortal from './portals/IndividualPortal/IndividualPortal';
 import StoreWorkSheet from './pages/StoreWorkSheet/StoreWorkSheet';
 import ScanBox from './pages/ScanBox/ScanBox';
+import Dashboard from './pages/Dashboard/Dashboard';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -90,7 +91,7 @@ function App() {
           <Route path="/scan-box/:orderId/:boxId" element={<ProtectedRoute><ScanBox /></ProtectedRoute>} />
 
           {/* Super Admin Module Routes */}
-          <Route path="/dashboard" element={<ProtectedRoute><PlaceholderPage title="Dashboard" /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/store-worksheet" element={<ProtectedRoute><Layout><StoreWorkSheet /></Layout></ProtectedRoute>} />
           <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />

@@ -75,7 +75,10 @@ const StoreWorkSheet = () => {
         ]);
 
         setStores(storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setItems(itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        const allItems = itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const activeWorksheetItems = allItems.filter(item => item.showInWorksheet !== false);
+        setItems(activeWorksheetItems);
       } catch (err) {
         console.error("Error fetching data:", err);
         toast.error("Failed to load stores or items.");
