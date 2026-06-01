@@ -2306,8 +2306,16 @@ const Orders = () => {
                 </div>
 
                 <div className="ord-summary-totals" style={{ borderTop: 'none', paddingTop: '0' }}>
-                  <div className="ord-total-row">
-                    <span>Total Amount</span>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                    <span>Subtotal (Excl. Tax)</span>
+                    <span>₹{(totalAmount / 1.05).toFixed(2)}</span>
+                  </div>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                    <span>GST (5%)</span>
+                    <span>₹{(totalAmount - (totalAmount / 1.05)).toFixed(2)}</span>
+                  </div>
+                  <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
+                    <span>Grand Total (Incl. Tax)</span>
                     <span>₹{totalAmount.toFixed(2)}</span>
                   </div>
                   <div className="ord-total-row" style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
