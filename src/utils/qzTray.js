@@ -321,27 +321,42 @@ export const buildBillESCPOS = (bill, charsPerLine = 48) => {
     const qtyText = item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`;
     const priceText = `Rs.${Number(item.total).toFixed(0)}`;
     
-    let itemName = item.name;
-    if (itemName.length > itemW - 1) {
-      // Split into two lines if item name is too long
-      bytes.push(...encoder.encode(itemName + '\n'));
-      itemName = '';
+    const maxNameLen = itemW - 1;
+    let namePart1 = item.name;
+    let namePart2 = '';
+    
+    if (namePart1.length > maxNameLen) {
+      namePart1 = item.name.substring(0, maxNameLen);
+      namePart2 = item.name.substring(maxNameLen);
     }
     
-    const line = 
-      itemName.padEnd(itemW) + 
+    bytes.push(...encoder.encode(
+      namePart1.padEnd(itemW) + 
       qtyText.padEnd(qtyW) + 
-      priceText.padStart(totalW) + '\n';
+      priceText.padStart(totalW) + '\n'
+    ));
     
-    bytes.push(...encoder.encode(line));
+    while (namePart2.length > 0) {
+      const chunk = namePart2.substring(0, maxNameLen);
+      bytes.push(...encoder.encode(
+        chunk.padEnd(itemW) + 
+        ' '.repeat(qtyW + totalW) + '\n'
+      ));
+      namePart2 = namePart2.substring(maxNameLen);
+    }
   });
 
   bytes.push(...encoder.encode(dashedLine));
 
-  // Grand Total
+  // Grand Total with GST Details
+  const totalVal = Number(bill.totalAmount || 0);
+  const subtotalVal = totalVal / 1.05;
+  const gstVal = totalVal - subtotalVal;
+
+  bytes.push(...encoder.encode(justifyLR('Subtotal (Excl. Tax):', `Rs.${subtotalVal.toFixed(2)}`)));
+  bytes.push(...encoder.encode(justifyLR('GST (5%):', `Rs.${gstVal.toFixed(2)}`)));
   bytes.push(...BOLD_ON);
-  const totalStr = `Rs.${Number(bill.totalAmount).toFixed(2)}`;
-  bytes.push(...encoder.encode(justifyLR('GRAND TOTAL:', totalStr)));
+  bytes.push(...encoder.encode(justifyLR('GRAND TOTAL:', `Rs.${totalVal.toFixed(2)}`)));
   bytes.push(...BOLD_OFF);
   bytes.push(...encoder.encode(dashedLine));
 
@@ -424,28 +439,45 @@ export const buildOrderESCPOS = (order, charsPerLine = 48) => {
     const qtyText = item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`;
     const priceText = `Rs.${Number(item.total).toFixed(0)}`;
     
-    let itemName = item.name;
-    if (itemName.length > itemW - 1) {
-      bytes.push(...encoder.encode(itemName + '\n'));
-      itemName = '';
+    const maxNameLen = itemW - 1;
+    let namePart1 = item.name;
+    let namePart2 = '';
+    
+    if (namePart1.length > maxNameLen) {
+      namePart1 = item.name.substring(0, maxNameLen);
+      namePart2 = item.name.substring(maxNameLen);
     }
     
-    const line = 
-      itemName.padEnd(itemW) + 
+    bytes.push(...encoder.encode(
+      namePart1.padEnd(itemW) + 
       qtyText.padEnd(qtyW) + 
-      priceText.padStart(totalW) + '\n';
+      priceText.padStart(totalW) + '\n'
+    ));
     
-    bytes.push(...encoder.encode(line));
+    while (namePart2.length > 0) {
+      const chunk = namePart2.substring(0, maxNameLen);
+      bytes.push(...encoder.encode(
+        chunk.padEnd(itemW) + 
+        ' '.repeat(qtyW + totalW) + '\n'
+      ));
+      namePart2 = namePart2.substring(maxNameLen);
+    }
   });
 
   bytes.push(...encoder.encode(dashedLine));
 
-  // Totals
-  const totalStr = `Rs.${Number(order.totalAmount || 0).toFixed(2)}`;
+  // Totals with GST details
+  const totalVal = Number(order.totalAmount || 0);
+  const subtotalVal = totalVal / 1.05;
+  const gstVal = totalVal - subtotalVal;
   const advStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
-  const balStr = `Rs.${(Number(order.totalAmount || 0) - Number(order.receivedAmount || 0)).toFixed(2)}`;
+  const balStr = `Rs.${(totalVal - Number(order.receivedAmount || 0)).toFixed(2)}`;
 
-  bytes.push(...encoder.encode(justifyLR('TOTAL AMOUNT:', totalStr)));
+  bytes.push(...encoder.encode(justifyLR('Subtotal (Excl. Tax):', `Rs.${subtotalVal.toFixed(2)}`)));
+  bytes.push(...encoder.encode(justifyLR('GST (5%):', `Rs.${gstVal.toFixed(2)}`)));
+  bytes.push(...BOLD_ON);
+  bytes.push(...encoder.encode(justifyLR('GRAND TOTAL:', `Rs.${totalVal.toFixed(2)}`)));
+  bytes.push(...BOLD_OFF);
   bytes.push(...encoder.encode(justifyLR('ADVANCE PAID:', advStr)));
   bytes.push(...BOLD_ON);
   bytes.push(...encoder.encode(justifyLR('BALANCE DUE:', balStr)));

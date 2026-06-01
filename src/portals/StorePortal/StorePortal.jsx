@@ -66,7 +66,7 @@ import '../../pages/Orders/Orders.css';
 import Payments from '../../pages/Payments/Payments';
 
 // --- Custom Searchable Dropdown ---
-const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick }) => {
+const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick, hasError, errorMsg }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef(null);
@@ -91,7 +91,11 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
   return (
     <div className="ord-dropdown" ref={dropdownRef}>
       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>{label}</label>
-      <div className="ord-dropdown-trigger" onClick={() => setIsOpen(!isOpen)}>
+      <div 
+        className="ord-dropdown-trigger" 
+        onClick={() => setIsOpen(!isOpen)}
+        style={hasError ? { border: '1.5px solid #dc2626' } : {}}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Icon size={18} color="var(--primary-color)" />
           <span>
@@ -102,6 +106,11 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
         </div>
         <ChevronDown size={18} />
       </div>
+      {hasError && (
+        <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '700', marginTop: '4px', display: 'block' }}>
+          {errorMsg}
+        </span>
+      )}
 
       <AnimatePresence>
         {isOpen && (
@@ -776,6 +785,7 @@ const StorePortal = () => {
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [orderCart, setOrderCart] = useState([]);
+  const [formErrors, setFormErrors] = useState({});
 
   // Weight calculator for Order flow
   const [showOrderWeightModal, setShowOrderWeightModal] = useState(null);
@@ -1636,14 +1646,26 @@ const StorePortal = () => {
     setItemSearchQuery('');
     setSelectedCategoryFilter('All');
     setActiveModalTab('items');
+    setFormErrors({});
   };
 
   const saveOrder = async () => {
-    if (!selectedCustomer) return toast.error("Please select a customer");
-    if (!deliveryDate) return toast.error("Please select a delivery date");
-    if (!deliveryTime) return toast.error("Please select a delivery time");
+    const errors = {};
+    if (!selectedCustomer) errors.customer = "Customer is required";
+    if (!selectedPUnit) errors.pUnit = "Packing Unit is required";
+    if (!deliveryDate) errors.deliveryDate = "Delivery Date is required";
+    if (!deliveryTime) errors.deliveryTime = "Delivery Time is required";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      setActiveModalTab('items');
+      toast.error("Please fill in all mandatory fields");
+      return;
+    }
+
     if (orderCart.length === 0) return toast.error("Order cart is empty");
 
+    setFormErrors({});
     setSavingOrder(true);
     try {
       const orderId = editingOrderId ? orders.find(o => o.id === editingOrderId)?.orderId : generateOrderId();
@@ -1862,7 +1884,9 @@ const StorePortal = () => {
             </tbody>
           </table>
           <hr class="divider">
-          <div class="total-row"><span>TOTAL</span><span>Rs.${Number(order.totalAmount).toFixed(2)}</span></div>
+          <div class="info-row" style="font-size:11px;"><span>Subtotal (Excl. Tax):</span><span>Rs.${(Number(order.totalAmount || 0) / 1.05).toFixed(2)}</span></div>
+          <div class="info-row" style="font-size:11px;"><span>GST (5%):</span><span>Rs.${(Number(order.totalAmount || 0) - (Number(order.totalAmount || 0) / 1.05)).toFixed(2)}</span></div>
+          <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(order.totalAmount).toFixed(2)}</span></div>
           <div class="info-row" style="font-size:11px;"><span>Received:</span><span>Rs.${Number(order.receivedAmount || 0).toFixed(2)}</span></div>
           <div class="info-row" style="font-size:11px; font-weight: bold;"><span>Balance Due:</span><span>Rs.${(Number(order.totalAmount || 0) - Number(order.receivedAmount || 0)).toFixed(2)}</span></div>
           <hr class="divider">
@@ -1928,23 +1952,42 @@ const StorePortal = () => {
       order.items.forEach(item => {
         const qtyPart = (item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`).padEnd(8, ' ');
         const pricePart = `Rs.${Number(item.total).toFixed(0)}`.padStart(8, ' ');
-        
-        if (item.name.length > 14) {
-          bytes.push(...encoder.encode(`${item.name}\n`));
-          const spacesPart = "".padEnd(14, ' ');
-          bytes.push(...encoder.encode(`${spacesPart} ${qtyPart} ${pricePart}\n`));
-        } else {
-          const namePart = item.name.padEnd(14, ' ');
-          bytes.push(...encoder.encode(`${namePart} ${qtyPart} ${pricePart}\n`));
+
+        const maxNameLen = 14;
+        let namePart1 = item.name;
+        let namePart2 = '';
+
+        if (namePart1.length > maxNameLen) {
+          namePart1 = item.name.substring(0, maxNameLen);
+          namePart2 = item.name.substring(maxNameLen);
+        }
+
+        bytes.push(...encoder.encode(`${namePart1.padEnd(14, ' ')} ${qtyPart} ${pricePart}\n`));
+
+        while (namePart2.length > 0) {
+          const chunk = namePart2.substring(0, maxNameLen);
+          bytes.push(...encoder.encode(`${chunk.padEnd(14, ' ')} ${"".padEnd(8, ' ')} ${"".padStart(8, ' ')}\n`));
+          namePart2 = namePart2.substring(maxNameLen);
         }
       });
-      
+
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
-      // Total
+
+      // Totals with GST details
+      const totalVal = Number(order.totalAmount || 0);
+      const subtotalVal = totalVal / 1.05;
+      const gstVal = totalVal - subtotalVal;
+      const advStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
+      const balStr = `Rs.${(totalVal - Number(order.receivedAmount || 0)).toFixed(2)}`;
+
+      bytes.push(...encoder.encode(`Subtotal: ${`Rs.${subtotalVal.toFixed(2)}`.padStart(22, ' ')}\n`));
+      bytes.push(...encoder.encode(`GST (5%): ${`Rs.${gstVal.toFixed(2)}`.padStart(22, ' ')}\n`));
       bytes.push(...BOLD_ON);
-      const grandTotalStr = `Rs.${Number(order.totalAmount).toFixed(2)}`;
-      bytes.push(...encoder.encode(`TOTAL AMOUNT: ${grandTotalStr.padStart(18, ' ')}\n`));
+      bytes.push(...encoder.encode(`GRAND TOTAL: ${`Rs.${totalVal.toFixed(2)}`.padStart(19, ' ')}\n`));
+      bytes.push(...BOLD_OFF);
+      bytes.push(...encoder.encode(`Advance Paid: ${advStr.padStart(18, ' ')}\n`));
+      bytes.push(...BOLD_ON);
+      bytes.push(...encoder.encode(`Balance Due: ${balStr.padStart(20, ' ')}\n`));
       bytes.push(...BOLD_OFF);
       bytes.push(...encoder.encode("--------------------------------\n"));
       
@@ -4410,13 +4453,15 @@ const StorePortal = () => {
                 <div className="ord-panel-header">
                   <div className="ord-panel-top" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
                     <CustomDropdown 
-                      label="Select Customer"
+                      label="Select Customer *"
                       options={orderCustomers}
                       onSelect={setSelectedCustomer}
                       selectedValue={selectedCustomer}
                       placeholder="Search name or number..."
                       icon={User}
                       onCreateClick={handleOpenCreateCustomer}
+                      hasError={!!formErrors.customer}
+                      errorMsg={formErrors.customer}
                     />
                     
                     {/* Read-Only Non-Editable Selected Store */}
@@ -4441,12 +4486,14 @@ const StorePortal = () => {
                     </div>
 
                     <CustomDropdown 
-                      label="Select Packing Unit"
+                      label="Select Packing Unit *"
                       options={orderPUnits}
                       onSelect={setSelectedPUnit}
                       selectedValue={selectedPUnit}
-                      placeholder="Optional"
+                      placeholder="Select a packing unit..."
                       icon={Package}
+                      hasError={!!formErrors.pUnit}
+                      errorMsg={formErrors.pUnit}
                     />
                   </div>
 
@@ -4462,13 +4509,18 @@ const StorePortal = () => {
                         style={{
                           height: '38px',
                           padding: '0 12px',
-                          border: '1px solid var(--border-color)',
+                          border: formErrors.deliveryDate ? '1.5px solid #dc2626' : '1px solid var(--border-color)',
                           borderRadius: '8px',
                           fontSize: '14px',
                           width: '100%',
                           boxSizing: 'border-box'
                         }}
                       />
+                      {formErrors.deliveryDate && (
+                        <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '700', marginTop: '4px', display: 'block' }}>
+                          {formErrors.deliveryDate}
+                        </span>
+                      )}
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Time *</label>
@@ -4480,13 +4532,18 @@ const StorePortal = () => {
                         style={{
                           height: '38px',
                           padding: '0 12px',
-                          border: '1px solid var(--border-color)',
+                          border: formErrors.deliveryTime ? '1.5px solid #dc2626' : '1px solid var(--border-color)',
                           borderRadius: '8px',
                           fontSize: '14px',
                           width: '100%',
                           boxSizing: 'border-box'
                         }}
                       />
+                      {formErrors.deliveryTime && (
+                        <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '700', marginTop: '4px', display: 'block' }}>
+                          {formErrors.deliveryTime}
+                        </span>
+                      )}
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Instructions</label>
