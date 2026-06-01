@@ -956,18 +956,18 @@ const StorePortal = () => {
         return b;
       });
 
-      const boxContentsLower = (targetBox.contents || '').toLowerCase();
-      const updatedItems = order.items.map(item => {
-        const nameMatch = boxContentsLower.includes(item.name.toLowerCase());
-        const isEligible = item.status === 'packing_complete' || item.status === 'moved_to_packing';
-        
-        if (nameMatch || isEligible) {
-          return { ...item, status: 'received_at_store' };
-        }
-        return item;
-      });
+      const allBoxesScanned = updatedBoxes.every(b => b.received === true || b.status === 'received_at_store');
+      
+      let updatedItems = order.items;
+      let overallStatus = order.status || 'new';
 
-      const overallStatus = calculateOverallOrderStatus(updatedItems);
+      if (allBoxesScanned) {
+        updatedItems = order.items.map(item => ({
+          ...item,
+          status: 'received_at_store'
+        }));
+        overallStatus = 'Ready for Delivery';
+      }
 
       await updateDoc(orderRef, {
         boxes: updatedBoxes,
@@ -983,10 +983,18 @@ const StorePortal = () => {
         scannedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       };
 
+      const scannedCount = updatedBoxes.filter(b => b.received || b.status === 'received_at_store').length;
+      const totalCount = updatedBoxes.length;
+
       setScanSuccessBox(successInfo);
       setRecentScans(prev => [successInfo, ...prev]);
       playSuccessSound();
-      toast.success(`Box #${targetBox.boxNum} received at store!`);
+
+      if (allBoxesScanned) {
+        toast.success(`All ${totalCount} boxes scanned! Order #${order.orderId} is now Ready for Delivery!`);
+      } else {
+        toast.success(`Box #${targetBox.boxNum} received! (${scannedCount}/${totalCount} boxes scanned)`);
+      }
       return true;
 
     } catch (err) {
