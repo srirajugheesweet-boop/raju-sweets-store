@@ -2253,6 +2253,9 @@ const StorePortal = () => {
             </tbody>
           </table>
           <hr class="divider">
+          <div class="info-row"><span>Subtotal (Excl. Tax)</span><span>Rs.${(Number(bill.totalAmount) / 1.05).toFixed(2)}</span></div>
+          <div class="info-row"><span>GST (5%)</span><span>Rs.${(Number(bill.totalAmount) - (Number(bill.totalAmount) / 1.05)).toFixed(2)}</span></div>
+          <hr class="divider">
           <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(bill.totalAmount).toFixed(2)}</span></div>
           <hr class="divider">
           <div class="footer">Thank you for shopping!</div>
@@ -2352,11 +2355,20 @@ const StorePortal = () => {
         }
       });
       
+      // Grand Total with GST Details
+      const totalVal = Number(bill.totalAmount || 0);
+      const subtotalVal = totalVal / 1.05;
+      const gstVal = totalVal - subtotalVal;
+
+      const subtotalStr = `Rs.${subtotalVal.toFixed(2)}`;
+      const gstStr = `Rs.${gstVal.toFixed(2)}`;
+      const grandTotalStr = `Rs.${totalVal.toFixed(2)}`;
+
+      bytes.push(...encoder.encode(`Subtotal (Excl. Tax): ${subtotalStr.padStart(10, ' ')}\n`));
+      bytes.push(...encoder.encode(`GST (5%):             ${gstStr.padStart(10, ' ')}\n`));
       bytes.push(...encoder.encode("--------------------------------\n"));
-      
-      // Grand Total
+
       bytes.push(...BOLD_ON);
-      const grandTotalStr = `Rs.${Number(bill.totalAmount).toFixed(2)}`;
       bytes.push(...encoder.encode(`GRAND TOTAL: ${grandTotalStr.padStart(19, ' ')}\n`));
       bytes.push(...BOLD_OFF);
       bytes.push(...encoder.encode("--------------------------------\n"));
@@ -3675,10 +3687,31 @@ const StorePortal = () => {
                   </div>
 
                   <div className="st-summary-settle">
-                    <div className="total-display">
-                      <span>Grand Total</span>
-                      <span className="amt">₹{cart.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span>
-                    </div>
+                    {(() => {
+                      const posTotal = cart.reduce((sum, item) => sum + item.total, 0);
+                      const posSubtotal = posTotal / 1.05;
+                      const posGst = posTotal - posSubtotal;
+
+                      return (
+                        <>
+                          <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                              <span>Subtotal (Excl. Tax)</span>
+                              <span>₹{posSubtotal.toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                              <span>GST (5%)</span>
+                              <span>₹{posGst.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          <div className="total-display" style={{ marginBottom: '15px' }}>
+                            <span>Grand Total (Incl. Tax)</span>
+                            <span className="amt">₹{posTotal.toFixed(2)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
 
                     <div className="payment-select">
                       {['UPI', 'Cash', 'Card'].map(mode => (
@@ -4422,6 +4455,27 @@ const StorePortal = () => {
                           <td style={{ textAlign: 'right', fontWeight: '700' }}>₹{Number(item.total).toFixed(2)}</td>
                         </tr>
                       ))}
+                      {(() => {
+                        const billTotal = Number(selectedReceiptBill.totalAmount || 0);
+                        const billSubtotal = billTotal / 1.05;
+                        const billGst = billTotal - billSubtotal;
+                        return (
+                          <>
+                            <tr>
+                              <td colSpan="3" style={{ fontWeight: '700', color: '#64748b', fontSize: '12px', borderBottom: '1px dashed #e2e8f0', padding: '8px' }}>Subtotal (Excl. Tax)</td>
+                              <td style={{ textAlign: 'right', fontWeight: '700', color: '#64748b', fontSize: '12px', borderBottom: '1px dashed #e2e8f0', padding: '8px' }}>
+                                ₹{billSubtotal.toFixed(2)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td colSpan="3" style={{ fontWeight: '700', color: '#64748b', fontSize: '12px', borderBottom: '1.5px solid #cbd5e1', padding: '8px' }}>GST (5%)</td>
+                              <td style={{ textAlign: 'right', fontWeight: '700', color: '#64748b', fontSize: '12px', borderBottom: '1.5px solid #cbd5e1', padding: '8px' }}>
+                                ₹{billGst.toFixed(2)}
+                              </td>
+                            </tr>
+                          </>
+                        );
+                      })()}
                       <tr className="slip-total-row">
                         <td colSpan="3" style={{ fontWeight: '800' }}>Grand Total Amount</td>
                         <td style={{ textAlign: 'right', fontWeight: '800', color: 'var(--primary-color)', fontSize: '17px' }}>
