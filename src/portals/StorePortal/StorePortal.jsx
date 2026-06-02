@@ -1128,7 +1128,9 @@ const StorePortal = () => {
         setWsLoading(true);
         try {
           const itemsSnap = await getDocs(query(collection(db, 'items'), orderBy('name', 'asc')));
-          const fetchedItems = itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const fetchedItems = itemsSnap.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(item => item.showInWorksheet !== false);
           setWsItems(fetchedItems);
         } catch (err) {
           console.error("Error fetching items for worksheet:", err);
