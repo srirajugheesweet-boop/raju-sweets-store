@@ -281,11 +281,19 @@ const TimeSheet = () => {
       }
     }
 
-    const presentPay = present * perDayPay;
-    const debitedDays = Math.max(0, absent - acceptedLeaves);
-    const debitAmount = debitedDays * perDayPay;
+    const paidDays = present + Math.min(absent, acceptedLeaves);
+    
+    let debitedDays = 0;
+    if (selectedDateObj <= currentMonthStart) {
+      debitedDays = Math.max(0, daysInMonth - paidDays);
+    } else {
+      debitedDays = 0;
+    }
 
-    const hasPerfectAttendance = absent === 0 && totalRecorded > 0;
+    const debitAmount = debitedDays * perDayPay;
+    const presentPay = paidDays * perDayPay;
+
+    const hasPerfectAttendance = present >= daysInMonth && absent === 0;
     const bonus = hasPerfectAttendance ? (2 * perDayPay) : 0;
     
     const basicNetPay = salary - debitAmount + bonus;
@@ -984,6 +992,48 @@ const TimeSheet = () => {
                     </select>
                   </div>
                 </div>
+
+                {(() => {
+                  const totalNetSalaryAll = filteredEmployees.reduce((sum, emp) => {
+                    const stats = calculateEmployeeStats(emp);
+                    return sum + stats.netPay;
+                  }, 0);
+                  const totalBasicSalaryAll = filteredEmployees.reduce((sum, emp) => sum + Number(emp.salary || 0), 0);
+                  const totalDebitsAll = filteredEmployees.reduce((sum, emp) => {
+                    const stats = calculateEmployeeStats(emp);
+                    return sum + stats.debitAmount + stats.shortTermDeduct + stats.longTermDeduct;
+                  }, 0);
+
+                  return (
+                    <div className="ts-payroll-summary-banner" style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: '20px',
+                      marginBottom: '20px',
+                      background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                      padding: '20px',
+                      borderRadius: '16px',
+                      color: 'white',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+                    }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Net Salary Payable</span>
+                        <h2 style={{ fontSize: '26px', fontWeight: '900', color: '#10b981', margin: 0 }}>₹ {Math.round(totalNetSalaryAll).toLocaleString('en-IN')}</h2>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>For {filteredEmployees.length} active staff members</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderLeft: '1px solid #334155', paddingLeft: '20px' }}>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Basic Salary Reference</span>
+                        <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#e2e8f0', margin: 0 }}>₹ {Math.round(totalBasicSalaryAll).toLocaleString('en-IN')}</h3>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Combined contract salaries</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderLeft: '1px solid #334155', paddingLeft: '20px' }}>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Deductions & Advances</span>
+                        <h3 style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444', margin: 0 }}>₹ {Math.round(totalDebitsAll).toLocaleString('en-IN')}</h3>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>Debits for leaves & advance repayments</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="ts-table-wrapper">
                   <table className="ts-table payroll-tab">
