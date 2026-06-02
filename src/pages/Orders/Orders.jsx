@@ -945,6 +945,62 @@ const Orders = () => {
     return `ORD${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   };
 
+  const triggerWhatsAppOrderReady = async (order) => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      
+      const to = order.customerPhone || '';
+      const customerName = order.customerName || 'Customer';
+      const boxes = order.boxes?.length || 1;
+      const totalAmt = Number(order.totalAmount || 0);
+      const recAmt = Number(order.receivedAmount || 0);
+      const balance = Math.max(0, totalAmt - recAmt);
+      const pendingAmount = `Rs.${balance.toFixed(2)}`;
+      
+      let paymentStatus = 'Pending';
+      if (order.paymentStatus) {
+        const ps = order.paymentStatus.toLowerCase();
+        if (ps === 'done' || ps === 'paid') {
+          paymentStatus = 'Paid';
+        } else if (ps === 'partial' || ps === 'partially paid') {
+          paymentStatus = 'Partially Paid';
+        }
+      } else {
+        if (recAmt > 0) {
+          paymentStatus = recAmt >= totalAmt ? 'Paid' : 'Partially Paid';
+        }
+      }
+
+      const payload = {
+        to,
+        customerName,
+        boxes,
+        pendingAmount,
+        paymentStatus
+      };
+
+      console.log("Sending WhatsApp template notification:", payload);
+
+      const response = await fetch(`${apiUrl}/whatsapp/send-order-ready`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'API request failed');
+      }
+      
+      toast.success(`WhatsApp notification sent to ${customerName}!`);
+    } catch (err) {
+      console.error("WhatsApp trigger error:", err);
+      toast.error(`WhatsApp notification failed: ${err.message}`);
+    }
+  };
+
   const saveOrder = async () => {
     const errors = {};
     if (!selectedCustomer) errors.customer = "Customer is required";
@@ -1006,9 +1062,12 @@ const Orders = () => {
         deliveryDate,
         deliveryTime,
         status: calculateOverallOrderStatus(cart), // new, In Progress, Delivered, etc.
-        createdAt: serverTimestamp(),
+        createdAt: editingOrderId ? (orders.find(o => o.id === editingOrderId)?.createdAt || serverTimestamp()) : serverTimestamp(),
         updatedAt: serverTimestamp()
       };
+
+      const oldOrder = editingOrderId ? orders.find(o => o.id === editingOrderId) : null;
+      const statusChangedToReady = (!oldOrder || oldOrder.status !== 'Ready for Delivery') && orderData.status === 'Ready for Delivery';
 
       if (editingOrderId) {
         await updateDoc(doc(db, 'orders', editingOrderId), orderData);
@@ -1024,6 +1083,10 @@ const Orders = () => {
           });
         }
         toast.success(`Order #${orderId} saved successfully!`);
+      }
+
+      if (statusChangedToReady) {
+        setTimeout(() => triggerWhatsAppOrderReady(orderData), 500);
       }
 
       setShowAddModal(false);
