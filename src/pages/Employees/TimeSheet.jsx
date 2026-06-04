@@ -281,22 +281,15 @@ const TimeSheet = () => {
       }
     }
 
-    const paidDays = present + Math.min(absent, acceptedLeaves);
-    
-    let debitedDays = 0;
-    if (selectedDateObj <= currentMonthStart) {
-      debitedDays = Math.max(0, daysInMonth - paidDays);
-    } else {
-      debitedDays = 0;
-    }
-
+    const paidDays = Math.min(30, present);
+    const debitedDays = Math.max(0, 30 - paidDays);
     const debitAmount = debitedDays * perDayPay;
     const presentPay = paidDays * perDayPay;
 
     const hasPerfectAttendance = present >= daysInMonth && absent === 0;
     const bonus = hasPerfectAttendance ? (2 * perDayPay) : 0;
     
-    const basicNetPay = salary - debitAmount + bonus;
+    const basicNetPay = Math.max(0, salary - debitAmount + bonus);
 
     // ADVANCES LOGIC
     const empAdvances = advances.filter(a => a.employeeId === emp.id && a.status === 'active');

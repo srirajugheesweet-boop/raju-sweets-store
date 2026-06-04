@@ -239,14 +239,15 @@ const IndividualPortal = () => {
       }
     }
 
-    const presentPay = present * perDayPay;
-    const debitedDays = Math.max(0, absent - acceptedLeaves);
+    const paidDays = Math.min(30, present);
+    const debitedDays = Math.max(0, 30 - paidDays);
     const debitAmount = debitedDays * perDayPay;
+    const presentPay = paidDays * perDayPay;
 
-    const hasPerfectAttendance = absent === 0 && totalRecorded > 0;
+    const hasPerfectAttendance = present >= daysInMonth && absent === 0;
     const bonus = hasPerfectAttendance ? (2 * perDayPay) : 0;
     
-    const basicNetPay = salary - debitAmount + bonus;
+    const basicNetPay = Math.max(0, salary - debitAmount + bonus);
 
     // Advances and Deductions logic
     const empAdvances = advances.filter(a => a.status === 'active');

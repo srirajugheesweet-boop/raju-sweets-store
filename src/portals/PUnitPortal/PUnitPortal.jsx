@@ -42,11 +42,36 @@ const PUnitPortal = () => {
   // Shared Global Printer Connections
   const {
     bluetoothConnected,
+    connectedDevice,
     qzConnected,
     selectedQZPrinter,
     printRawBLE,
     printRawUSB
   } = usePrinter();
+
+  const getPrinterWidthParams = () => {
+    // Default to 80mm (48 chars, 384 dots width for QZ/BLE image)
+    let charsPerLine = 48;
+    let qrWidth = 384; 
+
+    // Check if Bluetooth device name or USB printer name indicates 58mm (2-inch)
+    const printerName = bluetoothConnected ? connectedDevice : (qzConnected ? selectedQZPrinter : '');
+    
+    if (printerName && /58mm|58|mini|mobile|handheld/i.test(printerName)) {
+      charsPerLine = 32;
+      qrWidth = 280;
+    } else if (printerName && /80mm|80|xp-80|xp80|epson|pos-80/i.test(printerName)) {
+      charsPerLine = 48;
+      qrWidth = 384;
+    } else {
+      // BLE handheld/portable receipt printers are overwhelmingly 58mm (32 chars)
+      if (bluetoothConnected) {
+        charsPerLine = 32;
+        qrWidth = 280;
+      }
+    }
+    return { charsPerLine, qrWidth };
+  };
 
   // Editing Packing Details State
   const [editingOrderDetails, setEditingOrderDetails] = useState(null);
@@ -200,6 +225,9 @@ const PUnitPortal = () => {
   };
 
   const handlePrintTrigger = (order, boxesList, notes = '') => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
     if (bluetoothConnected) {
       printDirectToBluetooth(order, boxesList, notes);
     } else if (qzConnected && selectedQZPrinter) {
@@ -212,6 +240,9 @@ const PUnitPortal = () => {
   const printDirectToQZ = async (order, boxesList, notes = '') => {
     toast.loading("Sending print job to USB printer via QZ Tray...", { id: 'qz-print-job' });
     try {
+      const { charsPerLine, qrWidth } = getPrinterWidthParams();
+      const separator = "-".repeat(charsPerLine) + "\n";
+
       for (const box of boxesList) {
         const encoder = new TextEncoder();
 
@@ -228,12 +259,12 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
         bytes.push(...NORMAL_SIZE);
         bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...DOUBLE_SIZE);
         bytes.push(...encoder.encode(`BOX ${box.boxNum} OF ${boxesList.length}\n`));
         bytes.push(...NORMAL_SIZE);
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...LEFT);
         bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
@@ -241,45 +272,48 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...encoder.encode("Order Items:\n"));
         if (order.items && order.items.length > 0) {
           order.items.forEach(item => {
             const itemQtyStr = `${item.quantity} ${item.unit === 'Weight' ? 'kg' : 'pcs'}`;
-            const nameLen = item.name.length;
-            const qtyLen = itemQtyStr.length;
-            const dotsCount = Math.max(1, 32 - nameLen - qtyLen);
-            const lineStr = `${item.name}${".".repeat(dotsCount)}${itemQtyStr}\n`;
+            const maxNameLen = charsPerLine - itemQtyStr.length - 2;
+            let nameToPrint = item.name;
+            if (nameToPrint.length > maxNameLen) {
+              nameToPrint = nameToPrint.substring(0, maxNameLen - 3) + "...";
+            }
+            const dotsCount = charsPerLine - nameToPrint.length - itemQtyStr.length;
+            const lineStr = `${nameToPrint}${".".repeat(Math.max(1, dotsCount))}${itemQtyStr}\n`;
             bytes.push(...encoder.encode(lineStr));
           });
         } else {
           bytes.push(...encoder.encode("No items found\n"));
         }
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...encoder.encode("Items in Box:\n"));
         bytes.push(...encoder.encode(`${box.contents}\n`));
 
         if (notes) {
-          bytes.push(...encoder.encode("--------------------------------\n"));
+          bytes.push(...encoder.encode(separator));
           bytes.push(...encoder.encode(`Note: ${notes}\n`));
         }
 
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         // --- Dynamic ESC/POS QR Code Rasterization ---
         const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
         const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
-        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=${encodeURIComponent(qrDataUrl)}`;
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrWidth}x${qrWidth}&data=${encodeURIComponent(qrDataUrl)}`;
 
         try {
-          const qrBytes = await getLogoESCPOS(qrImgUrl, 340); // Scale to 340 dots width for maximum physical size
+          const qrBytes = await getLogoESCPOS(qrImgUrl, qrWidth); // Scale to dynamic width for maximum physical size
           if (qrBytes && qrBytes.length > 0) {
             bytes.push(...CENTER);
             bytes.push(...qrBytes);
             bytes.push(...encoder.encode("\nScan to Receive at Store\n"));
-            bytes.push(...encoder.encode("--------------------------------\n"));
+            bytes.push(...encoder.encode(separator));
           }
         } catch (qrErr) {
           console.error("ESCPOS QR generation error:", qrErr);
@@ -310,6 +344,9 @@ const PUnitPortal = () => {
     toast.loading("Sending print job directly to Bluetooth thermal printer...", { id: 'bt-print-job' });
 
     try {
+      const { charsPerLine, qrWidth } = getPrinterWidthParams();
+      const separator = "-".repeat(charsPerLine) + "\n";
+
       for (const box of boxesList) {
         const encoder = new TextEncoder();
 
@@ -329,12 +366,12 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
         bytes.push(...NORMAL_SIZE);
         bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...DOUBLE_SIZE);
         bytes.push(...encoder.encode(`BOX ${box.boxNum} OF ${boxesList.length}\n`));
         bytes.push(...NORMAL_SIZE);
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...LEFT);
         bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
@@ -342,45 +379,48 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...encoder.encode("Order Items:\n"));
         if (order.items && order.items.length > 0) {
           order.items.forEach(item => {
             const itemQtyStr = `${item.quantity} ${item.unit === 'Weight' ? 'kg' : 'pcs'}`;
-            const nameLen = item.name.length;
-            const qtyLen = itemQtyStr.length;
-            const dotsCount = Math.max(1, 32 - nameLen - qtyLen);
-            const lineStr = `${item.name}${".".repeat(dotsCount)}${itemQtyStr}\n`;
+            const maxNameLen = charsPerLine - itemQtyStr.length - 2;
+            let nameToPrint = item.name;
+            if (nameToPrint.length > maxNameLen) {
+              nameToPrint = nameToPrint.substring(0, maxNameLen - 3) + "...";
+            }
+            const dotsCount = charsPerLine - nameToPrint.length - itemQtyStr.length;
+            const lineStr = `${nameToPrint}${".".repeat(Math.max(1, dotsCount))}${itemQtyStr}\n`;
             bytes.push(...encoder.encode(lineStr));
           });
         } else {
           bytes.push(...encoder.encode("No items found\n"));
         }
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         bytes.push(...encoder.encode("Items in Box:\n"));
         bytes.push(...encoder.encode(`${box.contents}\n`));
 
         if (notes) {
-          bytes.push(...encoder.encode("--------------------------------\n"));
+          bytes.push(...encoder.encode(separator));
           bytes.push(...encoder.encode(`Note: ${notes}\n`));
         }
 
-        bytes.push(...encoder.encode("--------------------------------\n"));
+        bytes.push(...encoder.encode(separator));
 
         // --- Dynamic ESC/POS QR Code Rasterization ---
         const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
         const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
-        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=340x340&data=${encodeURIComponent(qrDataUrl)}`;
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrWidth}x${qrWidth}&data=${encodeURIComponent(qrDataUrl)}`;
 
         try {
-          const qrBytes = await getLogoESCPOS(qrImgUrl, 340); // Scale to 340 dots width for maximum physical size
+          const qrBytes = await getLogoESCPOS(qrImgUrl, qrWidth); // Scale to dynamic width for maximum physical size
           if (qrBytes && qrBytes.length > 0) {
             bytes.push(...CENTER);
             bytes.push(...qrBytes);
             bytes.push(...encoder.encode("\nScan to Receive at Store\n"));
-            bytes.push(...encoder.encode("--------------------------------\n"));
+            bytes.push(...encoder.encode(separator));
           }
         } catch (qrErr) {
           console.error("ESCPOS QR generation error:", qrErr);
@@ -436,14 +476,13 @@ const PUnitPortal = () => {
             <style>
               @media print {
                 @page { size: auto; margin: 0; }
-                body { margin: 0; padding: 0; background: white; width: 100%; }
+                body { margin: 0; padding: 4mm; background: white; width: 100%; }
               }
               body {
                 font-family: 'Courier New', Courier, monospace;
                 width: 100%;
-                max-width: 80mm;
-                margin: 0 auto;
-                padding: 10px;
+                margin: 0;
+                padding: 8px;
                 box-sizing: border-box;
                 font-size: 13px;
                 line-height: 1.4;
@@ -455,6 +494,8 @@ const PUnitPortal = () => {
                 margin-bottom: 15px;
                 page-break-after: always;
                 text-align: left;
+                width: 100%;
+                box-sizing: border-box;
               }
               .slip:last-child {
                 border-bottom: none;
@@ -1140,9 +1181,20 @@ const PUnitPortal = () => {
                                     <span>
                                       <strong>Box {box.boxNum}:</strong> <span>{box.contents}</span>
                                     </span>
-                                    {isScanned && (
-                                      <span style={{ fontSize: '9px', background: '#10b981', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: '800', whiteSpace: 'nowrap' }}>✓ RECEIVED AT STORE</span>
-                                    )}
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                      {isScanned && (
+                                        <span style={{ fontSize: '9px', background: '#10b981', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: '800', whiteSpace: 'nowrap' }}>✓ RECEIVED AT STORE</span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handlePrintTrigger(order, [box], order.pUnitDescription)}
+                                        className="pu-mini-action-btn print"
+                                        style={{ padding: '3px 8px', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title={`Print Box ${box.boxNum}`}
+                                      >
+                                        <Printer size={10} /> Print Box {box.boxNum}
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               })}
