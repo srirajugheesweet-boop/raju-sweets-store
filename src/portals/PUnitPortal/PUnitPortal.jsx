@@ -33,6 +33,8 @@ import {
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './PUnitPortal.css';
+import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+
 
 const PUnitPortal = () => {
   const { id, tab } = useParams();
@@ -708,6 +710,7 @@ const PUnitPortal = () => {
 
       const balanceDue = Math.max(0, newTotalAmount - receivedAmt);
       const overallStatus = calculateOverallOrderStatus(updatedItemsForFirestore);
+      const statusChangedToReady = (!editingOrderItems.status || editingOrderItems.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
 
       const orderRef = doc(db, 'orders', editingOrderItems.id);
       await updateDoc(orderRef, {
@@ -722,6 +725,17 @@ const PUnitPortal = () => {
       });
 
       toast.success("Order items and payment totals updated successfully!");
+
+      if (statusChangedToReady) {
+        setTimeout(() => triggerWhatsAppOrderReady({
+          ...editingOrderItems,
+          items: updatedItemsForFirestore,
+          status: overallStatus,
+          totalAmount: newTotalAmount,
+          receivedAmount: receivedAmt,
+          paymentStatus: newPaymentStatus
+        }), 500);
+      }
       setEditingOrderItems(null);
     } catch (error) {
       console.error("Save Order Edit Error:", error);
@@ -820,6 +834,15 @@ const PUnitPortal = () => {
         status: overallStatus
       });
       toast.success("Item status updated successfully");
+
+      const statusChangedToReady = (!order.status || order.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
+      if (statusChangedToReady) {
+        setTimeout(() => triggerWhatsAppOrderReady({
+          ...order,
+          items: newItems,
+          status: overallStatus
+        }), 500);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to update status");

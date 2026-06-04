@@ -64,6 +64,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './StorePortal.css';
 import '../../pages/Orders/Orders.css';
 import Payments from '../../pages/Payments/Payments';
+import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+
 
 // --- Custom Searchable Dropdown ---
 const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, icon: Icon, onCreateClick, hasError, errorMsg }) => {
@@ -1547,6 +1549,15 @@ const StorePortal = () => {
         status: overallStatus
       });
       toast.success("Item preparation status updated!");
+
+      const statusChangedToReady = (!order.status || order.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
+      if (statusChangedToReady) {
+        setTimeout(() => triggerWhatsAppOrderReady({
+          ...order,
+          items: newItems,
+          status: overallStatus
+        }), 500);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to update item status");
@@ -1694,61 +1705,6 @@ const StorePortal = () => {
     setFormErrors({});
   };
 
-  const triggerWhatsAppOrderReady = async (order) => {
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      
-      const to = order.customerPhone || '';
-      const customerName = order.customerName || 'Customer';
-      const boxes = order.boxes?.length || 1;
-      const totalAmt = Number(order.totalAmount || 0);
-      const recAmt = Number(order.receivedAmount || 0);
-      const balance = Math.max(0, totalAmt - recAmt);
-      const pendingAmount = `Rs.${balance.toFixed(2)}`;
-      
-      let paymentStatus = 'Pending';
-      if (order.paymentStatus) {
-        const ps = order.paymentStatus.toLowerCase();
-        if (ps === 'done' || ps === 'paid') {
-          paymentStatus = 'Paid';
-        } else if (ps === 'partial' || ps === 'partially paid') {
-          paymentStatus = 'Partially Paid';
-        }
-      } else {
-        if (recAmt > 0) {
-          paymentStatus = recAmt >= totalAmt ? 'Paid' : 'Partially Paid';
-        }
-      }
-
-      const payload = {
-        to,
-        customerName,
-        boxes,
-        pendingAmount,
-        paymentStatus
-      };
-
-      console.log("Sending WhatsApp template notification:", payload);
-
-      const response = await fetch(`${apiUrl}/whatsapp/send-order-ready`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'API request failed');
-      }
-      
-      toast.success(`WhatsApp notification sent to ${customerName}!`);
-    } catch (err) {
-      console.error("WhatsApp trigger error:", err);
-      toast.error(`WhatsApp notification failed: ${err.message}`);
-    }
-  };
 
   const saveOrder = async () => {
     const errors = {};

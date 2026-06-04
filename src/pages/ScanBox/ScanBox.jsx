@@ -5,6 +5,8 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { CheckCircle2, AlertCircle, ShoppingBag, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './ScanBox.css';
+import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+
 
 const ScanBox = () => {
   const { orderId, boxId } = useParams();
@@ -122,6 +124,7 @@ const ScanBox = () => {
 
         // 3. Recalculate overall order status
         const overallStatus = calculateOverallOrderStatus(updatedItems);
+        const statusChangedToReady = (!order.status || order.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
 
         // 4. Update the Firestore document
         await updateDoc(orderRef, {
@@ -130,6 +133,15 @@ const ScanBox = () => {
           status: overallStatus,
           updatedAt: serverTimestamp()
         });
+
+        if (statusChangedToReady) {
+          setTimeout(() => triggerWhatsAppOrderReady({
+            ...order,
+            boxes: updatedBoxes,
+            items: updatedItems,
+            status: overallStatus
+          }), 500);
+        }
 
         toast.success(`Box #${targetBox.boxNum} scanned successfully!`);
         setLoading(false);

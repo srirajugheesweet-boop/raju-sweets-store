@@ -34,6 +34,8 @@ import {
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './PackingUnitDetails.css';
+import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+
 
 const PackingUnitDetails = () => {
   const { id } = useParams();
@@ -554,6 +556,15 @@ const PackingUnitDetails = () => {
         status: overallStatus
       });
       toast.success("Item status updated");
+
+      const statusChangedToReady = (!order.status || order.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
+      if (statusChangedToReady) {
+        setTimeout(() => triggerWhatsAppOrderReady({
+          ...order,
+          items: updatedItems,
+          status: overallStatus
+        }), 500);
+      }
     } catch (error) {
       toast.error("Failed to update status");
     }

@@ -20,6 +20,8 @@ import { collection, onSnapshot, query, doc, updateDoc, getDocs, where, orderBy 
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './MUnitPortal.css';
+import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+
 
 // Helper to convert "HH:MM" (24-hour) to "H:MM AM/PM" (12-hour)
 const format12Hour = (time24) => {
@@ -331,6 +333,15 @@ const MUnitPortal = () => {
         status: overallStatus
       });
       toast.success("Item status updated successfully");
+
+      const statusChangedToReady = (!order.status || order.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
+      if (statusChangedToReady) {
+        setTimeout(() => triggerWhatsAppOrderReady({
+          ...order,
+          items: newItems,
+          status: overallStatus
+        }), 500);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to update status");
