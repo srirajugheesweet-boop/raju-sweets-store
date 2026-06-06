@@ -824,6 +824,7 @@ const StorePortal = () => {
   const [wsSaving, setWsSaving] = useState(false);
   const [wsPreviewSheet, setWsPreviewSheet] = useState(null);
   const [activeWorksheet, setActiveWorksheet] = useState(null);
+  const [wsSearch, setWsSearch] = useState('');
 
   // Store Scan QR Box states
   const [scanInput, setScanInput] = useState('');
@@ -2464,8 +2465,8 @@ const StorePortal = () => {
   // --- Filtering Methods ---
   const filteredOrders = orders.filter(ord => {
     const matchesSearch = 
-      ord.orderId.toLowerCase().includes(orderSearch.toLowerCase()) ||
-      ord.customerName.toLowerCase().includes(orderSearch.toLowerCase()) ||
+      (ord.orderId || '').toLowerCase().includes(orderSearch.toLowerCase()) ||
+      (ord.customerName || '').toLowerCase().includes(orderSearch.toLowerCase()) ||
       (ord.customerPhone || '').includes(orderSearch);
 
     const matchesDate = !deliveryDateFilter || ord.deliveryDate === deliveryDateFilter;
@@ -2488,10 +2489,14 @@ const StorePortal = () => {
   });
 
   const filteredItemsForOrder = orderItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(itemSearchQuery.toLowerCase());
+    const matchesSearch = (item.name || '').toLowerCase().includes(itemSearchQuery.toLowerCase());
     const matchesCategory = selectedCategoryFilter === 'All' || item.categoryId === selectedCategoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  const filteredWsItems = wsItems.filter(item =>
+    (item.name || '').toLowerCase().includes(wsSearch.toLowerCase())
+  );
 
   const orderTotalAmount = orderCart.reduce((sum, item) => sum + item.total, 0);
   const orderRecAmt = parseFloat(receivedAmount) || 0;
@@ -3397,6 +3402,16 @@ const StorePortal = () => {
                       onChange={(e) => setWsDate(e.target.value)} 
                     />
                   </div>
+                  
+                  <div className="st-search-wrapper" style={{ width: '280px', margin: 0 }}>
+                    <Search size={18} className="st-search-icon" />
+                    <input 
+                      type="text" 
+                      placeholder="Search items by name..." 
+                      value={wsSearch}
+                      onChange={(e) => setWsSearch(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -3416,56 +3431,81 @@ const StorePortal = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {wsItems.map(item => {
-                          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pieces';
-                          const unitPlaceholder = item.unit === 'Weight' ? '0.00' : '0';
-                          const itemQty = wsQuantities[item.id] ?? '';
+                        {filteredWsItems.length > 0 ? (
+                          filteredWsItems.map(item => {
+                            const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pieces';
+                            const unitPlaceholder = item.unit === 'Weight' ? '0.00' : '0';
+                            const itemQty = wsQuantities[item.id] ?? '';
 
-                          const isAllocationCompleted = !!(activeWorksheet?.completed?.[item.id]?.[id]);
+                            const isAllocationCompleted = !!(activeWorksheet?.completed?.[item.id]?.[id]);
 
-                          return (
-                            <tr key={item.id} style={{ background: isAllocationCompleted ? '#f0fdf4' : 'none', transition: 'all 0.2s ease' }}>
-                              <td style={{ fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span>{item.name}</span>
-                                {isAllocationCompleted && (
-                                  <span style={{ 
-                                    background: '#10b981', 
-                                    color: 'white', 
-                                    fontSize: '10px', 
-                                    fontWeight: '800', 
-                                    padding: '2px 8px', 
-                                    borderRadius: '20px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px'
-                                  }}>
-                                    <CheckCircle2 size={10} /> Prepared
+                            return (
+                              <tr key={item.id} style={{ background: isAllocationCompleted ? '#f0fdf4' : 'none', transition: 'all 0.2s ease' }}>
+                                <td style={{ fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <span>{item.name}</span>
+                                  {isAllocationCompleted && (
+                                    <span style={{ 
+                                      background: '#10b981', 
+                                      color: 'white', 
+                                      fontSize: '10px', 
+                                      fontWeight: '800', 
+                                      padding: '2px 8px', 
+                                      borderRadius: '20px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px'
+                                    }}>
+                                      <CheckCircle2 size={10} /> Prepared
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={`ws-unit-badge ${item.unit === 'Weight' ? 'weight' : 'piece'}`}>
+                                    {unitLabel}
                                   </span>
-                                )}
-                              </td>
-                              <td>
-                                <span className={`ws-unit-badge ${item.unit === 'Weight' ? 'weight' : 'piece'}`}>
-                                  {unitLabel}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="ws-qty-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <input
-                                    type="number"
-                                    className="ws-qty-input"
-                                    value={itemQty}
-                                    placeholder={unitPlaceholder}
-                                    onChange={(e) => handleWorksheetQtyChange(item.id, e.target.value)}
-                                    min="0"
-                                    step={item.unit === 'Weight' ? '0.01' : '1'}
-                                    disabled={isAllocationCompleted}
-                                  />
-                                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{item.unit === 'Weight' ? 'KG' : 'Pcs'}</span>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                </td>
+                                <td>
+                                  <div className="ws-qty-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input
+                                      type="number"
+                                      className="ws-qty-input"
+                                      value={itemQty}
+                                      placeholder={unitPlaceholder}
+                                      onChange={(e) => handleWorksheetQtyChange(item.id, e.target.value)}
+                                      min="0"
+                                      step={item.unit === 'Weight' ? '0.01' : '1'}
+                                      disabled={isAllocationCompleted}
+                                    />
+                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '700' }}>{item.unit === 'Weight' ? 'KG' : 'Pcs'}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                <Search size={24} style={{ color: '#94a3b8' }} />
+                                <span style={{ fontWeight: 600 }}>No worksheet items match "{wsSearch}"</span>
+                                <button 
+                                  onClick={() => setWsSearch('')} 
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#2563eb',
+                                    textDecoration: 'underline',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    marginTop: '4px'
+                                  }}
+                                >
+                                  Clear search filter
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -3626,7 +3666,7 @@ const StorePortal = () => {
 
                   <div className="st-catalogue-grid">
                     {storeItems
-                      .filter(i => i.name.toLowerCase().includes(billingSearch.toLowerCase()))
+                      .filter(i => (i.name || '').toLowerCase().includes(billingSearch.toLowerCase()))
                       .map(item => {
                         const inCart = cart.find(c => c.id === item.id);
                         return (

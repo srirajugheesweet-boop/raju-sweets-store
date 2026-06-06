@@ -8,7 +8,8 @@ import {
   ChevronRight,
   PackageCheck,
   Building,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import {
@@ -49,6 +50,7 @@ const StoreWorkSheet = () => {
   const [history, setHistory] = useState([]);
   const [previewSheet, setPreviewSheet] = useState(null);
   const [printTargetSheet, setPrintTargetSheet] = useState(null);
+  const [itemSearch, setItemSearch] = useState('');
 
 
   const [loading, setLoading] = useState(true);
@@ -638,6 +640,10 @@ const StoreWorkSheet = () => {
     printHTMLFallback(worksheet, printType);
   };
 
+  const filteredItems = items.filter(item =>
+    (item.name || '').toLowerCase().includes(itemSearch.toLowerCase())
+  );
+
   if (loading) {
     return <Loader type="page" message="Loading worksheet inventory..." />;
   }
@@ -683,6 +689,20 @@ const StoreWorkSheet = () => {
                   />
                 </div>
               </div>
+
+              <div className="ws-search-group">
+                <label>Search Items</label>
+                <div className="ws-search-wrapper">
+                  <Search size={18} className="ws-search-icon" />
+                  <input
+                    type="text"
+                    className="ws-search-input"
+                    placeholder="Search by product name..."
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
             {items.length > 0 ? (
@@ -699,42 +719,67 @@ const StoreWorkSheet = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map(item => {
-                        const unitBadgeClass = item.unit === 'Weight' ? 'weight' : 'piece';
-                        const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pieces';
-                        const unitPlaceholder = item.unit === 'Weight' ? '0.00' : '0';
+                      {filteredItems.length > 0 ? (
+                        filteredItems.map(item => {
+                          const unitBadgeClass = item.unit === 'Weight' ? 'weight' : 'piece';
+                          const unitLabel = item.unit === 'Weight' ? 'KG' : 'Pieces';
+                          const unitPlaceholder = item.unit === 'Weight' ? '0.00' : '0';
 
-                        return (
-                          <tr key={item.id}>
-                            <td>
-                              <span className="ws-item-name">{item.name}</span>
-                            </td>
-                            <td>
-                              <span className={`ws-unit-badge ${unitBadgeClass}`}>
-                                {unitLabel}
-                              </span>
-                            </td>
-                            {stores.map(store => {
-                              const itemQty = quantities[item.id]?.[store.id] ?? '';
-                              return (
-                                <td key={store.id}>
-                                  <div className="ws-qty-input-wrapper">
-                                    <input
-                                      type="number"
-                                      className="ws-qty-input"
-                                      value={itemQty}
-                                      placeholder={unitPlaceholder}
-                                      onChange={(e) => handleQtyChange(item.id, store.id, e.target.value)}
-                                      min="0"
-                                      step={item.unit === 'Weight' ? '0.01' : '1'}
-                                    />
-                                  </div>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
+                          return (
+                            <tr key={item.id}>
+                              <td>
+                                <span className="ws-item-name">{item.name}</span>
+                              </td>
+                              <td>
+                                <span className={`ws-unit-badge ${unitBadgeClass}`}>
+                                  {unitLabel}
+                                </span>
+                              </td>
+                              {stores.map(store => {
+                                const itemQty = quantities[item.id]?.[store.id] ?? '';
+                                return (
+                                  <td key={store.id}>
+                                    <div className="ws-qty-input-wrapper">
+                                      <input
+                                        type="number"
+                                        className="ws-qty-input"
+                                        value={itemQty}
+                                        placeholder={unitPlaceholder}
+                                        onChange={(e) => handleQtyChange(item.id, store.id, e.target.value)}
+                                        min="0"
+                                        step={item.unit === 'Weight' ? '0.01' : '1'}
+                                      />
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={2 + stores.length} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <Search size={24} style={{ color: '#94a3b8' }} />
+                              <span style={{ fontWeight: 600 }}>No items match your search "{itemSearch}"</span>
+                              <button 
+                                onClick={() => setItemSearch('')} 
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--primary-color)',
+                                  textDecoration: 'underline',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  marginTop: '4px'
+                                }}
+                              >
+                                Clear search filter
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

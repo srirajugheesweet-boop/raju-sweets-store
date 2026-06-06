@@ -702,7 +702,7 @@ const StoreDetails = () => {
               <div className="billing-left-panel">
                 <div className="stores-search-bar"><Search size={18} className="stores-search-icon" /><input type="text" placeholder="Search products..." value={billingSearch} onChange={(e) => setBillingSearch(e.target.value)} /></div>
                 <div className="billing-item-list">
-                  {storeItems.filter(i => i.name.toLowerCase().includes(billingSearch.toLowerCase())).map(item => {
+                  {storeItems.filter(i => (i.name || '').toLowerCase().includes(billingSearch.toLowerCase())).map(item => {
                     const inCart = cart.find(c => c.id === item.id);
                     return (
                       <div key={item.id} className="billing-item-card">

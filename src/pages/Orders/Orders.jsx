@@ -1416,7 +1416,7 @@ const Orders = () => {
   };
 
   const filteredItemsForOrder = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(itemSearchQuery.toLowerCase());
+    const matchesSearch = (item.name || '').toLowerCase().includes(itemSearchQuery.toLowerCase());
     const matchesCategory = selectedCategoryFilter === 'All' || item.categoryId === selectedCategoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -1434,9 +1434,9 @@ const Orders = () => {
 
   const filteredOrders = orders.filter(o => {
     const matchesSearch = 
-      o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (o.customerPhone && o.customerPhone.includes(searchQuery));
+      (o.orderId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.customerPhone || '').includes(searchQuery);
     const matchesDate = !deliveryDateFilter || o.deliveryDate === deliveryDateFilter;
     const matchesStatus = statusFilter === 'All' || (o.status || 'new').toLowerCase().trim() === statusFilter.toLowerCase().trim();
     const matchesPaymentStatus = paymentStatusFilter === 'All' || (o.paymentStatus || 'Pending').toLowerCase().trim() === paymentStatusFilter.toLowerCase().trim();
