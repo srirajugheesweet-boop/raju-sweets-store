@@ -16,7 +16,8 @@ import {
   Usb,
   RefreshCw,
   Printer,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { printRawToQZ, getLogoESCPOS } from '../../utils/qzTray';
 import { usePrinter } from '../../context/PrinterContext';
@@ -88,6 +89,21 @@ const PUnitPortal = () => {
   const [tempItems, setTempItems] = useState([]);
   const [savingItems, setSavingItems] = useState(false);
   const [pUnitDetails, setPUnitDetails] = useState(null);
+
+  const [storeFilter, setStoreFilter] = useState('All');
+  const [itemFilter, setItemFilter] = useState('');
+  const [orderFilter, setOrderFilter] = useState('');
+
+  // Get unique stores from the orders assigned to this unit
+  const uniqueStores = React.useMemo(() => {
+    const storesSet = new Set();
+    orders.forEach(order => {
+      if (order.pUnitId === id && order.storeName) {
+        storesSet.add(order.storeName);
+      }
+    });
+    return Array.from(storesSet).sort();
+  }, [orders, id]);
 
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
@@ -890,8 +906,39 @@ const PUnitPortal = () => {
     return isSameDay(orderDateStr, historyDate);
   });
 
+  const applyAllFilters = (ordersList) => {
+    return ordersList.filter(order => {
+      // 1. Store Filter
+      if (storeFilter !== 'All') {
+        const orderStore = order.storeName || 'Outlet Store';
+        if (orderStore !== storeFilter) return false;
+      }
+      
+      // 2. Item Filter (Search inside order.items)
+      if (itemFilter.trim() !== '') {
+        const query = itemFilter.toLowerCase();
+        const matchesItem = order.items && order.items.some(item => 
+          (item.name || '').toLowerCase().includes(query)
+        );
+        if (!matchesItem) return false;
+      }
+      
+      // 3. Order Filter (Search orderId, customerName, customerPhone)
+      if (orderFilter.trim() !== '') {
+        const query = orderFilter.toLowerCase();
+        const matchesOrder = 
+          (order.orderId || '').toLowerCase().includes(query) ||
+          (order.customerName || '').toLowerCase().includes(query) ||
+          (order.customerPhone || '').toLowerCase().includes(query);
+        if (!matchesOrder) return false;
+      }
+      
+      return true;
+    });
+  };
+
   // Decide which orders to display: 'orders' tab shows only active filtered by sub-tab, 'history' tab shows all history
-  const displayedOrders = tab === 'orders' ? getSubTabActiveOrders() : historyOrders;
+  const displayedOrders = applyAllFilters(tab === 'orders' ? getSubTabActiveOrders() : historyOrders);
 
   return (
     <PortalLayout title="Packing Portal" links={links}>
@@ -1064,6 +1111,126 @@ const PUnitPortal = () => {
                     )}
                   </div>
                 )}
+
+                {/* Store, Order, and Item Filters */}
+                <div className="pu-filters-bar" style={{
+                  display: 'flex',
+                  gap: '15px',
+                  background: 'white',
+                  border: '1px solid #e2e8f0',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  marginBottom: '20px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  {/* Store Filter */}
+                  <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Filter by Store</label>
+                    <select
+                      value={storeFilter}
+                      onChange={(e) => setStoreFilter(e.target.value)}
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#334155',
+                        outline: 'none',
+                        background: '#fff',
+                        cursor: 'pointer',
+                        height: '38px'
+                      }}
+                    >
+                      <option value="All">All Stores</option>
+                      {uniqueStores.map(storeName => (
+                        <option key={storeName} value={storeName}>{storeName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Order Search Filter */}
+                  <div style={{ flex: '2 1 250px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Search Order (ID, Customer, Phone)</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="Type to search..."
+                        value={orderFilter}
+                        onChange={(e) => setOrderFilter(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px 8px 36px',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          color: '#334155',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          height: '38px'
+                        }}
+                      />
+                      <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    </div>
+                  </div>
+
+                  {/* Item Search Filter */}
+                  <div style={{ flex: '2 1 250px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Search Item Name</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="e.g. Laddu, Halwa..."
+                        value={itemFilter}
+                        onChange={(e) => setItemFilter(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px 8px 36px',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          color: '#334155',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          height: '38px'
+                        }}
+                      />
+                      <Package size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    </div>
+                  </div>
+                  
+                  {/* Clear All Filters Button */}
+                  {(storeFilter !== 'All' || orderFilter !== '' || itemFilter !== '') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStoreFilter('All');
+                        setOrderFilter('');
+                        setItemFilter('');
+                      }}
+                      style={{
+                        alignSelf: 'flex-end',
+                        height: '38px',
+                        padding: '0 16px',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        color: '#475569',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <X size={14} /> Clear
+                    </button>
+                  )}
+                </div>
 
                 <div className="pu-orders-grid">
                   {displayedOrders.length === 0 ? (
