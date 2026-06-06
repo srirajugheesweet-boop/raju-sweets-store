@@ -927,10 +927,18 @@ const Orders = () => {
       let maxSeq = 0;
       snapshot.docs.forEach(doc => {
         const oId = doc.data().orderId;
-        if (oId && oId.includes('-')) {
-          const prefix = parseInt(oId.split('-')[0], 10);
-          if (!isNaN(prefix) && prefix > maxSeq) {
-            maxSeq = prefix;
+        if (oId) {
+          if (oId.startsWith('S') && oId.includes('-')) {
+            const prefixPart = oId.split('-')[0];
+            const prefix = parseInt(prefixPart.substring(1), 10);
+            if (!isNaN(prefix) && prefix > maxSeq) {
+              maxSeq = prefix;
+            }
+          } else if (oId.includes('-')) {
+            const prefix = parseInt(oId.split('-')[0], 10);
+            if (!isNaN(prefix) && prefix > maxSeq) {
+              maxSeq = prefix;
+            }
           }
         }
       });
@@ -944,7 +952,13 @@ const Orders = () => {
   const generateOrderId = () => {
     const now = new Date();
     const pad = (n) => n.toString().padStart(2, '0');
-    return `ORD${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const DD = pad(now.getDate());
+    const MM = pad(now.getMonth() + 1);
+    const YY = now.getFullYear().toString().slice(-2);
+    const HH = pad(now.getHours());
+    const mm = pad(now.getMinutes());
+    const SS = pad(now.getSeconds());
+    return `${DD}${MM}${YY}${HH}${mm}${SS}`;
   };
 
 
@@ -969,12 +983,16 @@ const Orders = () => {
     setSubmitting(true);
     try {
       let orderId = '';
+      let serialNumber = 1;
       if (editingOrderId) {
-        orderId = orders.find(o => o.id === editingOrderId)?.orderId || generateOrderId();
+        const existingOrder = orders.find(o => o.id === editingOrderId);
+        orderId = existingOrder?.orderId || `S1-${generateOrderId()}`;
+        serialNumber = existingOrder?.serialNumber || 1;
       } else {
         const seq = await getTodayNextOrderSequence();
         const baseId = generateOrderId();
-        orderId = `${seq}-${baseId}`;
+        orderId = `S${seq}-${baseId}`;
+        serialNumber = seq;
       }
       const customer = customers.find(c => c.id === selectedCustomer);
       const store = stores.find(s => s.id === selectedStore);
@@ -992,6 +1010,7 @@ const Orders = () => {
 
       const orderData = {
         orderId,
+        serialNumber,
         customerId: selectedCustomer,
         customerName: `${customer.firstName} ${customer.lastName}`,
         customerPhone: customer.mobileNumber,
