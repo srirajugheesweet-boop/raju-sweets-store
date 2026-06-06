@@ -190,7 +190,13 @@ const PackingUnitDetails = () => {
     } catch (err) {
       console.error("QZ USB print error: ", err);
       toast.dismiss('qz-print-job');
-      toast.error("Failed to print to USB. Opening system print fallback...");
+      let errorMsg = "Failed to print to USB";
+      if (err.message && err.message.includes("not accepting job")) {
+        errorMsg = "Printer is offline or paused. Please check Windows Print Queue settings";
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      toast.error(`${errorMsg}. Opening system print fallback...`, { duration: 6000 });
       handlePrintBoxes(order, boxesList, notes);
     }
   };

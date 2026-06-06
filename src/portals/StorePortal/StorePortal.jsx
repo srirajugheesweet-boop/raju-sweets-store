@@ -2099,6 +2099,14 @@ const StorePortal = () => {
         return;
       } catch (err) {
         console.error('QZ Print error:', err);
+        let errorMsg = "USB print failed";
+        if (err.message && err.message.includes("not accepting job")) {
+          errorMsg = "Printer is offline or paused. Please check Windows Print Queue settings";
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+        toast.error(`${errorMsg}. Opening system print fallback...`, { duration: 6000 });
+        handlePrintOrderReceipt(order);
       }
     }
     // Priority 3: System print dialog (80mm HTML)
@@ -2320,6 +2328,14 @@ const StorePortal = () => {
         return;
       } catch (err) {
         console.error('QZ print error:', err);
+        let errorMsg = "USB print failed";
+        if (err.message && err.message.includes("not accepting job")) {
+          errorMsg = "Printer is offline or paused. Please check Windows Print Queue settings";
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+        toast.error(`${errorMsg}. Opening system print fallback...`, { duration: 6000 });
+        handlePrintReceipt(bill);
       }
     }
     // Priority 3: System print dialog (80mm HTML)
