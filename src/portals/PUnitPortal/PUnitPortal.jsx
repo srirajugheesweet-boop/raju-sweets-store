@@ -106,6 +106,58 @@ const PUnitPortal = () => {
     return Array.from(storesSet).sort();
   }, [orders, id]);
 
+  // Helper to format dates timezone-safely to DD/MM/YYYY format
+  const formatToDDMMYYYY = (dateInput) => {
+    if (!dateInput) return '';
+
+    if (dateInput && typeof dateInput.toDate === 'function') {
+      dateInput = dateInput.toDate();
+    }
+
+    if (dateInput instanceof Date) {
+      const day = String(dateInput.getDate()).padStart(2, '0');
+      const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+      const year = dateInput.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    if (typeof dateInput === 'string') {
+      const trimmed = dateInput.trim();
+      // Handle YYYY-MM-DD
+      if (trimmed.includes('-')) {
+        const parts = trimmed.split('-');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) { // YYYY-MM-DD
+            return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+          } else if (parts[2].length === 4) { // DD-MM-YYYY
+            return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+          }
+        }
+      }
+      // Handle YYYY/MM/DD
+      if (trimmed.includes('/')) {
+        const parts = trimmed.split('/');
+        if (parts.length === 3) {
+          if (parts[0].length === 4) { // YYYY/MM/DD
+            return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+          }
+          return trimmed;
+        }
+      }
+
+      const parsedDate = new Date(trimmed);
+      if (!isNaN(parsedDate.getTime())) {
+        const day = String(parsedDate.getDate()).padStart(2, '0');
+        const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        const year = parsedDate.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      return trimmed;
+    }
+
+    return '';
+  };
+
   // Helper function to match dates across local format variations securely
   const isSameDay = (orderDateStr, selectedDateStr) => {
     if (!orderDateStr || !selectedDateStr) return false;
@@ -288,7 +340,7 @@ const PUnitPortal = () => {
         bytes.push(...LEFT);
         bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
         bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
-        bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
+        bytes.push(...encoder.encode(`Date: ${formatToDDMMYYYY(new Date())}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
         bytes.push(...encoder.encode(separator));
@@ -401,7 +453,7 @@ const PUnitPortal = () => {
         bytes.push(...LEFT);
         bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
         bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
-        bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
+        bytes.push(...encoder.encode(`Date: ${formatToDDMMYYYY(new Date())}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
         bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
         bytes.push(...encoder.encode(separator));
@@ -618,7 +670,7 @@ const PUnitPortal = () => {
                   
                   <div class="info-row"><span class="info-label">Order ID:</span> #${order.orderId}</div>
                   <div class="info-row"><span class="info-label">Store:</span> ${order.storeName || 'Outlet Store'}</div>
-                  <div class="info-row"><span class="info-label">Date:</span> ${new Date().toLocaleDateString()}</div>
+                  <div class="info-row"><span class="info-label">Date:</span> ${formatToDDMMYYYY(new Date())}</div>
                   
                   <div class="divider"></div>
                   
@@ -923,7 +975,7 @@ const PUnitPortal = () => {
   // Filter history orders based on selected date filter
   const historyOrders = assignedOrders.filter(order => {
     if (!historyDate) return true;
-    const orderDateStr = order.deliveryDate || (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '');
+    const orderDateStr = order.deliveryDate || (order.createdAt ? formatToDDMMYYYY(order.createdAt) : '');
     return isSameDay(orderDateStr, historyDate);
   });
 
@@ -1262,7 +1314,7 @@ const PUnitPortal = () => {
                         {tab === 'orders'
                           ? 'There are no active orders waiting to be packed.'
                           : historyDate
-                            ? `No orders found in history for ${new Date(historyDate).toLocaleDateString()}.`
+                            ? `No orders found in history for ${formatToDDMMYYYY(historyDate)}.`
                             : 'No orders found in history.'}
                       </p>
                     </div>
@@ -1298,7 +1350,7 @@ const PUnitPortal = () => {
                             </span>
                             {order.deliveryDate && (
                               <p className="pu-delivery-target">
-                                📅 {new Date(order.deliveryDate).toLocaleDateString()}
+                                📅 {formatToDDMMYYYY(order.deliveryDate)}
                                 <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{order.deliveryTime || ''}</div>
                               </p>
                             )}
