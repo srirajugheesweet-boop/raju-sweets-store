@@ -65,6 +65,7 @@ import './StorePortal.css';
 import '../../pages/Orders/Orders.css';
 import Payments from '../../pages/Payments/Payments';
 import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+import { sendEventNotification } from '../../utils/notificationService';
 
 
 // --- Custom Searchable Dropdown ---
@@ -1805,6 +1806,20 @@ const StorePortal = () => {
           });
         }
         toast.success(`Order #${orderId} placed successfully!`);
+
+        // Send notifications to all unique manufacturing units associated with the order items
+        try {
+          const uniqueMUnitIds = [...new Set(orderCart.map(item => item.mUnitId).filter(Boolean))];
+          uniqueMUnitIds.forEach(mUnitId => {
+            sendEventNotification('order_assigned_to_munit', mUnitId, {
+              orderId: orderId,
+              customerName: orderData.customerName || 'Customer',
+              mUnitId: mUnitId
+            });
+          });
+        } catch (err) {
+          console.error("Failed to send order creation notification:", err);
+        }
       }
 
       if (statusChangedToReady) {

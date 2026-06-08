@@ -1,3 +1,67 @@
+// ─── Firebase Cloud Messaging (background push notifications) ────────────────
+// These scripts enable FCM background message handling in the service worker
+importScripts('https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/11.0.0/firebase-messaging-compat.js');
+
+// Firebase config — must match src/config/firebase.js
+// Note: These are public-facing keys, safe to include here
+firebase.initializeApp({
+  apiKey: 'AIzaSyBtRs3DpaG7lqgno2-hwsHFYe5I3lwCUT8',
+  authDomain: 'leka-e6c78.firebaseapp.com',
+  projectId: 'leka-e6c78',
+  storageBucket: 'leka-e6c78.firebasestorage.app',
+  messagingSenderId: '946189520723',
+  appId: '1:946189520723:web:87c54bc20fbccc650cdba6'
+});
+
+const messaging = firebase.messaging();
+
+// Handle background FCM messages (when the app is closed / in background)
+messaging.onBackgroundMessage((payload) => {
+  console.log('[SW] Background FCM message received:', payload);
+
+  const notificationTitle = payload.notification?.title || '🔔 Raju Ghee Sweets';
+  const notificationOptions = {
+    body: payload.notification?.body || 'You have a new update',
+    icon: '/logo.png',
+    badge: '/logo.png',
+    tag: payload.data?.tag || `raju-sweets-${Date.now()}`,
+    requireInteraction: true,
+    actions: [
+      { action: 'open', title: '👀 Open App' }
+    ],
+    data: {
+      url: payload.data?.link || '/',
+      ...payload.data
+    }
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Handle notification click — open or focus the app
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If app is already open, focus it
+      for (const client of clientList) {
+        if (client.url.includes(self.registration.scope) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open a new tab
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// ─── PWA Cache Strategy ───────────────────────────────────────────────────────
 const CACHE_NAME = 'raju-sweets-cache-v1';
 const ASSETS_TO_CACHE = [
   '/',
@@ -68,3 +132,4 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+

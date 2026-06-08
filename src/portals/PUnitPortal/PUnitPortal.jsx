@@ -35,6 +35,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './PUnitPortal.css';
 import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+import { sendEventNotification } from '../../utils/notificationService';
 
 
 const PUnitPortal = () => {
@@ -856,6 +857,20 @@ const PUnitPortal = () => {
         status: overallStatus
       });
       toast.success("Item status updated successfully");
+
+      const updatedItem = newItems[itemIndex];
+
+      // 🔔 Notify store users when item is moved to store
+      if (newStatus === 'moved_to_store' && order.storeId) {
+        sendEventNotification('item_moved_to_store', order.storeId, {
+          orderId: order.orderId || orderDocId,
+          itemName: updatedItem?.name || 'Item',
+          quantity: `${updatedItem?.quantity || ''} ${updatedItem?.unit === 'Weight' ? 'kg' : 'pcs'}`,
+          customerName: order.customerName || '',
+          storeName: order.storeName || '',
+          storeId: order.storeId
+        });
+      }
 
       const statusChangedToReady = (!order.status || order.status !== 'Ready for Delivery') && overallStatus === 'Ready for Delivery';
       if (statusChangedToReady) {

@@ -33,6 +33,7 @@ import StoreWorkSheet from './pages/StoreWorkSheet/StoreWorkSheet';
 import ScanBox from './pages/ScanBox/ScanBox';
 import Dashboard from './pages/Dashboard/Dashboard';
 import { Toaster } from 'react-hot-toast';
+import { NotificationProvider } from './context/NotificationContext';
 
 
 
@@ -49,6 +50,7 @@ const PlaceholderPage = ({ title }) => (
 function App() {
   return (
     <AuthProvider>
+      <NotificationProvider>
       <PrinterProvider>
         <Router>
         <Toaster 
@@ -123,6 +125,7 @@ function App() {
         </Routes>
       </Router>
       </PrinterProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
