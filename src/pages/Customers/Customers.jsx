@@ -45,7 +45,10 @@ const Customers = () => {
     mobileNumber: '',
     address: '',
     city: '',
-    state: ''
+    state: '',
+    isB2B: false,
+    businessName: '',
+    gstNumber: ''
   });
 
   useEffect(() => {
@@ -59,12 +62,16 @@ const Customers = () => {
   }, []);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (formData.isB2B && (!formData.businessName || !formData.gstNumber)) {
+      toast.error("Business Name and GST Number are required for B2B customers");
+      return;
+    }
     setSubmitting(true);
     try {
       if (editingCustomer) {
@@ -95,7 +102,10 @@ const Customers = () => {
       mobileNumber: '', 
       address: '', 
       city: '', 
-      state: '' 
+      state: '',
+      isB2B: false,
+      businessName: '',
+      gstNumber: '' 
     });
     setShowAddForm(false);
     setEditingCustomer(null);
@@ -110,7 +120,10 @@ const Customers = () => {
       mobileNumber: customer.mobileNumber,
       address: customer.address || '',
       city: customer.city || '',
-      state: customer.state || ''
+      state: customer.state || '',
+      isB2B: customer.isB2B || false,
+      businessName: customer.businessName || '',
+      gstNumber: customer.gstNumber || ''
     });
     setShowAddForm(true);
   };
@@ -136,6 +149,7 @@ const Customers = () => {
 
   const filteredCustomers = customers.filter(customer => 
     (customer.firstName + ' ' + customer.lastName).toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (customer.businessName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.mobileNumber.includes(searchQuery)
   );
 
@@ -197,7 +211,12 @@ const Customers = () => {
                     )}
                   </div>
                   <div className="cust-card-footer">
-                    <span className="cust-type-badge">Regular</span>
+                    <span 
+                      className="cust-type-badge" 
+                      style={customer.isB2B ? { background: '#E0F2FE', color: '#0369A1' } : {}}
+                    >
+                      {customer.isB2B ? 'B2B' : 'Regular'}
+                    </span>
                     <button className="cust-view-details">History <ArrowRight size={14} /></button>
                   </div>
                 </div>
@@ -251,7 +270,7 @@ const Customers = () => {
                   </div>
                 </div>
                 
-                <div className="cust-input-group">
+                 <div className="cust-input-group">
                   <label>Mobile Number <span>*</span></label>
                   <input 
                     type="tel" 
@@ -262,6 +281,45 @@ const Customers = () => {
                     required 
                   />
                 </div>
+
+                <div className="cust-input-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', margin: '5px 0' }}>
+                  <input 
+                    type="checkbox" 
+                    name="isB2B" 
+                    id="isB2B" 
+                    checked={formData.isB2B || false} 
+                    onChange={handleInputChange}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-color)' }}
+                  />
+                  <label htmlFor="isB2B" style={{ cursor: 'pointer', userSelect: 'none', margin: 0 }}>Is B2B Customer?</label>
+                </div>
+
+                {formData.isB2B && (
+                  <>
+                    <div className="cust-input-group">
+                      <label>Business Name <span>*</span></label>
+                      <input 
+                        type="text" 
+                        name="businessName" 
+                        value={formData.businessName || ''}
+                        onChange={handleInputChange}
+                        placeholder="Enter business name"
+                        required 
+                      />
+                    </div>
+                    <div className="cust-input-group">
+                      <label>GST Number <span>*</span></label>
+                      <input 
+                        type="text" 
+                        name="gstNumber" 
+                        value={formData.gstNumber || ''}
+                        onChange={handleInputChange}
+                        placeholder="Enter 15-digit GST number"
+                        required 
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="cust-input-group">
                   <label>Full Address</label>

@@ -28,6 +28,7 @@ import {
 import { buildOrderESCPOS } from '../../utils/qzTray';
 import { usePrinter } from '../../context/PrinterContext';
 import logo from '../../assets/logo.png';
+import { generateGSTInvoice } from '../../utils/invoice';
 import { db } from '../../config/firebase';
 import {
   collection,
@@ -126,7 +127,14 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
                       setSearch('');
                     }}
                   >
-                    <span className="name">{opt.name || opt.firstName + ' ' + opt.lastName}</span>
+                    <span className="name">
+                      {opt.name || opt.firstName + ' ' + opt.lastName}
+                      {opt.isB2B && (
+                        <span style={{ fontSize: '9px', background: '#E0F2FE', color: '#0369A1', padding: '1px 4px', borderRadius: '4px', marginLeft: '6px', fontWeight: 'bold' }}>
+                          B2B
+                        </span>
+                      )}
+                    </span>
                     <span className="sub">{opt.mobileNumber || opt.phone || opt.city}</span>
                   </div>
                 ))
@@ -656,7 +664,10 @@ const Orders = () => {
     mobileNumber: '',
     address: '',
     city: '',
-    state: ''
+    state: '',
+    isB2B: false,
+    businessName: '',
+    gstNumber: ''
   });
   const [savingCustomer, setSavingCustomer] = useState(false);
 
@@ -676,7 +687,10 @@ const Orders = () => {
       mobileNumber: initialPhone,
       address: '',
       city: '',
-      state: ''
+      state: '',
+      isB2B: false,
+      businessName: '',
+      gstNumber: ''
     });
     setShowCreateCustomerModal(true);
   };
@@ -685,6 +699,10 @@ const Orders = () => {
     e.preventDefault();
     if (!customerFormData.firstName || !customerFormData.lastName || !customerFormData.mobileNumber) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (customerFormData.isB2B && (!customerFormData.businessName || !customerFormData.gstNumber)) {
+      toast.error("Business Name and GST Number are required for B2B customers");
       return;
     }
     setSavingCustomer(true);
@@ -915,39 +933,27 @@ const Orders = () => {
     setCart(cart.filter(c => c.id !== id));
   };
 
-  const getTodayNextOrderSequence = async (storeId) => {
+  const getNextOrderSequenceForDeliveryDate = async (storeId, deliveryDate) => {
     try {
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (!deliveryDate) return 1;
       const q = query(
         collection(db, 'orders'),
-        where('createdAt', '>=', startOfDay)
+        where('deliveryDate', '==', deliveryDate)
       );
       const snapshot = await getDocs(q);
       let maxSeq = 0;
       snapshot.docs.forEach(doc => {
         const orderData = doc.data();
         if (orderData.storeId === storeId) {
-          const oId = orderData.orderId;
-          if (oId) {
-            if (oId.startsWith('S') && oId.includes('-')) {
-              const prefixPart = oId.split('-')[0];
-              const prefix = parseInt(prefixPart.substring(1), 10);
-              if (!isNaN(prefix) && prefix > maxSeq) {
-                maxSeq = prefix;
-              }
-            } else if (oId.includes('-')) {
-              const prefix = parseInt(oId.split('-')[0], 10);
-              if (!isNaN(prefix) && prefix > maxSeq) {
-                maxSeq = prefix;
-              }
-            }
+          const serial = orderData.serialNumber;
+          if (typeof serial === 'number' && serial > maxSeq) {
+            maxSeq = serial;
           }
         }
       });
       return maxSeq + 1;
     } catch (err) {
-      console.error("Error calculating daily sequence prefix in Orders:", err);
+      console.error("Error calculating sequence prefix for delivery date in Orders:", err);
       return 1;
     }
   };
@@ -989,12 +995,11 @@ const Orders = () => {
       let serialNumber = 1;
       if (editingOrderId) {
         const existingOrder = orders.find(o => o.id === editingOrderId);
-        orderId = existingOrder?.orderId || `S1-${generateOrderId()}`;
+        orderId = existingOrder?.orderId || generateOrderId();
         serialNumber = existingOrder?.serialNumber || 1;
       } else {
-        const seq = await getTodayNextOrderSequence(selectedStore);
-        const baseId = generateOrderId();
-        orderId = `S${seq}-${baseId}`;
+        const seq = await getNextOrderSequenceForDeliveryDate(selectedStore, deliveryDate);
+        orderId = generateOrderId();
         serialNumber = seq;
       }
       const customer = customers.find(c => c.id === selectedCustomer);
@@ -1017,6 +1022,9 @@ const Orders = () => {
         customerId: selectedCustomer,
         customerName: `${customer.firstName} ${customer.lastName}`,
         customerPhone: customer.mobileNumber,
+        isB2B: customer.isB2B || false,
+        businessName: customer.businessName || '',
+        gstNumber: customer.gstNumber || '',
         storeId: selectedStore,
         storeName: store.name,
         pUnitId: selectedPUnit,
@@ -1114,6 +1122,25 @@ const Orders = () => {
         toast.error("Failed to delete order");
       }
     }
+  };
+
+  const isOrderB2B = (order) => {
+    if (order.isB2B) return true;
+    const cust = customers.find(c => c.id === order.customerId);
+    return cust?.isB2B || false;
+  };
+
+  const handleInvoiceClick = (order) => {
+    const cust = customers.find(c => c.id === order.customerId);
+    const enrichedOrder = {
+      ...order,
+      businessName: order.businessName || cust?.businessName || '',
+      gstNumber: order.gstNumber || cust?.gstNumber || '',
+      address: order.address || cust?.address || '',
+      city: order.city || cust?.city || '',
+      state: order.state || cust?.state || '',
+    };
+    generateGSTInvoice(enrichedOrder);
   };
 
   const handlePrintReceipt = (order) => {
@@ -1715,6 +1742,9 @@ const Orders = () => {
                     <td>
                       <div className="ord-actions-cell">
                         <button className="ord-action-btn view" title="Preview" onClick={() => { setPreviewTab('items'); setPreviewOrder(order); }}><Eye size={16} /></button>
+                        {isOrderB2B(order) && (
+                          <button className="ord-action-btn print" title="Invoice" onClick={() => handleInvoiceClick(order)} style={{ background: '#E0F2FE', color: '#0369A1' }}><FileText size={16} /></button>
+                        )}
                         <button className="ord-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={16} /></button>
                         <button className="ord-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
                         <button className="ord-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
@@ -1983,8 +2013,11 @@ const Orders = () => {
                 </div>
 
                 {/* Card Actions */}
-                <div className="ord-mobile-card-actions">
+                <div className="ord-mobile-card-actions" style={{ flexWrap: 'wrap', gap: '5px' }}>
                   <button className="ord-mobile-action-btn view" title="Preview" onClick={() => { setPreviewTab('items'); setPreviewOrder(order); }}><Eye size={14} /> Preview</button>
+                  {isOrderB2B(order) && (
+                    <button className="ord-mobile-action-btn print" title="Invoice" onClick={() => handleInvoiceClick(order)} style={{ background: '#E0F2FE', color: '#0369A1' }}><FileText size={14} /> Invoice</button>
+                  )}
                   <button className="ord-mobile-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={14} /> Print</button>
                   <button className="ord-mobile-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={14} /> Edit</button>
                   <button className="ord-mobile-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={14} /> Delete</button>
@@ -2942,6 +2975,17 @@ const Orders = () => {
 
                 <div className="modal-actions" style={{ marginTop: '24px', justifyContent: 'flex-end', gap: '10px' }}>
                   <button className="modal-btn cancel" onClick={() => setPreviewOrder(null)}>Close</button>
+                  {previewOrder && isOrderB2B(previewOrder) && (
+                    <button
+                      className="ord-modal-print-btn"
+                      style={{ background: '#E0F2FE', color: '#0369A1', border: '1px solid #BCE0FD' }}
+                      onClick={() => {
+                        handleInvoiceClick(previewOrder);
+                      }}
+                    >
+                      <FileText size={16} /> GST Invoice
+                    </button>
+                  )}
                   <button
                     className="ord-modal-print-btn"
                     onClick={() => {
@@ -3011,6 +3055,45 @@ const Orders = () => {
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
                   />
                 </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '5px 0' }}>
+                  <input 
+                    type="checkbox" 
+                    name="isB2B" 
+                    id="modalIsB2B" 
+                    checked={customerFormData.isB2B || false} 
+                    onChange={(e) => setCustomerFormData({ ...customerFormData, isB2B: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-color)' }}
+                  />
+                  <label htmlFor="modalIsB2B" style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', margin: 0 }}>Is B2B Customer?</label>
+                </div>
+
+                {customerFormData.isB2B && (
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Business Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Business Name"
+                        value={customerFormData.businessName || ''}
+                        onChange={(e) => setCustomerFormData({ ...customerFormData, businessName: e.target.value })}
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>GST Number *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="15-digit GSTIN"
+                        value={customerFormData.gstNumber || ''}
+                        onChange={(e) => setCustomerFormData({ ...customerFormData, gstNumber: e.target.value })}
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', textAlign: 'left' }}>Full Address</label>

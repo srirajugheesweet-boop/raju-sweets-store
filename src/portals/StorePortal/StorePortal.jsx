@@ -1657,39 +1657,27 @@ const StorePortal = () => {
     setOrderCart(prev => prev.filter(c => c.id !== id));
   };
 
-  const getTodayNextOrderSequence = async (storeId) => {
+  const getNextOrderSequenceForDeliveryDate = async (storeId, deliveryDate) => {
     try {
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (!deliveryDate) return 1;
       const q = query(
         collection(db, 'orders'),
-        where('createdAt', '>=', startOfDay)
+        where('deliveryDate', '==', deliveryDate)
       );
       const snapshot = await getDocs(q);
       let maxSeq = 0;
       snapshot.docs.forEach(doc => {
         const orderData = doc.data();
         if (orderData.storeId === storeId) {
-          const oId = orderData.orderId;
-          if (oId) {
-            if (oId.startsWith('S') && oId.includes('-')) {
-              const prefixPart = oId.split('-')[0];
-              const prefix = parseInt(prefixPart.substring(1), 10);
-              if (!isNaN(prefix) && prefix > maxSeq) {
-                maxSeq = prefix;
-              }
-            } else if (oId.includes('-')) {
-              const prefix = parseInt(oId.split('-')[0], 10);
-              if (!isNaN(prefix) && prefix > maxSeq) {
-                maxSeq = prefix;
-              }
-            }
+          const serial = orderData.serialNumber;
+          if (typeof serial === 'number' && serial > maxSeq) {
+            maxSeq = serial;
           }
         }
       });
       return maxSeq + 1;
     } catch (err) {
-      console.error("Error calculating daily sequence prefix in StorePortal:", err);
+      console.error("Error calculating sequence for delivery date in StorePortal:", err);
       return 1;
     }
   };
@@ -1748,12 +1736,11 @@ const StorePortal = () => {
       let serialNumber = 1;
       if (editingOrderId) {
         const existingOrder = orders.find(o => o.id === editingOrderId);
-        orderId = existingOrder?.orderId || `S1-${generateOrderId()}`;
+        orderId = existingOrder?.orderId || generateOrderId();
         serialNumber = existingOrder?.serialNumber || 1;
       } else {
-        const seq = await getTodayNextOrderSequence(id);
-        const baseId = generateOrderId();
-        orderId = `S${seq}-${baseId}`;
+        const seq = await getNextOrderSequenceForDeliveryDate(id, deliveryDate);
+        orderId = generateOrderId();
         serialNumber = seq;
       }
       const customer = orderCustomers.find(c => c.id === selectedCustomer);

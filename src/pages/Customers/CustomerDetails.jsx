@@ -31,8 +31,8 @@ import {
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import './CustomerDetails.css';
 import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+import { generateGSTInvoice } from '../../utils/invoice';
 
 
 const CustomerDetails = () => {
@@ -180,7 +180,17 @@ const CustomerDetails = () => {
             <User size={32} />
           </div>
           <div className="cd-header-info">
-            <h1>{customer.firstName} {customer.lastName}</h1>
+            <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {customer.firstName} {customer.lastName}
+              {customer.isB2B && (
+                <span 
+                  className="cust-type-badge" 
+                  style={{ background: '#E0F2FE', color: '#0369A1', fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}
+                >
+                  B2B
+                </span>
+              )}
+            </h1>
             <div className="cd-header-meta">
               <Phone size={14} /> {customer.mobileNumber}
             </div>
@@ -243,6 +253,18 @@ const CustomerDetails = () => {
                     <label>Mobile Number</label>
                     <span>{customer.mobileNumber}</span>
                   </div>
+                  {customer.isB2B && (
+                    <>
+                      <div className="cd-info-row">
+                        <label>Business Name</label>
+                        <span style={{ fontWeight: '700' }}>{customer.businessName}</span>
+                      </div>
+                      <div className="cd-info-row">
+                        <label>GST Number</label>
+                        <span style={{ fontWeight: '700', color: 'var(--primary-color)' }}>{customer.gstNumber}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -309,6 +331,7 @@ const CustomerDetails = () => {
                         <th>Items</th>
                         <th>Total</th>
                         <th>Status</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -329,10 +352,35 @@ const CustomerDetails = () => {
                                 {order.status.replace(/_/g, ' ')}
                               </span>
                             </td>
+                            <td>
+                              {(customer.isB2B || order.isB2B) && (
+                                <button
+                                  className="cd-btn-primary"
+                                  style={{ padding: '4px 8px', fontSize: '11px', height: '24px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const enrichedOrder = {
+                                      ...order,
+                                      customerName: `${customer.firstName} ${customer.lastName}`,
+                                      customerPhone: customer.mobileNumber,
+                                      businessName: order.businessName || customer.businessName,
+                                      gstNumber: order.gstNumber || customer.gstNumber,
+                                      address: order.address || customer.address,
+                                      city: order.city || customer.city,
+                                      state: order.state || customer.state,
+                                    };
+                                    generateGSTInvoice(enrichedOrder);
+                                  }}
+                                  title="Generate GST Invoice"
+                                >
+                                  Invoice
+                                </button>
+                              )}
+                            </td>
                           </tr>
                           {expandedOrders.includes(order.id) && (
                             <tr className="ord-accordion-row">
-                              <td colSpan="5" style={{ padding: 0 }}>
+                              <td colSpan="6" style={{ padding: 0 }}>
                                 <div className="ord-accordion-content">
                                   <h4 style={{ fontSize: '14px', marginBottom: '10px', color: 'var(--primary-color)' }}>Order Items</h4>
                                   <table className="ord-items-subtable">
