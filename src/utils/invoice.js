@@ -76,7 +76,7 @@ export function numberToWords(num) {
  * 
  * @param {Object} order The order object containing items, store name, customer details.
  */
-export function generateGSTInvoice(order) {
+export function getInvoiceHtml(order) {
   const invoiceNo = order.orderId;
   const invoiceDate = order.createdAt?.toDate 
     ? order.createdAt.toDate().toLocaleDateString('en-IN') 
@@ -222,7 +222,7 @@ export function generateGSTInvoice(order) {
         - Total Tax Amount: ₹${totalGST.toFixed(2)}
       `;
 
-  const printContent = `
+  return `
     <!DOCTYPE html>
     <html>
       <head>
@@ -494,20 +494,21 @@ export function generateGSTInvoice(order) {
             </div>
           </div>
         </div>
-
-        <script>
-          window.onload = function() {
-            window.focus();
-            window.print();
-          };
-        </script>
       </body>
     </html>
   `;
+}
 
+export function generateGSTInvoice(order) {
+  const printContent = getInvoiceHtml(order);
   const printWindow = window.open('', '_blank', 'width=900,height=800');
   if (printWindow) {
     printWindow.document.write(printContent);
     printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = function() {
+      printWindow.focus();
+      printWindow.print();
+    };
   }
 }

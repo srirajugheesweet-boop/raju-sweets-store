@@ -46,7 +46,7 @@ import {
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Orders.css';
-import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+import { triggerWhatsAppOrderReady, triggerWhatsAppOrderConfirmation } from '../../utils/whatsapp';
 
 
 const DEFAULT_ITEM_IMAGE = logo;
@@ -1025,6 +1025,9 @@ const Orders = () => {
         isB2B: customer.isB2B || false,
         businessName: customer.businessName || '',
         gstNumber: customer.gstNumber || '',
+        address: customer.address || '',
+        city: customer.city || '',
+        state: customer.state || '',
         storeId: selectedStore,
         storeName: store.name,
         pUnitId: selectedPUnit,
@@ -1060,6 +1063,7 @@ const Orders = () => {
           });
         }
         toast.success(`Order #${orderId} saved successfully!`);
+        setTimeout(() => triggerWhatsAppOrderConfirmation({ id: orderRef.id, ...orderData }), 500);
       }
 
       if (statusChangedToReady) {

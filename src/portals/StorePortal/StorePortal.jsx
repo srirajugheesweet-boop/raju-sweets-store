@@ -64,7 +64,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './StorePortal.css';
 import '../../pages/Orders/Orders.css';
 import Payments from '../../pages/Payments/Payments';
-import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+import { triggerWhatsAppOrderReady, triggerWhatsAppOrderConfirmation } from '../../utils/whatsapp';
 import { sendEventNotification } from '../../utils/notificationService';
 
 
@@ -1761,6 +1761,12 @@ const StorePortal = () => {
         customerId: selectedCustomer,
         customerName: `${customer.firstName} ${customer.lastName || ''}`.trim(),
         customerPhone: customer.mobileNumber,
+        isB2B: customer.isB2B || false,
+        businessName: customer.businessName || '',
+        gstNumber: customer.gstNumber || '',
+        address: customer.address || '',
+        city: customer.city || '',
+        state: customer.state || '',
         storeId: id,
         storeName: store?.name || 'Raju Ghee Sweets',
         pUnitId: selectedPUnit,
@@ -1796,6 +1802,7 @@ const StorePortal = () => {
           });
         }
         toast.success(`Order #${orderId} placed successfully!`);
+        setTimeout(() => triggerWhatsAppOrderConfirmation({ id: orderRef.id, ...orderData }), 500);
 
         // Send notifications to all unique manufacturing units associated with the order items
         try {
@@ -1842,7 +1849,10 @@ const StorePortal = () => {
       mobileNumber: initialPhone,
       address: '',
       city: '',
-      state: ''
+      state: '',
+      isB2B: false,
+      businessName: '',
+      gstNumber: ''
     });
     setShowCreateCustomerModal(true);
   };
@@ -1851,6 +1861,10 @@ const StorePortal = () => {
     e.preventDefault();
     if (!customerFormData.firstName || !customerFormData.lastName || !customerFormData.mobileNumber) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (customerFormData.isB2B && (!customerFormData.businessName || !customerFormData.gstNumber)) {
+      toast.error("Business Name and GST Number are required for B2B customers");
       return;
     }
     setSavingCustomer(true);
@@ -5117,6 +5131,43 @@ const StorePortal = () => {
                     style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                   />
                 </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '5px 0' }}>
+                  <input 
+                    type="checkbox" 
+                    name="isB2B" 
+                    id="modalIsB2B" 
+                    checked={customerFormData.isB2B || false} 
+                    onChange={(e) => setCustomerFormData(prev => ({ ...prev, isB2B: e.target.checked }))}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-color)' }}
+                  />
+                  <label htmlFor="modalIsB2B" style={{ fontSize: '12px', fontWeight: '700', cursor: 'pointer', userSelect: 'none', margin: 0 }}>Is B2B Customer?</label>
+                </div>
+
+                {customerFormData.isB2B && (
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700' }}>Business Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={customerFormData.businessName || ''}
+                        onChange={(e) => setCustomerFormData(prev => ({ ...prev, businessName: e.target.value }))}
+                        style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700' }}>GST Number *</label>
+                      <input
+                        type="text"
+                        required
+                        value={customerFormData.gstNumber || ''}
+                        onChange={(e) => setCustomerFormData(prev => ({ ...prev, gstNumber: e.target.value }))}
+                        style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '11px', fontWeight: '700' }}>Street Address</label>
