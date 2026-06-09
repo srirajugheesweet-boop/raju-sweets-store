@@ -915,7 +915,7 @@ const Orders = () => {
     setCart(cart.filter(c => c.id !== id));
   };
 
-  const getTodayNextOrderSequence = async () => {
+  const getTodayNextOrderSequence = async (storeId) => {
     try {
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -926,18 +926,21 @@ const Orders = () => {
       const snapshot = await getDocs(q);
       let maxSeq = 0;
       snapshot.docs.forEach(doc => {
-        const oId = doc.data().orderId;
-        if (oId) {
-          if (oId.startsWith('S') && oId.includes('-')) {
-            const prefixPart = oId.split('-')[0];
-            const prefix = parseInt(prefixPart.substring(1), 10);
-            if (!isNaN(prefix) && prefix > maxSeq) {
-              maxSeq = prefix;
-            }
-          } else if (oId.includes('-')) {
-            const prefix = parseInt(oId.split('-')[0], 10);
-            if (!isNaN(prefix) && prefix > maxSeq) {
-              maxSeq = prefix;
+        const orderData = doc.data();
+        if (orderData.storeId === storeId) {
+          const oId = orderData.orderId;
+          if (oId) {
+            if (oId.startsWith('S') && oId.includes('-')) {
+              const prefixPart = oId.split('-')[0];
+              const prefix = parseInt(prefixPart.substring(1), 10);
+              if (!isNaN(prefix) && prefix > maxSeq) {
+                maxSeq = prefix;
+              }
+            } else if (oId.includes('-')) {
+              const prefix = parseInt(oId.split('-')[0], 10);
+              if (!isNaN(prefix) && prefix > maxSeq) {
+                maxSeq = prefix;
+              }
             }
           }
         }
@@ -989,7 +992,7 @@ const Orders = () => {
         orderId = existingOrder?.orderId || `S1-${generateOrderId()}`;
         serialNumber = existingOrder?.serialNumber || 1;
       } else {
-        const seq = await getTodayNextOrderSequence();
+        const seq = await getTodayNextOrderSequence(selectedStore);
         const baseId = generateOrderId();
         orderId = `S${seq}-${baseId}`;
         serialNumber = seq;
