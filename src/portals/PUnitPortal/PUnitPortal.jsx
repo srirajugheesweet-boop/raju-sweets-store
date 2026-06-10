@@ -338,7 +338,7 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode(separator));
 
         bytes.push(...LEFT);
-        bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+        bytes.push(...encoder.encode(`Order ID: ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}\n`));
         bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
         bytes.push(...encoder.encode(`Date: ${formatToDDMMYYYY(new Date())}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
@@ -451,7 +451,7 @@ const PUnitPortal = () => {
         bytes.push(...encoder.encode(separator));
 
         bytes.push(...LEFT);
-        bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+        bytes.push(...encoder.encode(`Order ID: ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}\n`));
         bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
         bytes.push(...encoder.encode(`Date: ${formatToDDMMYYYY(new Date())}\n`));
         bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
@@ -549,7 +549,7 @@ const PUnitPortal = () => {
       const printContent = `
         <html>
           <head>
-            <title>Box Slips - Order #${order.orderId}</title>
+            <title>Box Slips - Order ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}</title>
             <style>
               @media print {
                 @page { size: auto; margin: 0; }
@@ -668,7 +668,7 @@ const PUnitPortal = () => {
                   
                   <div class="box-header">BOX ${box.boxNum} OF ${boxesList.length}</div>
                   
-                  <div class="info-row"><span class="info-label">Order ID:</span> #${order.orderId}</div>
+                  <div class="info-row"><span class="info-label">Order ID:</span> ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}</div>
                   <div class="info-row"><span class="info-label">Store:</span> ${order.storeName || 'Outlet Store'}</div>
                   <div class="info-row"><span class="info-label">Date:</span> ${formatToDDMMYYYY(new Date())}</div>
                   
@@ -1323,7 +1323,9 @@ const PUnitPortal = () => {
                       <div key={order.id} className="pu-order-card">
                         <div className="pu-order-header">
                           <div>
-                            <h3>Order #{order.orderId}</h3>
+                            <h3>
+                              Order {order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}
+                            </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
                               <p className="pu-customer-name" style={{ margin: 0 }}>👤 {order.customerName}</p>
                               <p className="pu-customer-phone" style={{ margin: 0 }}>📞 {order.customerPhone || 'No Phone'}</p>
@@ -1648,7 +1650,7 @@ const PUnitPortal = () => {
                     <div className="pu-modal-header">
                       <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <ShoppingBag size={18} style={{ color: 'var(--primary-color)' }} />
-                        Edit Items - Order #{editingOrderItems.orderId}
+                        Edit Items - Order {editingOrderItems.serialNumber ? `S${editingOrderItems.serialNumber}-${editingOrderItems.orderId}` : `#${editingOrderItems.orderId}`}
                       </h3>
                       <button type="button" className="pu-modal-close" onClick={() => setEditingOrderItems(null)}>
                         <X size={18} />
@@ -1758,7 +1760,7 @@ const PUnitPortal = () => {
                     exit={{ opacity: 0, scale: 0.95 }}
                   >
                     <div className="pu-modal-header">
-                      <h3>Packing Details - Order #{editingOrderDetails.orderId}</h3>
+                      <h3>Packing Details - Order {editingOrderDetails.serialNumber ? `S${editingOrderDetails.serialNumber}-${editingOrderDetails.orderId}` : `#${editingOrderDetails.orderId}`}</h3>
                       <button type="button" className="pu-modal-close" onClick={() => setEditingOrderDetails(null)}>
                         <X size={18} />
                       </button>

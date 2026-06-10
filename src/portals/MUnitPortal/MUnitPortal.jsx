@@ -235,6 +235,7 @@ const MUnitPortal = () => {
               groups[key].linkedOrders.push({
                 orderDocId: order.id,
                 orderId: order.orderId,
+                serialNumber: order.serialNumber,
                 itemIndex: index,
                 quantity: item.quantity,
                 customerName: order.customerName,
@@ -645,7 +646,9 @@ const MUnitPortal = () => {
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '10px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e3a8a' }}>#{link.orderId}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e3a8a' }}>
+                                              {link.serialNumber ? `S${link.serialNumber}-${link.orderId}` : `#${link.orderId}`}
+                                            </span>
                                             <span style={{ 
                                               fontSize: '11px', 
                                               fontWeight: '800', 
@@ -788,7 +791,9 @@ const MUnitPortal = () => {
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '10px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e3a8a' }}>#{link.orderId}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1e3a8a' }}>
+                                              {link.serialNumber ? `S${link.serialNumber}-${link.orderId}` : `#${link.orderId}`}
+                                            </span>
                                             <span style={{ 
                                               fontSize: '11px', 
                                               fontWeight: '800', 
@@ -1025,7 +1030,9 @@ const MUnitPortal = () => {
                                 <td className="mu-order-id-cell" onClick={() => toggleOrderAccordion(order.id)}>
                                   <div className="mu-id-wrapper">
                                     {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                    <span>#{order.orderId}</span>
+                                    <span>
+                                      {order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}
+                                    </span>
                                   </div>
                                 </td>
                                 <td>

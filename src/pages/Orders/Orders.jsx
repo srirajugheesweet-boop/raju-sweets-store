@@ -1171,7 +1171,7 @@ const Orders = () => {
           </div>
           <div class="center bold" style="font-size: 18px;">Raju Ghee Sweets</div>
           <div class="center" style="font-size: 12px; margin-bottom: 10px;">${order.storeName}</div>
-          <div>Order: #${order.orderId}</div>
+          <div>Order: ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}</div>
           <div>Date: ${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : ''}</div>
           <div>Customer: ${order.customerName}</div>
           <div>Phone: ${order.customerPhone}</div>
@@ -1257,7 +1257,7 @@ const Orders = () => {
 
       // Order Details
       bytes.push(...LEFT);
-      bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+      bytes.push(...encoder.encode(`Order ID: ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}\n`));
       bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
       bytes.push(...encoder.encode(`Phone: ${order.customerPhone}\n`));
       bytes.push(...encoder.encode(`Date: ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '')}\n`));
@@ -1711,7 +1711,7 @@ const Orders = () => {
                     <td className="ord-id-cell">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => toggleOrderAccordion(order.id)}>
                         {expandedOrders.includes(order.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        #{order.orderId}
+                        {order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}
                       </div>
                     </td>
                     <td>
@@ -1968,7 +1968,7 @@ const Orders = () => {
                 <div className="ord-mobile-card-header" onClick={() => toggleOrderAccordion(order.id)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    <span className="ord-mobile-id">#{order.orderId}</span>
+                    <span className="ord-mobile-id">{order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}</span>
                   </div>
                   <span className={`ord-status-badge ${(order.status || 'new').toLowerCase().replace(/_/g, '-').replace(/\s+/g, '-')}`}>
                     {getStatusLabel(order.status)}
@@ -2651,7 +2651,9 @@ const Orders = () => {
                     <div>
                       <h3>Raju Ghee Sweets</h3>
                       <p>{previewOrder.storeName}</p>
-                      <p style={{ marginTop: '6px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
+                      <p style={{ marginTop: '6px' }}>
+                        <strong>Order:</strong> {previewOrder.serialNumber ? `S${previewOrder.serialNumber}-${previewOrder.orderId}` : `#${previewOrder.orderId}`}
+                      </p>
                       <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
                       {previewOrder.deliveryDate && (
                         <p style={{ color: 'var(--primary-color)', fontWeight: '700', marginTop: '2px' }}>

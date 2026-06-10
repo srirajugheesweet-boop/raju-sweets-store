@@ -941,6 +941,7 @@ const StorePortal = () => {
           boxNum: targetBox.boxNum,
           contents: targetBox.contents,
           orderId: order.orderId,
+          serialNumber: order.serialNumber,
           alreadyReceived: true
         });
         playSuccessSound();
@@ -993,6 +994,7 @@ const StorePortal = () => {
         boxNum: targetBox.boxNum,
         contents: targetBox.contents,
         orderId: order.orderId,
+        serialNumber: order.serialNumber,
         scannedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
       };
 
@@ -1924,7 +1926,7 @@ const StorePortal = () => {
     const printContent = `
       <html>
         <head>
-          <title>Order - #${order.orderId}</title>
+          <title>Order - ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}</title>
           <style>
             @page {
               size: 80mm auto;
@@ -1969,7 +1971,7 @@ const StorePortal = () => {
           <div class="store-sub">${order.storeName || 'Store'}</div>
           <div class="store-sub">Quality Sweets & Savouries</div>
           <hr class="divider">
-          <div class="info-row"><span><b>Order#:</b> ${order.orderId}</span><span>${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-IN') : '')}</span></div>
+          <div class="info-row"><span><b>Order#:</b> ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : order.orderId}</span><span>${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('en-IN') : '')}</span></div>
           <div class="info-row"><span><b>Customer:</b> ${order.customerName}</span></div>
           <div class="info-row"><span><b>Phone:</b> ${order.customerPhone}</span></div>
           ${order.deliveryDate ? `<div class="info-row"><span><b>Delivery:</b> ${order.deliveryDate} ${order.deliveryTime || ''}</span></div>` : ''}
@@ -2046,7 +2048,7 @@ const StorePortal = () => {
       
       // Order Details
       bytes.push(...LEFT);
-      bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+      bytes.push(...encoder.encode(`Order ID: ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}\n`));
       bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
       bytes.push(...encoder.encode(`Phone: ${order.customerPhone}\n`));
       bytes.push(...encoder.encode(`Date: ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '')}\n`));
@@ -2812,7 +2814,7 @@ const StorePortal = () => {
                           <td className="ord-id-cell">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => toggleOrderAccordion(order.id)}>
                               {expandedOrders.includes(order.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                              #{order.orderId}
+                              {order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}
                             </div>
                           </td>
                           <td>
@@ -3062,7 +3064,7 @@ const StorePortal = () => {
                       <div className="ord-mobile-card-header" onClick={() => toggleOrderAccordion(order.id)}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                          <span className="ord-mobile-id">#{order.orderId}</span>
+                          <span className="ord-mobile-id">{order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}</span>
                         </div>
                         <span className={`ord-status-badge ${(order.status || 'new').toLowerCase().replace(/_/g, '-').replace(/\s+/g, '-')}`}>
                           {getStatusLabel(order.status)}
@@ -4032,12 +4034,12 @@ const StorePortal = () => {
                       {scanSuccessBox.alreadyReceived ? (
                         <>
                           <strong>Already Checked In!</strong>
-                          <p>Box #{scanSuccessBox.boxNum} of Order #{scanSuccessBox.orderId} is already marked as received.</p>
+                          <p>Box #{scanSuccessBox.boxNum} of Order {scanSuccessBox.serialNumber ? `S${scanSuccessBox.serialNumber}-${scanSuccessBox.orderId}` : `#${scanSuccessBox.orderId}`} is already marked as received.</p>
                         </>
                       ) : (
                         <>
                           <strong>Box Received successfully! ✓</strong>
-                          <p style={{ margin: '4px 0 0 0', fontWeight: '800' }}>Box #{scanSuccessBox.boxNum} • Order #{scanSuccessBox.orderId}</p>
+                          <p style={{ margin: '4px 0 0 0', fontWeight: '800' }}>Box #{scanSuccessBox.boxNum} • Order {scanSuccessBox.serialNumber ? `S${scanSuccessBox.serialNumber}-${scanSuccessBox.orderId}` : `#${scanSuccessBox.orderId}`}</p>
                           {scanSuccessBox.contents && (
                             <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#065f46', background: '#d1fae5', padding: '6px 10px', borderRadius: '6px', fontStyle: 'italic' }}>
                               Contents: {scanSuccessBox.contents}
@@ -4066,7 +4068,7 @@ const StorePortal = () => {
                         </div>
                         <div className="st-log-info">
                           <div className="st-log-title">
-                            Box #{scan.boxNum} <span className="st-log-order">Order #{scan.orderId}</span>
+                            Box #{scan.boxNum} <span className="st-log-order">Order {scan.serialNumber ? `S${scan.serialNumber}-${scan.orderId}` : `#${scan.orderId}`}</span>
                           </div>
                           <span className="st-log-contents">{scan.contents}</span>
                         </div>
@@ -5235,7 +5237,9 @@ const StorePortal = () => {
                     <div>
                       <h3>Raju Ghee Sweets</h3>
                       <p>{previewOrder.storeName}</p>
-                      <p style={{ marginTop: '6px' }}><strong>Order:</strong> #{previewOrder.orderId}</p>
+                      <p style={{ marginTop: '6px' }}>
+                        <strong>Order:</strong> {previewOrder.serialNumber ? `S${previewOrder.serialNumber}-${previewOrder.orderId}` : `#${previewOrder.orderId}`}
+                      </p>
                       <p><strong>Date:</strong> {previewOrder.createdAt?.toDate ? previewOrder.createdAt.toDate().toLocaleString() : 'Pending'}</p>
                       {previewOrder.deliveryDate && (
                         <p style={{ color: 'var(--primary-color)', fontWeight: '700', marginTop: '2px' }}>
