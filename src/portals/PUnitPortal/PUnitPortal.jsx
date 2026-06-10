@@ -1342,6 +1342,25 @@ const PUnitPortal = () => {
                               }}>
                                 🏪 {order.storeName || 'Outlet Store'}
                               </span>
+                              {order.globalDescription && (
+                                <div style={{
+                                  marginTop: '6px',
+                                  padding: '6px 10px',
+                                  background: '#fef3c7',
+                                  border: '1px solid #fcd34d',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  color: '#92400e',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '6px',
+                                  lineHeight: '1.4'
+                                }}>
+                                  <span style={{ flexShrink: 0 }}>📝</span>
+                                  <span><strong>Order Note:</strong> {order.globalDescription}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
