@@ -623,6 +623,8 @@ const MUnitPortal = () => {
                                   const actualOrder = orders.find(o => o.id === link.orderDocId);
                                   const actualItem = actualOrder?.items?.[link.itemIndex];
                                   const currentStatus = actualItem?.status || 'preparation_started';
+                                  const pUnit = packingUnits.find(pu => pu.id === actualOrder?.pUnitId);
+                                  const pUnitName = pUnit ? pUnit.name : '';
 
                                   return (
                                     <div 
@@ -664,6 +666,24 @@ const MUnitPortal = () => {
                                           <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
                                             👤 {link.customerName}
                                           </span>
+                                          {pUnitName && (
+                                            <span style={{ 
+                                              fontSize: '11px', 
+                                              fontWeight: '700', 
+                                              color: '#059669', 
+                                              background: '#ecfdf5', 
+                                              padding: '2px 8px', 
+                                              borderRadius: '6px',
+                                              border: '1px solid #d1fae5',
+                                              width: 'fit-content',
+                                              marginTop: '2px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px'
+                                            }}>
+                                              📦 Packing: {pUnitName}
+                                            </span>
+                                          )}
                                         </div>
 
                                         {/* Date and Time Badges */}
@@ -770,6 +790,8 @@ const MUnitPortal = () => {
                                   const actualOrder = orders.find(o => o.id === link.orderDocId);
                                   const actualItem = actualOrder?.items?.[link.itemIndex];
                                   const currentStatus = actualItem?.status || 'preparation_complete';
+                                  const pUnit = packingUnits.find(pu => pu.id === actualOrder?.pUnitId);
+                                  const pUnitName = pUnit ? pUnit.name : '';
 
                                   return (
                                     <div 
@@ -809,6 +831,24 @@ const MUnitPortal = () => {
                                           <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
                                             👤 {link.customerName}
                                           </span>
+                                          {pUnitName && (
+                                            <span style={{ 
+                                              fontSize: '11px', 
+                                              fontWeight: '700', 
+                                              color: '#059669', 
+                                              background: '#ecfdf5', 
+                                              padding: '2px 8px', 
+                                              borderRadius: '6px',
+                                              border: '1px solid #d1fae5',
+                                              width: 'fit-content',
+                                              marginTop: '2px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px'
+                                            }}>
+                                              📦 Packing: {pUnitName}
+                                            </span>
+                                          )}
                                         </div>
 
                                         {/* Date and Time Badges */}
@@ -1039,6 +1079,24 @@ const MUnitPortal = () => {
                                   <div className="mu-customer-info">
                                     <span className="name">{order.customerName}</span>
                                     <span className="phone">{order.customerPhone}</span>
+                                    {packingUnits.find(pu => pu.id === order.pUnitId)?.name && (
+                                      <span style={{
+                                        fontSize: '11px',
+                                        fontWeight: '700',
+                                        color: '#059669',
+                                        background: '#ecfdf5',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid #d1fae5',
+                                        width: 'fit-content',
+                                        marginTop: '3px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '2px'
+                                      }}>
+                                        📦 {packingUnits.find(pu => pu.id === order.pUnitId)?.name}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                                 <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
@@ -1097,6 +1155,9 @@ const MUnitPortal = () => {
                                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
                                         <h4 style={{ margin: 0 }}>My Assigned Items to Prepare</h4>
                                         <div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
+                                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#ecfdf5', border: '1px solid #d1fae5', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#065f46' }}>
+                                            📦 Packing Unit: {packingUnits.find(pu => pu.id === order.pUnitId)?.name || 'Unknown'}
+                                          </span>
                                           <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#eff6ff', border: '1px solid #dbeafe', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#1d4ed8' }}>
                                             <Calendar size={13} /> Target: {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'No Date'}
                                           </span>

@@ -76,6 +76,7 @@ const StoreDetails = () => {
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '' });
   const [bills, setBills] = useState([]);
   const [expandedOrders, setExpandedOrders] = useState([]);
+  const [posDiscount, setPosDiscount] = useState('');
 
   // Fetch Store Details
   useEffect(() => {
@@ -267,11 +268,16 @@ const StoreDetails = () => {
     setSubmittingAccess(true);
     try {
       const billId = generateBillId();
+      const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+      const discountVal = parseFloat(posDiscount) || 0;
+      const totalAmt = Math.max(0, cartTotal - discountVal);
       const billData = {
         billId,
         storeId: id,
+        storeName: store?.name || 'Raju Ghee Sweets',
         items: cart,
-        totalAmount: cart.reduce((sum, item) => sum + item.total, 0),
+        discount: discountVal,
+        totalAmount: totalAmt,
         paymentMode,
         createdAt: serverTimestamp(),
         date: new Date().toLocaleDateString()
@@ -279,8 +285,8 @@ const StoreDetails = () => {
       await addDoc(collection(db, 'stores', id, 'bills'), billData);
       toast.success(`Bill Settled: ${billId}`);
       setCart([]);
+      setPosDiscount('');
     } catch (error) {
-
       toast.error("Failed to settle bill");
     } finally {
       setSubmittingAccess(false);
@@ -776,7 +782,62 @@ const StoreDetails = () => {
                 </div>
 
                 <div className="summary-total">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: '800' }}><span>Total</span><span style={{ color: 'var(--primary-color)' }}>₹{cart.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
+                    <input 
+                      type="number"
+                      placeholder="0.00"
+                      value={posDiscount}
+                      onChange={(e) => setPosDiscount(e.target.value)}
+                      style={{
+                        height: '38px',
+                        padding: '0 12px',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: '700',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  {(() => {
+                    const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+                    const discountVal = parseFloat(posDiscount) || 0;
+                    const totalAmt = Math.max(0, cartTotal - discountVal);
+                    const subtotalVal = totalAmt / 1.05;
+                    const gstVal = totalAmt - subtotalVal;
+
+                    return (
+                      <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed var(--border-color)', marginBottom: '15px' }}>
+                        {discountVal > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                            <span>Cart Total</span>
+                            <span>₹{cartTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {discountVal > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#dc2626', fontWeight: '700' }}>
+                            <span>Discount</span>
+                            <span>-₹{discountVal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                          <span>Subtotal (Excl. Tax)</span>
+                          <span>₹{subtotalVal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                          <span>GST (5%)</span>
+                          <span>₹{gstVal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: '800', marginTop: '5px' }}>
+                          <span>Total</span>
+                          <span style={{ color: 'var(--primary-color)' }}>₹{totalAmt.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="payment-modes">{['Cash', 'UPI', 'Card'].map(mode => <button key={mode} className={`mode-btn ${paymentMode === mode ? 'active' : ''}`} onClick={() => setPaymentMode(mode)}>{mode}</button>)}</div>
                   <button className="stores-btn-save" style={{ width: '100%', height: '54px', marginTop: '20px' }} onClick={settleBill} disabled={submittingAccess}>
                     {submittingAccess ? <div className="loader"></div> : 'Settle Bill'}

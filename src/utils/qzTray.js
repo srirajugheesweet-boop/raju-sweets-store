@@ -350,9 +350,15 @@ export const buildBillESCPOS = (bill, charsPerLine = 48) => {
 
   // Grand Total with GST Details
   const totalVal = Number(bill.totalAmount || 0);
+  const discountVal = Number(bill.discount || 0);
+  const grossTotal = totalVal + discountVal;
   const subtotalVal = totalVal / 1.05;
   const gstVal = totalVal - subtotalVal;
 
+  if (discountVal > 0) {
+    bytes.push(...encoder.encode(justifyLR('Cart Total:', `Rs.${grossTotal.toFixed(2)}`)));
+    bytes.push(...encoder.encode(justifyLR('Discount:', `-Rs.${discountVal.toFixed(2)}`)));
+  }
   bytes.push(...encoder.encode(justifyLR('Subtotal (Excl. Tax):', `Rs.${subtotalVal.toFixed(2)}`)));
   bytes.push(...encoder.encode(justifyLR('GST (5%):', `Rs.${gstVal.toFixed(2)}`)));
   bytes.push(...BOLD_ON);
@@ -468,11 +474,17 @@ export const buildOrderESCPOS = (order, charsPerLine = 48) => {
 
   // Totals with GST details
   const totalVal = Number(order.totalAmount || 0);
+  const discountVal = Number(order.discount || 0);
+  const grossTotal = totalVal + discountVal;
   const subtotalVal = totalVal / 1.05;
   const gstVal = totalVal - subtotalVal;
   const advStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
   const balStr = `Rs.${(totalVal - Number(order.receivedAmount || 0)).toFixed(2)}`;
 
+  if (discountVal > 0) {
+    bytes.push(...encoder.encode(justifyLR('Cart Total:', `Rs.${grossTotal.toFixed(2)}`)));
+    bytes.push(...encoder.encode(justifyLR('Discount:', `-Rs.${discountVal.toFixed(2)}`)));
+  }
   bytes.push(...encoder.encode(justifyLR('Subtotal (Excl. Tax):', `Rs.${subtotalVal.toFixed(2)}`)));
   bytes.push(...encoder.encode(justifyLR('GST (5%):', `Rs.${gstVal.toFixed(2)}`)));
   bytes.push(...BOLD_ON);

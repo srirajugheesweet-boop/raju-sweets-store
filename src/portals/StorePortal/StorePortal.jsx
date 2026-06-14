@@ -731,6 +731,7 @@ const StorePortal = () => {
   const [bills, setBills] = useState([]);
   const [cart, setCart] = useState([]);
   const [paymentMode, setPaymentMode] = useState('UPI');
+  const [posDiscount, setPosDiscount] = useState('');
   const [billingSearch, setBillingSearch] = useState('');
   const [showWeightModal, setShowWeightModal] = useState(null);
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '' });
@@ -785,6 +786,7 @@ const StorePortal = () => {
   const [pUnitDescription, setPUnitDescription] = useState('');
   const [orderPaymentMode, setOrderPaymentMode] = useState('Cash');
   const [receivedAmount, setReceivedAmount] = useState('');
+  const [orderDiscount, setOrderDiscount] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [orderCart, setOrderCart] = useState([]);
@@ -1705,6 +1707,7 @@ const StorePortal = () => {
     setOrderCart([]);
     setOrderPaymentMode('Cash');
     setReceivedAmount('');
+    setOrderDiscount('');
     setDeliveryDate('');
     setDeliveryTime('');
     setEditingOrderId(null);
@@ -1746,7 +1749,9 @@ const StorePortal = () => {
         serialNumber = seq;
       }
       const customer = orderCustomers.find(c => c.id === selectedCustomer);
-      const totalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
+      const cartTotalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
+      const discountVal = parseFloat(orderDiscount) || 0;
+      const totalAmt = Math.max(0, cartTotalAmt - discountVal);
       const recAmtVal = parseFloat(receivedAmount) || 0;
       let payStatus = 'Pending';
       if (recAmtVal > 0) {
@@ -1776,6 +1781,7 @@ const StorePortal = () => {
         mUnitDescription,
         pUnitDescription,
         items: orderCart,
+        discount: discountVal,
         totalAmount: totalAmt,
         receivedAmount: recAmtVal,
         paymentStatus: payStatus,
@@ -1902,6 +1908,7 @@ const StorePortal = () => {
     setPUnitDescription(order.pUnitDescription || '');
     setOrderPaymentMode(order.paymentMode || 'Cash');
     setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
+    setOrderDiscount(order.discount !== undefined ? order.discount.toString() : '');
     setDeliveryDate(order.deliveryDate || '');
     setDeliveryTime(order.deliveryTime || '');
     setOrderCart(order.items || []);
@@ -1996,6 +2003,10 @@ const StorePortal = () => {
             </tbody>
           </table>
           <hr class="divider">
+          ${Number(order.discount || 0) > 0 ? `
+            <div class="info-row" style="font-size:11px;"><span>Cart Total:</span><span>Rs.${(Number(order.totalAmount || 0) + Number(order.discount || 0)).toFixed(2)}</span></div>
+            <div class="info-row" style="font-size:11px; color: #dc2626;"><span>Discount:</span><span>-Rs.${Number(order.discount || 0).toFixed(2)}</span></div>
+          ` : ''}
           <div class="info-row" style="font-size:11px;"><span>Subtotal (Excl. Tax):</span><span>Rs.${(Number(order.totalAmount || 0) / 1.05).toFixed(2)}</span></div>
           <div class="info-row" style="font-size:11px;"><span>GST (5%):</span><span>Rs.${(Number(order.totalAmount || 0) - (Number(order.totalAmount || 0) / 1.05)).toFixed(2)}</span></div>
           <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(order.totalAmount).toFixed(2)}</span></div>
@@ -2087,11 +2098,17 @@ const StorePortal = () => {
 
       // Totals with GST details
       const totalVal = Number(order.totalAmount || 0);
+      const discountVal = Number(order.discount || 0);
+      const grossTotal = totalVal + discountVal;
       const subtotalVal = totalVal / 1.05;
       const gstVal = totalVal - subtotalVal;
       const advStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
       const balStr = `Rs.${(totalVal - Number(order.receivedAmount || 0)).toFixed(2)}`;
 
+      if (discountVal > 0) {
+        bytes.push(...encoder.encode(`${"Cart Total:".padEnd(22, ' ')}${`Rs.${grossTotal.toFixed(2)}`.padStart(10, ' ')}\n`));
+        bytes.push(...encoder.encode(`${"Discount:".padEnd(22, ' ')}${`-Rs.${discountVal.toFixed(2)}`.padStart(10, ' ')}\n`));
+      }
       bytes.push(...encoder.encode(`Subtotal: ${`Rs.${subtotalVal.toFixed(2)}`.padStart(22, ' ')}\n`));
       bytes.push(...encoder.encode(`GST (5%): ${`Rs.${gstVal.toFixed(2)}`.padStart(22, ' ')}\n`));
       bytes.push(...BOLD_ON);
@@ -2236,12 +2253,16 @@ const StorePortal = () => {
     setSubmittingBill(true);
     try {
       const billId = generateBillId();
+      const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+      const discountVal = parseFloat(posDiscount) || 0;
+      const totalAmt = Math.max(0, cartTotal - discountVal);
       const billData = {
         billId,
         storeId: id,
         storeName: store?.name || 'Raju Ghee Sweets',
         items: cart,
-        totalAmount: cart.reduce((sum, item) => sum + item.total, 0),
+        discount: discountVal,
+        totalAmount: totalAmt,
         paymentMode,
         createdAt: serverTimestamp(),
         date: new Date().toLocaleDateString()
@@ -2251,6 +2272,7 @@ const StorePortal = () => {
       toast.success(`Bill settled successfully: ${billId}`);
       
       setCart([]);
+      setPosDiscount('');
       setSelectedReceiptBill(billData);
     } catch (error) {
       console.error(error);
@@ -2332,6 +2354,10 @@ const StorePortal = () => {
             </tbody>
           </table>
           <hr class="divider">
+          ${Number(bill.discount || 0) > 0 ? `
+            <div class="info-row"><span>Cart Total</span><span>Rs.${(Number(bill.totalAmount) + Number(bill.discount)).toFixed(2)}</span></div>
+            <div class="info-row" style="color: #dc2626;"><span>Discount</span><span>-Rs.${Number(bill.discount).toFixed(2)}</span></div>
+          ` : ''}
           <div class="info-row"><span>Subtotal (Excl. Tax)</span><span>Rs.${(Number(bill.totalAmount) / 1.05).toFixed(2)}</span></div>
           <div class="info-row"><span>GST (5%)</span><span>Rs.${(Number(bill.totalAmount) - (Number(bill.totalAmount) / 1.05)).toFixed(2)}</span></div>
           <hr class="divider">
@@ -2444,6 +2470,8 @@ const StorePortal = () => {
       
       // Grand Total with GST Details
       const totalVal = Number(bill.totalAmount || 0);
+      const discountVal = Number(bill.discount || 0);
+      const grossTotal = totalVal + discountVal;
       const subtotalVal = totalVal / 1.05;
       const gstVal = totalVal - subtotalVal;
 
@@ -2451,6 +2479,10 @@ const StorePortal = () => {
       const gstStr = `Rs.${gstVal.toFixed(2)}`;
       const grandTotalStr = `Rs.${totalVal.toFixed(2)}`;
 
+      if (discountVal > 0) {
+        bytes.push(...encoder.encode(`${"Cart Total:".padEnd(22, ' ')}${`Rs.${grossTotal.toFixed(2)}`.padStart(10, ' ')}\n`));
+        bytes.push(...encoder.encode(`${"Discount:".padEnd(22, ' ')}${`-Rs.${discountVal.toFixed(2)}`.padStart(10, ' ')}\n`));
+      }
       bytes.push(...encoder.encode(`Subtotal (Excl. Tax): ${subtotalStr.padStart(10, ' ')}\n`));
       bytes.push(...encoder.encode(`GST (5%):             ${gstStr.padStart(10, ' ')}\n`));
       bytes.push(...encoder.encode("--------------------------------\n"));
@@ -2519,7 +2551,9 @@ const StorePortal = () => {
     (item.name || '').toLowerCase().includes(wsSearch.toLowerCase())
   );
 
-  const orderTotalAmount = orderCart.reduce((sum, item) => sum + item.total, 0);
+  const orderCartTotalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
+  const orderDiscountVal = parseFloat(orderDiscount) || 0;
+  const orderTotalAmount = Math.max(0, orderCartTotalAmt - orderDiscountVal);
   const orderRecAmt = parseFloat(receivedAmount) || 0;
   let orderPaymentStatus = 'Pending';
   if (orderRecAmt > 0) {
@@ -3813,14 +3847,48 @@ const StorePortal = () => {
                   </div>
 
                   <div className="st-summary-settle">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
+                      <input 
+                        type="number"
+                        placeholder="0.00"
+                        value={posDiscount}
+                        onChange={(e) => setPosDiscount(e.target.value)}
+                        style={{
+                          height: '38px',
+                          padding: '0 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          fontWeight: '700',
+                          width: '100%',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+
                     {(() => {
-                      const posTotal = cart.reduce((sum, item) => sum + item.total, 0);
-                      const posSubtotal = posTotal / 1.05;
-                      const posGst = posTotal - posSubtotal;
+                      const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+                      const discountVal = parseFloat(posDiscount) || 0;
+                      const totalAmt = Math.max(0, cartTotal - discountVal);
+                      const posSubtotal = totalAmt / 1.05;
+                      const posGst = totalAmt - posSubtotal;
 
                       return (
                         <>
                           <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '10px' }}>
+                            {discountVal > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                <span>Cart Total</span>
+                                <span>₹{cartTotal.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {discountVal > 0 && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#dc2626', fontWeight: '700' }}>
+                                <span>Discount</span>
+                                <span>-₹{discountVal.toFixed(2)}</span>
+                              </div>
+                            )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
                               <span>Subtotal (Excl. Tax)</span>
                               <span>₹{posSubtotal.toFixed(2)}</span>
@@ -3833,7 +3901,7 @@ const StorePortal = () => {
 
                           <div className="total-display" style={{ marginBottom: '15px' }}>
                             <span>Grand Total (Incl. Tax)</span>
-                            <span className="amt">₹{posTotal.toFixed(2)}</span>
+                            <span className="amt">₹{totalAmt.toFixed(2)}</span>
                           </div>
                         </>
                       );
@@ -4931,6 +4999,18 @@ const StorePortal = () => {
                 </div>
 
                 <div className="ord-summary-totals" style={{ borderTop: 'none', paddingTop: '0' }}>
+                  {orderDiscountVal > 0 && (
+                    <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                      <span>Cart Total</span>
+                      <span>₹{orderCartTotalAmt.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {orderDiscountVal > 0 && (
+                    <div className="ord-total-row" style={{ fontSize: '13px', color: '#dc2626', fontWeight: '600', marginTop: '2px' }}>
+                      <span>Discount (₹)</span>
+                      <span>-₹{orderDiscountVal.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
                     <span>Subtotal (Excl. Tax)</span>
                     <span>₹{(orderTotalAmount / 1.05).toFixed(2)}</span>
@@ -4970,6 +5050,25 @@ const StorePortal = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '15px' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
+                        <input 
+                          type="number"
+                          placeholder="0.00"
+                          value={orderDiscount}
+                          onChange={(e) => setOrderDiscount(e.target.value)}
+                          style={{
+                            height: '38px',
+                            padding: '0 12px',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Received Amount (₹)</label>
                         <input 

@@ -22,7 +22,8 @@ import {
   where, 
   onSnapshot,
   orderBy,
-  updateDoc
+  updateDoc,
+  getDocs
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,7 +34,21 @@ const ManufacturingUnitDetails = () => {
   const navigate = useNavigate();
   const [unit, setUnit] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [packingUnits, setPackingUnits] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPackingUnits = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'packingUnits'));
+        const fetched = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPackingUnits(fetched);
+      } catch (err) {
+        console.error("Error fetching packing units:", err);
+      }
+    };
+    fetchPackingUnits();
+  }, []);
 
   useEffect(() => {
     const fetchUnit = async () => {
@@ -166,22 +181,31 @@ const ManufacturingUnitDetails = () => {
         </div>
 
         <div className="mud-orders-grid">
-          {orders.length > 0 ? orders.map(order => (
-            <div key={order.id} className="mud-order-card">
-              <div className="mud-order-header">
-                <div className="mud-order-main-info">
-                  <span className="mud-order-id">#{order.orderId}</span>
-                  <span className="mud-order-date">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</span>
+          {orders.length > 0 ? orders.map(order => {
+            const pUnitName = packingUnits.find(pu => pu.id === order.pUnitId)?.name || '';
+            return (
+              <div key={order.id} className="mud-order-card">
+                <div className="mud-order-header">
+                  <div className="mud-order-main-info">
+                    <span className="mud-order-id">#{order.orderId}</span>
+                    <span className="mud-order-date">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'New'}</span>
+                  </div>
+                  <div className={`mud-order-status-tag ${order.status}`}>
+                    {order.status.replace(/_/g, ' ').toUpperCase()}
+                  </div>
                 </div>
-                <div className={`mud-order-status-tag ${order.status}`}>
-                  {order.status.replace(/_/g, ' ').toUpperCase()}
+                
+                <div className="mud-customer-info">
+                  <User size={14} />
+                  <span>{order.customerName}</span>
                 </div>
-              </div>
-              
-              <div className="mud-customer-info">
-                <User size={14} />
-                <span>{order.customerName}</span>
-              </div>
+
+                {pUnitName && (
+                  <div className="mud-customer-info" style={{ marginTop: '4px', color: '#059669', fontWeight: '700' }}>
+                    <Package size={14} />
+                    <span>Packing: <strong>{pUnitName}</strong></span>
+                  </div>
+                )}
 
               {order.mUnitDescription && (
                 <div className="mud-unit-instructions">
@@ -260,7 +284,8 @@ const ManufacturingUnitDetails = () => {
                 })}
               </div>
             </div>
-          )) : (
+          );
+        }) : (
             <div className="mud-empty-state">
               <Package size={48} />
               <h3>No Active Orders</h3>

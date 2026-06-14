@@ -637,6 +637,7 @@ const Orders = () => {
   const [pUnitDescription, setPUnitDescription] = useState('');
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [receivedAmount, setReceivedAmount] = useState('');
+  const [discount, setDiscount] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
   const [cart, setCart] = useState([]);
@@ -1005,7 +1006,9 @@ const Orders = () => {
       const customer = customers.find(c => c.id === selectedCustomer);
       const store = stores.find(s => s.id === selectedStore);
 
-      const totalAmt = cart.reduce((sum, item) => sum + item.total, 0);
+      const cartTotalAmt = cart.reduce((sum, item) => sum + item.total, 0);
+      const discountVal = parseFloat(discount) || 0;
+      const totalAmt = Math.max(0, cartTotalAmt - discountVal);
       const recAmtVal = parseFloat(receivedAmount) || 0;
       let payStatus = 'Pending';
       if (recAmtVal > 0) {
@@ -1035,6 +1038,7 @@ const Orders = () => {
         mUnitDescription,
         pUnitDescription,
         items: cart,
+        discount: discountVal,
         totalAmount: totalAmt,
         receivedAmount: recAmtVal,
         paymentStatus: payStatus,
@@ -1090,6 +1094,7 @@ const Orders = () => {
     setCart([]);
     setPaymentMode('Cash');
     setReceivedAmount('');
+    setDiscount('');
     setDeliveryDate('');
     setDeliveryTime('');
     setEditingOrderId(null);
@@ -1108,6 +1113,7 @@ const Orders = () => {
     setPUnitDescription(order.pUnitDescription || '');
     setPaymentMode(order.paymentMode || 'Cash');
     setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
+    setDiscount(order.discount !== undefined ? order.discount.toString() : '');
     setDeliveryDate(order.deliveryDate || '');
     setDeliveryTime(order.deliveryTime || '');
     setCart(order.items || []);
@@ -1192,6 +1198,16 @@ const Orders = () => {
           </table>
           <div class="divider"></div>
           <div style="font-size: 12px; line-height: 1.5; margin-top: 10px;">
+            ${Number(order.discount || 0) > 0 ? `
+            <div style="display: flex; justify-content: space-between;">
+              <span>Cart Total:</span>
+              <span>₹${(Number(order.totalAmount || 0) + Number(order.discount || 0)).toFixed(2)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: #dc2626;">
+              <span>Discount:</span>
+              <span>-₹${Number(order.discount || 0).toFixed(2)}</span>
+            </div>
+            ` : ''}
             <div style="display: flex; justify-content: space-between;">
               <span>Subtotal (Excl. Tax):</span>
               <span>₹${(Number(order.totalAmount || 0) / 1.05).toFixed(2)}</span>
@@ -1296,11 +1312,17 @@ const Orders = () => {
 
       // Totals with GST details
       const totalVal = Number(order.totalAmount || 0);
+      const discountVal = Number(order.discount || 0);
+      const grossTotal = totalVal + discountVal;
       const subtotalVal = totalVal / 1.05;
       const gstVal = totalVal - subtotalVal;
       const advStr = `Rs.${Number(order.receivedAmount || 0).toFixed(2)}`;
       const balStr = `Rs.${(totalVal - Number(order.receivedAmount || 0)).toFixed(2)}`;
 
+      if (discountVal > 0) {
+        bytes.push(...encoder.encode(`Cart Total: ${`Rs.${grossTotal.toFixed(2)}`.padStart(20, ' ')}\n`));
+        bytes.push(...encoder.encode(`Discount:   ${`-Rs.${discountVal.toFixed(2)}`.padStart(20, ' ')}\n`));
+      }
       bytes.push(...encoder.encode(`Subtotal: ${`Rs.${subtotalVal.toFixed(2)}`.padStart(22, ' ')}\n`));
       bytes.push(...encoder.encode(`GST (5%): ${`Rs.${gstVal.toFixed(2)}`.padStart(22, ' ')}\n`));
       bytes.push(...BOLD_ON);
@@ -1455,7 +1477,9 @@ const Orders = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.total, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+  const discountVal = parseFloat(discount) || 0;
+  const totalAmount = Math.max(0, cartTotal - discountVal);
   const recAmt = parseFloat(receivedAmount) || 0;
   let paymentStatus = 'Pending';
   if (recAmt > 0) {
@@ -2474,6 +2498,16 @@ const Orders = () => {
 
                 <div className="ord-summary-totals" style={{ borderTop: 'none', paddingTop: '0' }}>
                   <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                    <span>Cart Total</span>
+                    <span>₹{cartTotal.toFixed(2)}</span>
+                  </div>
+                  {discountVal > 0 && (
+                    <div className="ord-total-row" style={{ fontSize: '13px', color: '#dc2626', fontWeight: '700', marginTop: '2px' }}>
+                      <span>Discount</span>
+                      <span>-₹{discountVal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
                     <span>Subtotal (Excl. Tax)</span>
                     <span>₹{(totalAmount / 1.05).toFixed(2)}</span>
                   </div>
@@ -2495,19 +2529,41 @@ const Orders = () => {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
-                      <div className="ord-payment-modes" style={{ marginTop: '0' }}>
-                        {['Cash', 'UPI', 'Card'].map(mode => (
-                          <button
-                            type="button"
-                            key={mode}
-                            className={`ord-mode-btn ${paymentMode === mode ? 'active' : ''}`}
-                            onClick={() => setPaymentMode(mode)}
-                          >
-                            {mode}
-                          </button>
-                        ))}
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          value={discount}
+                          onChange={(e) => setDiscount(e.target.value)}
+                          style={{
+                            height: '38px',
+                            padding: '0 12px',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
+                        <div className="ord-payment-modes" style={{ marginTop: '0', display: 'flex', gap: '5px', height: '38px' }}>
+                          {['Cash', 'UPI', 'Card'].map(mode => (
+                            <button
+                              type="button"
+                              key={mode}
+                              className={`ord-mode-btn ${paymentMode === mode ? 'active' : ''}`}
+                              onClick={() => setPaymentMode(mode)}
+                              style={{ flex: 1, height: '100%', padding: 0 }}
+                            >
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -2815,7 +2871,19 @@ const Orders = () => {
                   {/* Tab Panel: Payment History */}
                   {previewTab === 'payment' && (
                     <div className="ord-tab-panel animate-fade-in">
-                      <div className="ord-payment-summary-grid">
+                      <div className="ord-payment-summary-grid" style={{ gridTemplateColumns: previewOrder.discount > 0 ? 'repeat(auto-fit, minmax(110px, 1fr))' : 'repeat(3, 1fr)' }}>
+                        {previewOrder.discount > 0 && (
+                          <>
+                            <div className="ord-payment-summary-card">
+                              <h4>Cart Total</h4>
+                              <p>₹{(previewOrder.totalAmount + previewOrder.discount).toFixed(2)}</p>
+                            </div>
+                            <div className="ord-payment-summary-card" style={{ color: '#dc2626' }}>
+                              <h4>Discount</h4>
+                              <p>-₹{previewOrder.discount.toFixed(2)}</p>
+                            </div>
+                          </>
+                        )}
                         <div className="ord-payment-summary-card">
                           <h4>Total Bill</h4>
                           <p>₹{previewOrder.totalAmount.toFixed(2)}</p>

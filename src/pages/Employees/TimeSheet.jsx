@@ -769,10 +769,13 @@ const TimeSheet = () => {
     }, 500);
   };
 
-  const filteredEmployees = employees.filter(emp => 
-    `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    emp.phone.includes(searchQuery)
-  );
+  const filteredEmployees = employees.filter(emp => {
+    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+    const phone = emp.phone || '';
+    const empId = `EMP-${emp.id.slice(0, 5).toUpperCase()}`;
+    const query = searchQuery.toLowerCase();
+    return fullName.includes(query) || phone.includes(query) || empId.toLowerCase().includes(query);
+  });
 
   return (
     <Layout>

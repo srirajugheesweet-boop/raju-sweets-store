@@ -35,6 +35,7 @@ const Employees = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
 
   // Form State
@@ -153,6 +154,14 @@ const Employees = () => {
     if (action === 'edit') navigate(`/employees/edit/${id}`);
   };
 
+  const filteredEmployees = employees.filter(emp => {
+    const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase();
+    const phone = emp.phone || '';
+    const empId = `EMP-${emp.id.slice(0, 5).toUpperCase()}`;
+    const query = searchQuery.toLowerCase();
+    return fullName.includes(query) || phone.includes(query) || empId.toLowerCase().includes(query);
+  });
+
   return (
     <div className="emp-container">
       <div className="emp-header">
@@ -169,13 +178,24 @@ const Employees = () => {
 
       <div className="emp-layout">
         <div className="emp-list-section">
+          <div className="emp-search-wrapper">
+            <Search size={18} className="emp-search-icon" />
+            <input 
+              type="text" 
+              className="emp-search-input" 
+              placeholder="Search employees by name, phone, ID..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
           <div className="emp-table-wrapper">
             {loading ? (
               <div className="emp-empty-state"><div className="loader"></div></div>
-            ) : employees.length === 0 ? (
+            ) : filteredEmployees.length === 0 ? (
               <div className="emp-empty-state">
                 <ShieldAlert size={48} style={{ opacity: 0.2, marginBottom: '15px' }} />
-                <p>No employees found. Click "Add Employee" to get started.</p>
+                <p>{employees.length === 0 ? 'No employees found. Click "Add Employee" to get started.' : 'No employees found matching your search.'}</p>
               </div>
             ) : (
               <table className="emp-table">
@@ -189,7 +209,7 @@ const Employees = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => (
+                  {filteredEmployees.map((emp) => (
                     <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
                       <td>
                         <div className="emp-name-cell">
