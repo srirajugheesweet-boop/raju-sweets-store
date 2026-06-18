@@ -213,6 +213,33 @@ const PortalLayout = ({ children, title, links }) => {
           </div>
         </header>
 
+        {/* Global Printer Connection Widgets for Mobile Devices */}
+        <div className="mobile-printer-status-bar">
+          {bluetoothConnected ? (
+            <button className="mobile-print-status-btn connected ble" title={`BLE: ${connectedDevice}`} onClick={disconnectPrinter}>
+              <BluetoothIcon size={13} />
+              <span>BLE: {connectedDevice ? (connectedDevice.length > 10 ? `${connectedDevice.substring(0, 10)}...` : connectedDevice) : 'Connected'}</span>
+            </button>
+          ) : (
+            <button className="mobile-print-status-btn disconnected ble" title="Connect Bluetooth Printer" onClick={handleBluetoothConnect}>
+              <BluetoothIcon size={13} />
+              <span>Connect BLE</span>
+            </button>
+          )}
+
+          {qzConnected ? (
+            <button className="mobile-print-status-btn connected usb" title={`USB: ${selectedQZPrinter}`} onClick={() => setShowQZModal(true)}>
+              <UsbIcon size={13} />
+              <span>USB: {selectedQZPrinter ? (selectedQZPrinter.length > 10 ? `${selectedQZPrinter.substring(0, 10)}...` : selectedQZPrinter) : 'Connected'}</span>
+            </button>
+          ) : (
+            <button className="mobile-print-status-btn disconnected usb" title="Connect USB Printer" onClick={connectQZTray} disabled={qzConnecting}>
+              <UsbIcon size={13} />
+              <span>{qzConnecting ? `USB: ${qzConnectTimer}s` : 'Connect USB'}</span>
+            </button>
+          )}
+        </div>
+
         <main className="main-content">
           {children}
         </main>

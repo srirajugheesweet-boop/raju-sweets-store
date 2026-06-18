@@ -50,7 +50,14 @@ const PUnitPortal = () => {
     qzConnected,
     selectedQZPrinter,
     printRawBLE,
-    printRawUSB
+    printRawUSB,
+    handleBluetoothConnect,
+    disconnectPrinter,
+    connectQZTray,
+    qzConnecting,
+    qzConnectTimer,
+    setShowQZModal,
+    disconnectQZTray
   } = usePrinter();
 
   const getPrinterWidthParams = () => {
@@ -1051,6 +1058,55 @@ const PUnitPortal = () => {
                   <span className="pu-status-badge" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--primary-color)', color: 'white' }}>
                     Packing Unit: {id}
                   </span>
+                </div>
+
+                {/* Printer Connection Banner */}
+                <div className="pu-bt-banner animate-fade-in" style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 16px', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    {/* Bluetooth Status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: bluetoothConnected ? '#22c55e' : '#cbd5e1', boxShadow: bluetoothConnected ? '0 0 8px #22c55e' : 'none', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                        BT: {bluetoothConnected ? connectedDevice : 'Not Connected'}
+                      </span>
+                    </div>
+                    {/* Divider */}
+                    <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }}></div>
+                    {/* QZ USB Status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: qzConnected ? '#3b82f6' : '#cbd5e1', boxShadow: qzConnected ? '0 0 8px #3b82f6' : 'none', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                        USB: {qzConnected ? (selectedQZPrinter || 'No printer selected') : 'Not Connected'}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {/* BT Button */}
+                    {bluetoothConnected ? (
+                      <button type="button" onClick={disconnectPrinter}
+                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Bluetooth size={12} /> Disconnect BT
+                      </button>
+                    ) : (
+                      <button type="button" onClick={handleBluetoothConnect}
+                        style={{ background: 'var(--primary-color)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Bluetooth size={12} /> Connect BT
+                      </button>
+                    )}
+                    {/* QZ USB Button */}
+                    {qzConnected ? (
+                      <button type="button" onClick={() => setShowQZModal(true)}
+                        style={{ background: '#2563eb', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Usb size={12} /> Change USB Printer
+                      </button>
+                    ) : (
+                      <button type="button" onClick={connectQZTray} disabled={qzConnecting}
+                        style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: qzConnecting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '4px', opacity: qzConnecting ? 0.7 : 1 }}>
+                        {qzConnecting ? <RefreshCw size={12} className="spin-icon" /> : <Usb size={12} />}
+                        {qzConnecting ? 'Connecting...' : 'Connect USB'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Sub-Tabs Selector for Active Packing Orders */}
