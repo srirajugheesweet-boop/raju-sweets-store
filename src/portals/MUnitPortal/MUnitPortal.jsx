@@ -6,7 +6,6 @@ import {
   ShoppingBag,
   ClipboardList,
   CheckCircle2,
-  User,
   Clock,
   ArrowRight,
   Eye,
@@ -18,7 +17,7 @@ import {
 import { db } from '../../config/firebase';
 import { collection, onSnapshot, query, doc, updateDoc, getDocs, where, orderBy } from 'firebase/firestore';
 import toast from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import './MUnitPortal.css';
 import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
 import { sendEventNotification } from '../../utils/notificationService';
@@ -85,6 +84,7 @@ const MUnitPortal = () => {
   // Fetch/subscribe to the store worksheets for the selected date
   useEffect(() => {
     if (tab === 'store-worksheet' && mUnitWorksheetDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMUnitWorksheetLoading(true);
       const q = query(collection(db, 'store_worksheets'), where('date', '==', mUnitWorksheetDate));
 
@@ -623,8 +623,6 @@ const MUnitPortal = () => {
                                   const actualOrder = orders.find(o => o.id === link.orderDocId);
                                   const actualItem = actualOrder?.items?.[link.itemIndex];
                                   const currentStatus = actualItem?.status || 'preparation_started';
-                                  const pUnit = packingUnits.find(pu => pu.id === actualOrder?.pUnitId);
-                                  const pUnitName = pUnit ? pUnit.name : '';
 
                                   return (
                                     <div 
@@ -666,7 +664,7 @@ const MUnitPortal = () => {
                                           <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
                                             👤 {link.customerName}
                                           </span>
-                                          {pUnitName && (
+                                          {actualOrder?.storeName && (
                                             <span style={{ 
                                               fontSize: '11px', 
                                               fontWeight: '700', 
@@ -681,7 +679,7 @@ const MUnitPortal = () => {
                                               alignItems: 'center',
                                               gap: '4px'
                                             }}>
-                                              📦 Packing: {pUnitName}
+                                              🏪 Store: {actualOrder.storeName}
                                             </span>
                                           )}
                                         </div>
@@ -790,8 +788,6 @@ const MUnitPortal = () => {
                                   const actualOrder = orders.find(o => o.id === link.orderDocId);
                                   const actualItem = actualOrder?.items?.[link.itemIndex];
                                   const currentStatus = actualItem?.status || 'preparation_complete';
-                                  const pUnit = packingUnits.find(pu => pu.id === actualOrder?.pUnitId);
-                                  const pUnitName = pUnit ? pUnit.name : '';
 
                                   return (
                                     <div 
@@ -831,7 +827,7 @@ const MUnitPortal = () => {
                                           <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: '600' }}>
                                             👤 {link.customerName}
                                           </span>
-                                          {pUnitName && (
+                                          {actualOrder?.storeName && (
                                             <span style={{ 
                                               fontSize: '11px', 
                                               fontWeight: '700', 
@@ -846,7 +842,7 @@ const MUnitPortal = () => {
                                               alignItems: 'center',
                                               gap: '4px'
                                             }}>
-                                              📦 Packing: {pUnitName}
+                                              🏪 Store: {actualOrder.storeName}
                                             </span>
                                           )}
                                         </div>
@@ -1079,7 +1075,7 @@ const MUnitPortal = () => {
                                   <div className="mu-customer-info">
                                     <span className="name">{order.customerName}</span>
                                     <span className="phone">{order.customerPhone}</span>
-                                    {packingUnits.find(pu => pu.id === order.pUnitId)?.name && (
+                                    {order.storeName && (
                                       <span style={{
                                         fontSize: '11px',
                                         fontWeight: '700',
@@ -1094,7 +1090,7 @@ const MUnitPortal = () => {
                                         alignItems: 'center',
                                         gap: '2px'
                                       }}>
-                                        📦 {packingUnits.find(pu => pu.id === order.pUnitId)?.name}
+                                        🏪 {order.storeName}
                                       </span>
                                     )}
                                   </div>
@@ -1156,7 +1152,7 @@ const MUnitPortal = () => {
                                         <h4 style={{ margin: 0 }}>My Assigned Items to Prepare</h4>
                                         <div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
                                           <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#ecfdf5', border: '1px solid #d1fae5', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#065f46' }}>
-                                            📦 Packing Unit: {packingUnits.find(pu => pu.id === order.pUnitId)?.name || 'Unknown'}
+                                            🏪 Store: {order.storeName || 'Outlet Store'}
                                           </span>
                                           <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#eff6ff', border: '1px solid #dbeafe', padding: '4px 8px', borderRadius: '6px', fontWeight: '700', color: '#1d4ed8' }}>
                                             <Calendar size={13} /> Target: {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'No Date'}
