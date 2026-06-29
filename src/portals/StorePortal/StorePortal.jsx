@@ -1646,6 +1646,16 @@ const StorePortal = () => {
     }));
   };
 
+  const setOrderCartQuantity = (id, qty) => {
+    setOrderCart(prev => prev.map(c => {
+      if (c.id === id) {
+        return { ...c, quantity: qty, total: qty * c.price };
+      }
+      return c;
+    }));
+  };
+
+
   const handleEditCartItemOrder = (item) => {
     const originalItem = orderItems.find(i => i.id === item.id);
     if (!originalItem) return;
@@ -4933,18 +4943,50 @@ const StorePortal = () => {
                                 e.target.src = DEFAULT_ITEM_IMAGE;
                               }}
                             />
-                            {isInCart && (
+                            {isInCart && item.unit === 'Weight' && (
                               <div className="ord-card-cart-badge">
-                                {cartItem.quantity} {item.unit === 'Weight' ? 'kg' : 'pcs'}
+                                {cartItem.quantity} kg
                               </div>
                             )}
                           </div>
                           <div className="ord-item-details">
                             <h4>{item.name}</h4>
-                            <div className="ord-price-row">
-                              <span className="price">₹{item.price}</span>
-                              <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
-                            </div>
+                            {isInCart && item.unit !== 'Weight' ? (
+                              <div className="ord-card-qty-wrapper" onClick={(e) => e.stopPropagation()}>
+                                <button className="ord-card-qty-btn" onClick={() => updateCartQuantityOrder(item.id, -1)} type="button">
+                                  <Minus size={12} />
+                                </button>
+                                <input
+                                  type="number"
+                                  className="ord-card-qty-input"
+                                  value={cartItem.quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      if (val === 0) {
+                                        removeFromCartOrder(item.id);
+                                      } else {
+                                        setOrderCartQuantity(item.id, val);
+                                      }
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (isNaN(val) || val < 1) {
+                                      setOrderCartQuantity(item.id, 1);
+                                    }
+                                  }}
+                                />
+                                <button className="ord-card-qty-btn" onClick={() => updateCartQuantityOrder(item.id, 1)} type="button">
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="ord-price-row">
+                                <span className="price">₹{item.price}</span>
+                                <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -4977,9 +5019,33 @@ const StorePortal = () => {
                           </button>
                         ) : (
                           <div className="ord-qty-controls">
-                            <button onClick={() => updateCartQuantityOrder(item.id, -1)}><Minus size={12} /></button>
-                            <span>{item.quantity}</span>
-                            <button onClick={() => updateCartQuantityOrder(item.id, 1)}><Plus size={12} /></button>
+                            <button onClick={() => updateCartQuantityOrder(item.id, -1)} type="button">
+                              <Minus size={12} />
+                            </button>
+                            <input
+                              type="number"
+                              className="ord-qty-input"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val >= 0) {
+                                  if (val === 0) {
+                                    removeFromCartOrder(item.id);
+                                  } else {
+                                    setOrderCartQuantity(item.id, val);
+                                  }
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (isNaN(val) || val < 1) {
+                                  setOrderCartQuantity(item.id, 1);
+                                }
+                              }}
+                            />
+                            <button onClick={() => updateCartQuantityOrder(item.id, 1)} type="button">
+                              <Plus size={12} />
+                            </button>
                           </div>
                         )}
                         <div className="ord-item-price">
