@@ -1156,7 +1156,8 @@ const PUnitPortal = () => {
                         transition: 'all 0.2s',
                         border: 'none',
                         background: packingSubTab === 'completed' ? 'white' : 'transparent',
-                        color: packingSubTab === 'completed' ? '#7c3aed' : '#64748b',
+                        color: packingSubTab === 'completed' ? 'var(--primary-color)' : '#64748b',
+
                         boxShadow: packingSubTab === 'completed' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
                         outline: 'none'
                       }}

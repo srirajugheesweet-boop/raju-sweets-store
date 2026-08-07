@@ -650,28 +650,32 @@ const StoreWorkSheet = () => {
 
   return (
     <>
-      <div className="ws-container">
-      <div className="ws-header">
-        <div className="ws-header-info">
-          <h1>Store Work Sheet</h1>
-          <p>Plan, allocate, and distribute ghee sweets inventory across branches</p>
+      <div className="polaris-page-container">
+        {/* Polaris Header Bar */}
+        <div className="polaris-header-bar">
+          <div className="polaris-page-title-group">
+            <div className="polaris-page-title-icon">
+              <ClipboardList size={24} />
+            </div>
+            <h1 className="polaris-page-title">Store Work Sheet</h1>
+          </div>
+
+          <div className="polaris-header-actions">
+            <button
+              className={`polaris-btn ${activeTab === 'active' ? 'polaris-btn-primary' : 'polaris-btn-secondary'}`}
+              onClick={() => setActiveTab('active')}
+            >
+              <ClipboardList size={14} /> Active Sheet
+            </button>
+            <button
+              className={`polaris-btn ${activeTab === 'history' ? 'polaris-btn-primary' : 'polaris-btn-secondary'}`}
+              onClick={() => setActiveTab('history')}
+            >
+              <History size={14} /> History Log
+            </button>
+          </div>
         </div>
 
-        <div className="ws-tabs-container">
-          <button
-            className={`ws-tab-btn ${activeTab === 'active' ? 'active' : ''}`}
-            onClick={() => setActiveTab('active')}
-          >
-            <ClipboardList size={16} /> Active Sheet
-          </button>
-          <button
-            className={`ws-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
-          >
-            <History size={16} /> History Log
-          </button>
-        </div>
-      </div>
 
       <div className="ws-content">
         {activeTab === 'active' ? (

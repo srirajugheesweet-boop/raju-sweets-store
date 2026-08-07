@@ -164,16 +164,22 @@ const Users = () => {
   );
 
   return (
-    <div className="usrm-container">
-      <div className="usrm-header">
-        <div className="usrm-header-info">
-          <h1>Users & Roles</h1>
-          <p>Manage staff access to Stores, Manufacturing, and Packing units</p>
+    <div className="polaris-page-container">
+      {/* Polaris Header Bar */}
+      <div className="polaris-header-bar">
+        <div className="polaris-page-title-group">
+          <div className="polaris-page-title-icon">
+            <UserCog size={24} />
+          </div>
+          <h1 className="polaris-page-title">Users & Roles</h1>
         </div>
-        <button className="usrm-add-btn" onClick={() => { resetForm(); setShowAddModal(true); }}>
-          <Plus size={20} /> Add User
-        </button>
+        <div className="polaris-header-actions">
+          <button className="polaris-btn polaris-btn-primary" onClick={() => { resetForm(); setShowAddModal(true); }}>
+            <Plus size={16} /> Add user
+          </button>
+        </div>
       </div>
+
 
       <div className="usrm-list-card">
         <div className="usrm-search-bar">

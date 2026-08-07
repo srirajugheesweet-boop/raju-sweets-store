@@ -1512,35 +1512,64 @@ const Orders = () => {
     return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus && matchesStore;
   });
 
+
   return (
-    <div className="orders-container">
-      <div className="orders-header">
-        <div className="orders-header-info">
-          <h1>Customer Orders</h1>
-          <p>Track and manage customer sweet orders and factory production</p>
+    <div className="polaris-page-container">
+      {/* Polaris Header Bar */}
+
+      <div className="polaris-header-bar">
+        <div className="polaris-page-title-group">
+          <div className="polaris-page-title-icon">
+            <ShoppingBag size={24} />
+          </div>
+          <h1 className="polaris-page-title">Orders</h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <button className="add-order-btn" onClick={() => {
+        <div className="polaris-header-actions">
+          <button className="polaris-btn polaris-btn-primary" onClick={() => {
             resetForm();
             setShowAddModal(true);
           }}>
-            <Plus size={20} /> Create New Order
+            <Plus size={16} /> Create order
           </button>
         </div>
       </div>
 
-      <div className="ord-table-wrapper">
-        <div style={{ 
-          padding: '16px 20px', 
-          borderBottom: '1px solid var(--border-color)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '15px'
-        }}>
-          <div className="items-search-bar" style={{ maxWidth: '350px', flex: 1, margin: 0 }}>
-            <Search size={18} className="items-search-icon" />
+      {/* Polaris Top Metrics Summary Card */}
+      <div className="polaris-metrics-card">
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Total Orders</div>
+          <div className="polaris-metric-value">{orders.length}</div>
+          <div className="polaris-metric-subtext">All time customer orders</div>
+        </div>
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Active Processing</div>
+          <div className="polaris-metric-value">
+            {orders.filter(o => o.status !== 'Delivered').length}
+          </div>
+          <div className="polaris-metric-subtext">In production / ready</div>
+        </div>
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Completed & Delivered</div>
+          <div className="polaris-metric-value">
+            {orders.filter(o => o.status === 'Delivered').length}
+          </div>
+          <div className="polaris-metric-subtext">Successfully fulfilled</div>
+        </div>
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Total Value</div>
+          <div className="polaris-metric-value">
+            ₹{orders.reduce((acc, curr) => acc + (Number(curr.totalAmount) || 0), 0).toLocaleString('en-IN')}
+          </div>
+          <div className="polaris-metric-subtext">Gross sales revenue</div>
+        </div>
+      </div>
+
+      {/* Polaris Main Card Panel */}
+      <div className="polaris-card">
+        {/* Polaris Filter & Search Toolbar */}
+        <div className="polaris-table-toolbar">
+          <div className="polaris-table-search">
+            <Search size={14} style={{ color: 'var(--polaris-text-subdued)' }} />
             <input
               type="text"
               placeholder="Search by Order ID or Customer..."
@@ -1549,35 +1578,24 @@ const Orders = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                height: '38px',
-                padding: '0 12px',
-                border: '1px solid var(--border-color)',
-                borderRadius: '10px',
-                fontSize: '13px',
-                color: 'var(--text-primary)',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="All">All Statuses</option>
-              <option value="new">New</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Partially Moved to Store">Partially Moved to Store</option>
-              <option value="Moved to Store">Moved to Store</option>
-              <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
-              <option value="Ready for Delivery">Ready for Delivery</option>
-              <option value="Delivered">Delivered</option>
-            </select>
-          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input-compact"
+                style={{ height: '32px', fontSize: '12px', width: 'auto' }}
+              >
+                <option value="All">All Statuses</option>
+                <option value="new">New</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Partially Moved to Store">Partially Moved to Store</option>
+                <option value="Moved to Store">Moved to Store</option>
+                <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
+                <option value="Ready for Delivery">Ready for Delivery</option>
+              </select>
+            </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment:</span>
@@ -1720,8 +1738,10 @@ const Orders = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        <table className="ord-list-table">
+      <table className="ord-list-table">
+
           <thead>
             <tr>
               <th>Order ID</th>
@@ -1987,9 +2007,10 @@ const Orders = () => {
             )}
           </tbody>
         </table>
-      </div>
+
 
       {/* Mobile & Tablet Card View */}
+
       <div className="ord-mobile-cards-list">
         {loading ? (
           <div className="ord-portal-loading"><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></div>
@@ -2217,24 +2238,30 @@ const Orders = () => {
                         </div>
                       </div>
                     )}
-
-                    {/* Tab Panel: Payment Timeline */}
-                    {getAccordionTab(order.id) === 'payment' && (
-                      <AccordionPaymentSection order={order} isMobile={true} />
-                    )}
                   </div>
                 )}
               </div>
             );
           })
-        ) : (
-          <div className="ord-orders-empty">
-            <Calendar size={36} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
-            <h3>No Orders Found</h3>
-            <p>Try adjusting your filters or date selection.</p>
-          </div>
-        )}
+
+
+          ) : (
+            <div className="ord-orders-empty">
+              <Calendar size={36} style={{ margin: '0 auto 12px', opacity: 0.5, color: 'var(--primary-color)' }} />
+              <h3>No Orders Found</h3>
+              <p>Try adjusting your filters or date selection.</p>
+            </div>
+          )}
+        </div>
       </div>
+
+
+
+
+
+
+
+
 
       {/* Add Order Full Screen Modal */}
       <AnimatePresence>

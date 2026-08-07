@@ -267,47 +267,47 @@ const Payments = ({ storeId = null }) => {
   });
 
   return (
-    <div className="pay-container">
-      {/* Upper Statistics Grid */}
-      <div className="pay-summary-grid">
-        <div className="pay-summary-card total">
-          <div className="card-info">
-            <span className="title">Total Orders</span>
-            <span className="value">{orders.length}</span>
-            <span className="desc">Active and completed system orders</span>
+    <div className="polaris-page-container">
+      {/* Polaris Header Bar */}
+      <div className="polaris-header-bar">
+        <div className="polaris-page-title-group">
+          <div className="polaris-page-title-icon">
+            <CreditCard size={24} />
           </div>
-          <div className="card-icon"><Receipt size={24} /></div>
+          <h1 className="polaris-page-title">Payments & Finance</h1>
         </div>
+      </div>
 
-        <div className="pay-summary-card pending">
-          <div className="card-info">
-            <span className="title">Pending Collection</span>
-            <span className="value">
-              ₹{orders
-                .filter(o => (o.paymentStatus || 'Pending') !== 'Done')
-                .reduce((sum, o) => sum + (o.totalAmount - (o.receivedAmount || 0)), 0)
-                .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span className="desc">Outstanding unpaid balances</span>
-          </div>
-          <div className="card-icon"><Clock size={24} /></div>
+      {/* Polaris Top Metrics Summary Card */}
+      <div className="polaris-metrics-card">
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Total Orders</div>
+          <div className="polaris-metric-value">{orders.length}</div>
+          <div className="polaris-metric-subtext">Active system orders</div>
         </div>
-
-        <div className="pay-summary-card completed">
-          <div className="card-info">
-            <span className="title">Collected Revenue</span>
-            <span className="value">
-              ₹{orders
-                .reduce((sum, o) => sum + (o.receivedAmount || 0), 0)
-                .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span className="desc">Total funds captured in system</span>
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Pending Collection</div>
+          <div className="polaris-metric-value" style={{ color: '#dc2626' }}>
+            ₹{orders
+              .filter(o => (o.paymentStatus || 'Pending') !== 'Done')
+              .reduce((sum, o) => sum + (o.totalAmount - (o.receivedAmount || 0)), 0)
+              .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="card-icon"><CheckCircle size={24} /></div>
+          <div className="polaris-metric-subtext">Outstanding balances</div>
+        </div>
+        <div className="polaris-metric-item">
+          <div className="polaris-metric-label">Collected Revenue</div>
+          <div className="polaris-metric-value" style={{ color: '#16a34a' }}>
+            ₹{orders
+              .reduce((sum, o) => sum + (o.receivedAmount || 0), 0)
+              .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="polaris-metric-subtext">Total received payments</div>
         </div>
       </div>
 
       {/* Main Section */}
+
       <div className="pay-card">
         <div className="pay-card-header">
           <div>

@@ -4,7 +4,8 @@ import {
   Star, Menu, X, 
   Bluetooth as BluetoothIcon, 
   Usb as UsbIcon, 
-  RefreshCw, AlertCircle 
+  RefreshCw, AlertCircle,
+  Search, Eye, Bell
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { usePrinter } from '../../context/PrinterContext';
@@ -48,44 +49,72 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
             onClick={toggleSidebar}
             aria-label="Toggle Navigation Sidebar"
           >
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <Link to="/" className="header-logo">
             <img src={logo} alt="Raju Ghee Sweets" className="header-logo-img" />
+            <span className="header-brand-title">Raju Ghee Sweets</span>
           </Link>
+          <span className="header-season-tag">v2.0 Admin</span>
         </div>
 
-        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        {/* Polaris Search Bar Center */}
+        <div className="header-search-container">
+          <Search size={14} className="header-search-icon" />
+          <input 
+            type="text" 
+            placeholder="Search items, orders, stores..." 
+            className="header-search-input"
+          />
+          <span className="header-search-shortcut">
+            <kbd>CTRL</kbd> <kbd>K</kbd>
+          </span>
+        </div>
+
+        <div className="header-right">
+          {/* View As Toggle Button */}
+          <button className="header-view-as-btn" title="View Store Preview">
+            <Eye size={14} />
+            <span>View as</span>
+          </button>
+
+          {/* Notifications Button */}
+          <button className="header-icon-btn" title="Notifications">
+            <Bell size={16} />
+            <span className="header-notif-badge">4</span>
+          </button>
+
           {/* Global Printer Connection Widgets */}
           <div className="header-printer-status-bar">
             {bluetoothConnected ? (
               <button className="header-print-status-btn connected ble" title={`BLE: ${connectedDevice}`} onClick={disconnectPrinter}>
                 <BluetoothIcon size={13} />
-                <span>BLE: {connectedDevice ? (connectedDevice.length > 10 ? `${connectedDevice.substring(0, 10)}...` : connectedDevice) : 'Connected'}</span>
+                <span>BLE: {connectedDevice ? (connectedDevice.length > 8 ? `${connectedDevice.substring(0, 8)}...` : connectedDevice) : 'Connected'}</span>
               </button>
             ) : (
               <button className="header-print-status-btn disconnected ble" title="Connect Bluetooth Printer" onClick={handleBluetoothConnect}>
                 <BluetoothIcon size={13} />
-                <span>Connect BLE</span>
+                <span>BLE</span>
               </button>
             )}
 
             {qzConnected ? (
               <button className="header-print-status-btn connected usb" title={`USB: ${selectedQZPrinter}`} onClick={() => setShowQZModal(true)}>
                 <UsbIcon size={13} />
-                <span>USB: {selectedQZPrinter ? (selectedQZPrinter.length > 10 ? `${selectedQZPrinter.substring(0, 10)}...` : selectedQZPrinter) : 'Connected'}</span>
+                <span>USB: {selectedQZPrinter ? (selectedQZPrinter.length > 8 ? `${selectedQZPrinter.substring(0, 8)}...` : selectedQZPrinter) : 'Connected'}</span>
               </button>
             ) : (
               <button className="header-print-status-btn disconnected usb" title="Connect USB Printer" onClick={connectQZTray} disabled={qzConnecting}>
                 <UsbIcon size={13} />
-                <span>{qzConnecting ? `USB: ${qzConnectTimer}s` : 'Connect USB'}</span>
+                <span>{qzConnecting ? `USB: ${qzConnectTimer}s` : 'USB'}</span>
               </button>
             )}
           </div>
 
-          <div className="admin-badge">
-            <Star size={12} fill="currentColor" />
-            <span>Super Admin</span>
+          {/* Store Switcher Badge */}
+          <div className="header-store-badge">
+            <div className="header-avatar">RG</div>
+            <span className="header-store-name">Raju Sweets USA</span>
           </div>
         </div>
       </header>

@@ -648,10 +648,11 @@
 }
 
 .payment-mode-badge.Card {
-  background: #faf5ff;
-  color: #7c3aed;
-  border: 1px solid #e9d5ff;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
+
 
 .st-mini-print-btn {
   display: inline-flex;
@@ -1452,14 +1453,14 @@
   left: 0;
   width: 100%;
   height: 3px;
-  background: linear-gradient(90deg, transparent, #a855f7, transparent);
-  box-shadow: 0 0 10px #c084fc;
+  background: linear-gradient(90deg, transparent, #10b981, transparent);
+  box-shadow: 0 0 10px #34d399;
   z-index: 2;
   animation: laser-sweep 2.5s ease-in-out infinite;
 }
 
 .st-scan-qr-icon {
-  color: #7c3aed;
+  color: var(--primary-color, #0A2A1B);
   z-index: 1;
   opacity: 0.85;
 }
@@ -1468,13 +1469,13 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #f5f3ff;
-  border: 1px solid #ddd6fe;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
   padding: 6px 16px;
   border-radius: 30px;
   font-size: 11px;
   font-weight: 800;
-  color: #6d28d9;
+  color: #166534;
   letter-spacing: 0.05em;
   margin-bottom: 24px;
 }
@@ -1482,11 +1483,12 @@
 .st-pulse-dot {
   width: 8px;
   height: 8px;
-  background: #a855f7;
+  background: #10b981;
   border-radius: 50%;
-  box-shadow: 0 0 8px #a855f7;
+  box-shadow: 0 0 8px #10b981;
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
+
 
 .st-scan-form {
   width: 100%;

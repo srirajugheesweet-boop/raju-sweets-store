@@ -145,21 +145,27 @@ const Stores = () => {
   );
 
   return (
-    <div className="stores-container">
-      <div className="stores-header">
-        <div className="stores-header-info">
-          <h1>Retail Outlets</h1>
-          <p>Manage store locations, contact info, and coordinates</p>
+    <div className="polaris-page-container">
+      {/* Polaris Header Bar */}
+      <div className="polaris-header-bar">
+        <div className="polaris-page-title-group">
+          <div className="polaris-page-title-icon">
+            <Store size={24} />
+          </div>
+          <h1 className="polaris-page-title">Stores & Outlets</h1>
         </div>
         {!showAddForm && (
-          <button className="stores-add-btn" onClick={() => setShowAddForm(true)}>
-            <Plus size={20} /> Add New Store
-          </button>
+          <div className="polaris-header-actions">
+            <button className="polaris-btn polaris-btn-primary" onClick={() => setShowAddForm(true)}>
+              <Plus size={16} /> Add store
+            </button>
+          </div>
         )}
       </div>
 
       <div className="stores-content-layout">
         <div className={`stores-list-section ${showAddForm ? 'shrink' : 'full'}`}>
+
           <div className="stores-search-bar">
             <Search size={18} className="stores-search-icon" />
             <input 

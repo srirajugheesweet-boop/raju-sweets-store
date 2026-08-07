@@ -17,6 +17,7 @@ import {
   Clock, 
   CreditCard, 
   LifeBuoy,
+  Settings,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,15 +25,15 @@ import './Sidebar.css';
 
 export const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard' },
+  { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', badge: '15' },
+  { id: 'items', label: 'Products', icon: <Box />, path: '/items' },
+  { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
-  { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders' },
-  { id: 'store-worksheet', label: 'Store Work Sheet', icon: <ClipboardList />, path: '/store-worksheet' },
-  { id: 'items', label: 'Items', icon: <Box />, path: '/items' },
-  { id: 'categories', label: 'Categories', icon: <Tag />, path: '/categories' },
+  { id: 'store-worksheet', label: 'Work Sheet', icon: <ClipboardList />, path: '/store-worksheet' },
   { id: 'stores', label: 'Stores', icon: <Store />, path: '/stores' },
-  { id: 'manufacturing', label: 'Manufacturing Units', icon: <Factory />, path: '/manufacturing' },
+  { id: 'manufacturing', label: 'Manufacturing', icon: <Factory />, path: '/manufacturing' },
   { id: 'packing', label: 'Packing Units', icon: <Package />, path: '/packing' },
-  { id: 'users', label: 'Users and Roles', icon: <UserCog />, path: '/users' },
+  { id: 'users', label: 'Users & Roles', icon: <UserCog />, path: '/users' },
   { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees' },
   { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet' },
   { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support' },
@@ -74,9 +75,9 @@ const Sidebar = ({ isOpen, onClose }) => {
   return (
     <aside className={`sidebar ${isOpen ? 'drawer-open' : ''}`}>
       <div className="sidebar-header-mobile">
-        <span className="sidebar-mobile-title">Menu</span>
+        <span className="sidebar-mobile-title">Navigation</span>
         <button className="sidebar-close-btn" onClick={onClose} aria-label="Close menu">
-          <X size={20} />
+          <X size={18} />
         </button>
       </div>
 
@@ -85,21 +86,50 @@ const Sidebar = ({ isOpen, onClose }) => {
         ref={menuRef} 
         onScroll={handleScroll}
       >
-        {menuItems.map((item) => (
+        <div className="sidebar-section-title">Core Modules</div>
+        {menuItems.slice(0, 5).map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
             onClick={handleItemClick}
             className={`sidebar-item ${location.pathname.startsWith(item.path) && item.path !== '/' ? 'active' : ''}`}
           >
-            {React.cloneElement(item.icon, { size: 24, className: 'sidebar-icon' })}
+            {React.cloneElement(item.icon, { size: 18, className: 'sidebar-icon' })}
+            <span className="sidebar-label">{item.label}</span>
+            {item.badge && <span className="sidebar-badge">{item.badge}</span>}
+          </Link>
+        ))}
+
+        <div className="sidebar-section-title">Operations</div>
+        {menuItems.slice(5, 9).map((item) => (
+          <Link 
+            key={item.id} 
+            to={item.path} 
+            onClick={handleItemClick}
+            className={`sidebar-item ${location.pathname.startsWith(item.path) && item.path !== '/' ? 'active' : ''}`}
+          >
+            {React.cloneElement(item.icon, { size: 18, className: 'sidebar-icon' })}
+            <span className="sidebar-label">{item.label}</span>
+          </Link>
+        ))}
+
+        <div className="sidebar-section-title">Admin & Staff</div>
+        {menuItems.slice(9).map((item) => (
+          <Link 
+            key={item.id} 
+            to={item.path} 
+            onClick={handleItemClick}
+            className={`sidebar-item ${location.pathname.startsWith(item.path) && item.path !== '/' ? 'active' : ''}`}
+          >
+            {React.cloneElement(item.icon, { size: 18, className: 'sidebar-icon' })}
             <span className="sidebar-label">{item.label}</span>
           </Link>
         ))}
       </div>
+
       <div className="sidebar-footer">
         <button onClick={handleLogout} className="sidebar-logout-btn">
-          <LogOut size={24} />
+          <LogOut size={18} />
           <span className="sidebar-label">Logout</span>
         </button>
       </div>
@@ -108,3 +138,4 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 export default Sidebar;
+

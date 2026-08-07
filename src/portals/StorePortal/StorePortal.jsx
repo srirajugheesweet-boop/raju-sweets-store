@@ -762,10 +762,11 @@ const StorePortal = () => {
     disconnectQZTray,
     printRawBLE,
     printRawUSB,
-    setSelectedQZPrinter,
     showQZSetupGuide,
-    setShowQZSetupGuide
+    setShowQZSetupGuide,
+    qzConnectTimer
   } = usePrinter();
+
 
   // --- ADD ORDER FUNCTIONALITY STATES ---
   const [showAddModal, setShowAddModal] = useState(false);
@@ -2576,86 +2577,61 @@ const StorePortal = () => {
 
   return (
     <PortalLayout title="Store Portal" links={links}>
-      <div className="st-portal-content">
+      <div className="polaris-page-container">
         
         {/* --- ORDERS VIEW --- */}
         {tab === 'orders' && (
           <div className="st-orders-view animate-fade-in">
-            <div className="st-view-header">
-              <div>
-                <h2>Store Orders ({orders.length})</h2>
-                <p className="st-view-desc">Monitor prep status and delivery schedules for this outlet</p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div className="st-search-wrapper">
-                  <Search size={18} className="st-search-icon" />
-                  <input 
-                    type="text" 
-                    placeholder="Search by Order ID or Customer..." 
-                    value={orderSearch}
-                    onChange={(e) => setOrderSearch(e.target.value)}
-                  />
+            {/* Polaris Header Bar */}
+            <div className="polaris-header-bar">
+              <div className="polaris-page-title-group">
+                <div className="polaris-title-icon-box">
+                  <ShoppingBag size={20} />
                 </div>
-                {/* Bluetooth Printer Button */}
-                <button 
-                  className="st-compact-bluetooth" 
-                  onClick={bluetoothConnected ? disconnectPrinter : handleBluetoothConnect}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    background: bluetoothConnected ? '#f0fdf4' : '#f1f5f9',
-                    padding: '8px 14px', borderRadius: '10px',
-                    border: '1px solid ' + (bluetoothConnected ? '#bbf7d0' : '#cbd5e1'),
-                    color: bluetoothConnected ? '#16a34a' : '#475569',
-                    fontSize: '12px', fontWeight: '700', cursor: 'pointer',
-                    transition: 'all 0.2s ease', height: '42px', boxSizing: 'border-box'
-                  }}
-                  title={bluetoothConnected ? `BT Connected: ${connectedDevice}. Click to disconnect.` : 'Connect Bluetooth Thermal Printer'}
-                >
-                  <Bluetooth size={16} className={bluetoothConnected ? 'connected' : 'disconnected'} />
-                  <span>{bluetoothConnected ? 'BT Connected' : 'BT Printer'}</span>
-                </button>
-                {/* QZ Tray USB Printer Button */}
-                <button
-                  onClick={qzConnected ? () => setShowQZModal(true) : connectQZTray}
-                  disabled={qzConnecting}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    background: qzConnected ? '#eff6ff' : qzConnecting ? '#fefce8' : '#f1f5f9',
-                    padding: '8px 14px', borderRadius: '10px',
-                    border: '1px solid ' + (qzConnected ? '#bfdbfe' : qzConnecting ? '#fde68a' : '#cbd5e1'),
-                    color: qzConnected ? '#2563eb' : qzConnecting ? '#b45309' : '#475569',
-                    fontSize: '12px', fontWeight: '700',
-                    cursor: qzConnecting ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease', height: '42px', boxSizing: 'border-box',
-                    opacity: qzConnecting ? 0.85 : 1
-                  }}
-                  title={qzConnected ? `USB: ${selectedQZPrinter || 'No printer selected'}` : 'Connect USB Thermal Printer via QZ Tray'}
-                >
-                  {qzConnecting ? <RefreshCw size={15} className="spin-icon" /> : <Usb size={15} />}
-                  <span>{qzConnecting ? `Connecting... ${qzConnectTimer}s` : qzConnected ? 'USB Connected' : 'USB Printer'}</span>
-                </button>
-                <button className="add-order-btn" style={{ height: '42px' }} onClick={() => {
+                <div>
+                  <h1 className="polaris-page-title">Orders</h1>
+                </div>
+              </div>
+              <div className="polaris-header-actions">
+                <button className="polaris-btn-primary" onClick={() => {
                   resetFormOrder();
                   setShowAddModal(true);
                 }}>
-                  <Plus size={20} /> Create New Order
+                  <Plus size={16} />
+                  <span>Create order</span>
                 </button>
               </div>
             </div>
 
-            {/* Desktop Table View */}
-            <div className="ord-table-wrapper">
-              <div style={{ 
-                padding: '16px 20px', 
-                borderBottom: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '15px'
-              }}>
-                <div className="items-search-bar" style={{ maxWidth: '350px', flex: 1, margin: 0 }}>
-                  <Search size={18} className="items-search-icon" />
+            {/* Polaris 4 Metrics Cards */}
+            <div className="polaris-metrics-card">
+              <div className="polaris-metric-item">
+                <span className="polaris-metric-label">Total Orders</span>
+                <span className="polaris-metric-value">{orders.length}</span>
+                <span className="polaris-metric-subtext">All time store orders</span>
+              </div>
+              <div className="polaris-metric-item">
+                <span className="polaris-metric-label">Active Processing</span>
+                <span className="polaris-metric-value">{orders.filter(o => o.status !== 'Delivered' && o.status !== 'Completed').length}</span>
+                <span className="polaris-metric-subtext">In production / ready</span>
+              </div>
+              <div className="polaris-metric-item">
+                <span className="polaris-metric-label">Completed & Delivered</span>
+                <span className="polaris-metric-value">{orders.filter(o => o.status === 'Delivered' || o.status === 'Completed').length}</span>
+                <span className="polaris-metric-subtext">Successfully fulfilled</span>
+              </div>
+              <div className="polaris-metric-item">
+                <span className="polaris-metric-label">Total Value</span>
+                <span className="polaris-metric-value">₹{orders.reduce((sum, o) => sum + (Number(o.grandTotal) || 0), 0).toLocaleString()}</span>
+                <span className="polaris-metric-subtext">Gross sales revenue</span>
+              </div>
+            </div>
+
+            {/* Desktop Table View inside Polaris Card */}
+            <div className="polaris-card">
+              <div className="polaris-table-toolbar" style={{ flexWrap: 'wrap', gap: '10px', padding: '12px 16px' }}>
+                <div className="polaris-table-search" style={{ minWidth: '220px', flex: 1, height: '36px' }}>
+                  <Search size={14} style={{ color: 'var(--polaris-text-subdued)' }} />
                   <input
                     type="text"
                     placeholder="Search by Order ID or Customer..."
@@ -2664,131 +2640,122 @@ const StorePortal = () => {
                   />
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Status:</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{
-                      height: '38px',
-                      padding: '0 12px',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      fontSize: '13px',
-                      color: 'var(--text-primary)',
-                      backgroundColor: '#ffffff',
-                      outline: 'none',
-                      transition: 'border-color 0.2s',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="All">All Statuses</option>
-                    <option value="new">New</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Partially Moved to Store">Partially Moved to Store</option>
-                    <option value="Moved to Store">Moved to Store</option>
-                    <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
-                    <option value="Ready for Delivery">Ready for Delivery</option>
-                    <option value="Delivered">Delivered</option>
-                  </select>
-                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Status:</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      style={{
+                        height: '34px',
+                        padding: '0 10px',
+                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--polaris-text-main)',
+                        backgroundColor: '#ffffff',
+                        outline: 'none',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="new">New</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Partially Moved to Store">Partially Moved to Store</option>
+                      <option value="Moved to Store">Moved to Store</option>
+                      <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
+                      <option value="Ready for Delivery">Ready for Delivery</option>
+                      <option value="Delivered">Delivered</option>
+                    </select>
+                  </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment:</span>
-                  <select
-                    value={paymentStatusFilter}
-                    onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                    style={{
-                      height: '38px',
-                      padding: '0 12px',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      fontSize: '13px',
-                      color: 'var(--text-primary)',
-                      backgroundColor: '#ffffff',
-                      outline: 'none',
-                      transition: 'border-color 0.2s',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="All">All Payments</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Partial">Partial</option>
-                    <option value="Done">Done</option>
-                  </select>
-                </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Payment:</span>
+                    <select
+                      value={paymentStatusFilter}
+                      onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                      style={{
+                        height: '34px',
+                        padding: '0 10px',
+                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--polaris-text-main)',
+                        backgroundColor: '#ffffff',
+                        outline: 'none',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="All">All Payments</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Partial">Partial</option>
+                      <option value="Done">Done</option>
+                    </select>
+                  </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Store:</span>
-                  <select
-                    value={storeFilter}
-                    onChange={(e) => setStoreFilter(e.target.value)}
-                    style={{
-                      height: '38px',
-                      padding: '0 12px',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      fontSize: '13px',
-                      color: 'var(--text-primary)',
-                      backgroundColor: '#ffffff',
-                      outline: 'none',
-                      transition: 'border-color 0.2s',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="All">All Stores</option>
-                    {stores.map(st => (
-                      <option key={st.id} value={st.id}>{st.name}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Store:</span>
+                    <select
+                      value={storeFilter}
+                      onChange={(e) => setStoreFilter(e.target.value)}
+                      style={{
+                        height: '34px',
+                        padding: '0 10px',
+                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--polaris-text-main)',
+                        backgroundColor: '#ffffff',
+                        outline: 'none',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="All">All Stores</option>
+                      {stores.map(st => (
+                        <option key={st.id} value={st.id}>{st.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="ord-date-filter-container" style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '12px',
-                  flexWrap: 'wrap'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Calendar size={14} color="var(--primary-color)" /> Delivery Date:
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Calendar size={13} color="var(--primary-color)" /> Delivery Date:
                     </span>
                     <input
                       type="date"
                       value={deliveryDateFilter}
                       onChange={(e) => setDeliveryDateFilter(e.target.value)}
                       style={{
-                        height: '38px',
-                        padding: '0 12px',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        color: 'var(--text-primary)',
+                        height: '34px',
+                        padding: '0 8px',
+                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: 'var(--polaris-text-main)',
                         backgroundColor: '#ffffff',
                         outline: 'none',
-                        transition: 'border-color 0.2s',
                         fontWeight: '600'
                       }}
                     />
                   </div>
-                  
-                  <div style={{ display: 'flex', gap: '6px' }}>
+
+                  <div style={{ display: 'flex', gap: '4px' }}>
                     <button
                       type="button"
                       onClick={() => setDeliveryDateFilter(getTodayStr())}
                       style={{
-                        padding: '6px 12px',
-                        borderRadius: '20px',
-                        border: '1px solid ' + (deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : 'var(--border-color)'),
-                        background: deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : '#f8fafc',
-                        color: deliveryDateFilter === getTodayStr() ? '#ffffff' : 'var(--text-secondary)',
+                        padding: '4px 10px',
+                        borderRadius: '16px',
+                        border: '1px solid ' + (deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : 'var(--polaris-border-strong, #c9cccf)'),
+                        background: deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : '#ffffff',
+                        color: deliveryDateFilter === getTodayStr() ? '#ffffff' : 'var(--polaris-text-subdued)',
                         fontSize: '12px',
-                        fontWeight: '700',
+                        fontWeight: '600',
                         cursor: 'pointer',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.15s'
                       }}
                     >
                       Today
@@ -2797,15 +2764,15 @@ const StorePortal = () => {
                       type="button"
                       onClick={() => setDeliveryDateFilter(getTomorrowStr())}
                       style={{
-                        padding: '6px 12px',
-                        borderRadius: '20px',
-                        border: '1px solid ' + (deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : 'var(--border-color)'),
-                        background: deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : '#f8fafc',
-                        color: deliveryDateFilter === getTomorrowStr() ? '#ffffff' : 'var(--text-secondary)',
+                        padding: '4px 10px',
+                        borderRadius: '16px',
+                        border: '1px solid ' + (deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : 'var(--polaris-border-strong, #c9cccf)'),
+                        background: deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : '#ffffff',
+                        color: deliveryDateFilter === getTomorrowStr() ? '#ffffff' : 'var(--polaris-text-subdued)',
                         fontSize: '12px',
-                        fontWeight: '700',
+                        fontWeight: '600',
                         cursor: 'pointer',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.15s'
                       }}
                     >
                       Tomorrow
@@ -4073,14 +4040,15 @@ const StorePortal = () => {
                     width: '100%',
                     maxWidth: '420px',
                     height: '46px',
-                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    background: 'var(--primary-color, #0A2A1B)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '12px',
-                    fontWeight: '800',
+                    borderRadius: '8px',
+                    fontWeight: '700',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(109, 40, 217, 0.2)',
+                    boxShadow: '0 2px 6px rgba(10, 42, 27, 0.2)',
+
                     transition: 'all 0.2s',
                     boxSizing: 'border-box'
                   }}
@@ -4474,13 +4442,13 @@ const StorePortal = () => {
                   style={{ background: '#f1f5f9', color: '#475569' }}
                   onClick={async () => {
                     try {
-                      const printers = await listQZPrinters();
-                      setQzPrinters(printers);
+                      await connectQZTray();
                       toast.success('Printer list refreshed');
                     } catch (e) {
                       toast.error('Failed to refresh');
                     }
                   }}
+
                 >
                   <RefreshCw size={13} /> Refresh
                 </button>
