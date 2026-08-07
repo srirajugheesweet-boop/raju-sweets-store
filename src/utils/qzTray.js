@@ -7,6 +7,8 @@
  * Users must install QZ Tray from: https://qz.io/download/
  */
 import logo from '../assets/logo.png';
+import { numberToWords } from './printReceiptHelper';
+
 
 const QZ_CDN = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js';
 
