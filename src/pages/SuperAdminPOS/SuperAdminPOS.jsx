@@ -281,14 +281,11 @@ const SuperAdminPOS = () => {
 
   // Save / Settle Bill Implementation
   const processBill = async (billStatus) => {
-    if (!selectedCustomerId) {
-      toast.error("Customer is mandatory! Please select or create a customer before proceeding.");
-      return;
-    }
     if (cart.length === 0) {
       toast.error("Shopping cart is empty");
       return;
     }
+
 
     setSubmittingBill(true);
     try {
@@ -304,7 +301,8 @@ const SuperAdminPOS = () => {
         storeId: selectedStoreId,
         storeName: selectedStoreName || 'Outlet Store',
         customerId: selectedCustomerId,
-        customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Customer',
+        customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Walk-in Customer',
+
         customerPhone: selectedCustomerObj ? selectedCustomerObj.mobileNumber : '',
         items: cart,
         discount: discountVal,
@@ -494,8 +492,9 @@ const SuperAdminPOS = () => {
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 14px', borderRadius: '10px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <UserCheck size={15} /> Select Customer <span style={{ color: '#ef4444' }}>*</span>
+                    <UserCheck size={15} /> Select Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '11px' }}>(Optional)</span>
                   </label>
+
                   <button 
                     type="button" 
                     onClick={() => setShowCreateCustomerModal(true)}

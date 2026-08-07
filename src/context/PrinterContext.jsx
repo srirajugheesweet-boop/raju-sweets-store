@@ -60,24 +60,33 @@ export const PrinterProvider = ({ children }) => {
 
   // --- Bluetooth Connection Operations ---
   const handleBluetoothConnect = async () => {
-    if (navigator.bluetooth) {
-      toast.loading("Scanning for Bluetooth thermal printers...", { id: 'bt-loading' });
+    if (!navigator.bluetooth) {
+      toast.error("Web Bluetooth is not supported on this browser/platform. Please use Chrome/Edge or USB QZ Tray.");
+      return;
+    }
+
+    try {
+      // 1. MUST trigger navigator.bluetooth.requestDevice IMMEDIATELY to preserve the user gesture token
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb',
+          '00001101-0000-1000-8000-00805f9b34fb',
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+          '0000e025-0000-1000-8000-00805f9b34fb',
+          '0000ff00-0000-1000-8000-00805f9b34fb',
+          '00001800-0000-1000-8000-00805f9b34fb',
+          '00001801-0000-1000-8000-00805f9b34fb',
+          '0000180a-0000-1000-8000-00805f9b34fb'
+        ]
+      });
+
+      toast.loading(`Connecting to ${device.name || 'Bluetooth Printer'}...`, { id: 'bt-pair' });
+      const server = await device.gatt.connect();
+
+      let characteristic = null;
       try {
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb',
-            '00001101-0000-1000-8000-00805f9b34fb'
-          ]
-        });
-
-        toast.dismiss('bt-loading');
-        toast.loading(`Found device: ${device.name}. Pairing...`, { id: 'bt-pair' });
-        const server = await device.gatt.connect();
-
         const services = await server.getPrimaryServices();
-        let characteristic = null;
-
         for (const service of services) {
           try {
             const chs = await service.getCharacteristics();
@@ -88,44 +97,62 @@ export const PrinterProvider = ({ children }) => {
               }
             }
           } catch (e) {
-            console.warn("Error getting primary service characteristics:", e);
+            console.warn("Error inspecting service characteristics:", e);
           }
           if (characteristic) break;
         }
-
-        if (!characteristic) {
-          throw new Error("Could not find writable characteristic for printing on this device.");
-        }
-
-        printerCharacteristicRef.current = characteristic;
-        setConnectedDevice(device.name);
-        setBluetoothConnected(true);
-
-        toast.dismiss('bt-pair');
-        toast.success(`Connected to Bluetooth printer: ${device.name}!`);
-
-        device.addEventListener('gattserverdisconnected', () => {
-          printerCharacteristicRef.current = null;
-          setConnectedDevice(null);
-          setBluetoothConnected(false);
-          toast.error("Bluetooth printer disconnected.");
-        });
-
-      } catch (err) {
-        toast.dismiss('bt-loading');
-        toast.dismiss('bt-pair');
-        console.error("Bluetooth pairing connection error: ", err);
-
-        if (err.name === 'NotFoundError') {
-          // Native request cancelled. Show Pair BLE printer modal fallback for manual scan retry
-          setShowBluetoothModal(true);
-          restartBtScan();
-        } else {
-          toast.error(`Bluetooth connection failed: ${err.message}`);
+      } catch (srvErr) {
+        console.warn("getPrimaryServices broad scan failed, trying fallback service UUIDs:", srvErr);
+        const knownServices = [
+          '000018f0-0000-1000-8000-00805f9b34fb',
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+          '0000ff00-0000-1000-8000-00805f9b34fb',
+          '0000e025-0000-1000-8000-00805f9b34fb',
+          '00001101-0000-1000-8000-00805f9b34fb'
+        ];
+        for (const uuid of knownServices) {
+          try {
+            const service = await server.getPrimaryService(uuid);
+            const chs = await service.getCharacteristics();
+            for (const ch of chs) {
+              if (ch.properties.write || ch.properties.writeWithoutResponse) {
+                characteristic = ch;
+                break;
+              }
+            }
+          } catch (_) {}
+          if (characteristic) break;
         }
       }
-    } else {
-      toast.error("Web Bluetooth is not supported on this browser/platform. Please use USB QZ Tray or fallback HTML.");
+
+      if (!characteristic) {
+        throw new Error("Could not find writable GATT characteristic on this Bluetooth device.");
+      }
+
+      printerCharacteristicRef.current = characteristic;
+      setConnectedDevice(device.name || 'Bluetooth Printer');
+      setBluetoothConnected(true);
+
+      toast.dismiss('bt-pair');
+      toast.success(`Connected to Bluetooth thermal printer: ${device.name || 'Printer'}!`);
+
+      device.addEventListener('gattserverdisconnected', () => {
+        printerCharacteristicRef.current = null;
+        setConnectedDevice(null);
+        setBluetoothConnected(false);
+        toast.error("Bluetooth printer disconnected.");
+      });
+
+    } catch (err) {
+      toast.dismiss('bt-pair');
+      console.error("Bluetooth pairing connection error: ", err);
+
+      if (err.name === 'NotFoundError') {
+        setShowBluetoothModal(true);
+        restartBtScan();
+      } else {
+        toast.error(`Bluetooth connection failed: ${err.message || 'Check printer power and Bluetooth pairing'}`);
+      }
     }
   };
 
