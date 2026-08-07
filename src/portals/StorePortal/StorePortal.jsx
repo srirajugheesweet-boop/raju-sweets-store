@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import PortalLayout from '../Shared/PortalLayout';
 import { buildBillESCPOS, buildOrderESCPOS } from '../../utils/qzTray';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import { usePrinter } from '../../context/PrinterContext';
+
+
 
 import logo from '../../assets/logo.png';
 import { db } from '../../config/firebase';
