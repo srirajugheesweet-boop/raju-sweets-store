@@ -26,7 +26,8 @@ import './Sidebar.css';
 
 export const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard' },
-  { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', badge: '15' },
+  { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders' },
+
   { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing' },
   { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales' },
   { id: 'items', label: 'Products', icon: <Box />, path: '/items' },

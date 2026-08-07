@@ -4,9 +4,10 @@ import {
   LogOut, Home, Star,
   Bluetooth as BluetoothIcon, 
   Usb as UsbIcon, 
-  RefreshCw, AlertCircle, X, Menu,
+  RefreshCw, RotateCw, AlertCircle, X, Menu,
   Search, Eye, Bell
 } from 'lucide-react';
+
 
 import { auth, db } from '../../config/firebase';
 import { signOut } from 'firebase/auth';
@@ -154,11 +155,16 @@ const PortalLayout = ({ children, title, links }) => {
         </div>
 
         <div className="portal-header-right">
-          {/* View As Button */}
-          <button className="portal-header-view-as-btn" title="View Portal Preview">
-            <Eye size={14} />
-            <span>View as</span>
+          {/* Reload Page Button */}
+          <button 
+            className="portal-header-icon-btn" 
+            title="Reload Page" 
+            onClick={() => window.location.reload()}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <RotateCw size={16} />
           </button>
+
 
           {/* Notifications Bell */}
           <button className="portal-header-icon-btn" title="Notifications">

@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Star, Menu, X, 
-  Bluetooth as BluetoothIcon, 
-  Usb as UsbIcon, 
-  RefreshCw, AlertCircle,
+import {
+  Star, Menu, X,
+  Bluetooth as BluetoothIcon,
+  Usb as UsbIcon,
+  RefreshCw, RotateCw, AlertCircle,
   Search, Eye, Bell
 } from 'lucide-react';
+
 import logo from '../../assets/logo.png';
 import { usePrinter } from '../../context/PrinterContext';
 import { createPortal } from 'react-dom';
@@ -44,8 +45,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     <>
       <header className="header">
         <div className="header-left">
-          <button 
-            className="header-menu-btn" 
+          <button
+            className="header-menu-btn"
             onClick={toggleSidebar}
             aria-label="Toggle Navigation Sidebar"
           >
@@ -53,7 +54,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
           </button>
           <Link to="/" className="header-logo">
             <img src={logo} alt="Raju Ghee Sweets" className="header-logo-img" />
-            <span className="header-brand-title">Raju Ghee Sweets</span>
+            {/* <span className="header-brand-title">Raju Ghee Sweets</span> */}
           </Link>
           <span className="header-season-tag">v2.0 Admin</span>
         </div>
@@ -61,9 +62,9 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
         {/* Polaris Search Bar Center */}
         <div className="header-search-container">
           <Search size={14} className="header-search-icon" />
-          <input 
-            type="text" 
-            placeholder="Search items, orders, stores..." 
+          <input
+            type="text"
+            placeholder="Search items, orders, stores..."
             className="header-search-input"
           />
           <span className="header-search-shortcut">
@@ -72,11 +73,16 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
         </div>
 
         <div className="header-right">
-          {/* View As Toggle Button */}
-          <button className="header-view-as-btn" title="View Store Preview">
-            <Eye size={14} />
-            <span>View as</span>
+          {/* Reload Page Button */}
+          <button
+            className="header-icon-btn"
+            title="Reload Page"
+            onClick={() => window.location.reload()}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <RotateCw size={16} />
           </button>
+
 
           {/* Notifications Button */}
           <button className="header-icon-btn" title="Notifications">
@@ -114,7 +120,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
           {/* Store Switcher Badge */}
           <div className="header-store-badge">
             <div className="header-avatar">RG</div>
-            <span className="header-store-name">Raju Sweets USA</span>
+            <span className="header-store-name">Raju Ghee Sweets</span>
           </div>
         </div>
       </header>

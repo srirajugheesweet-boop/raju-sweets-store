@@ -2643,64 +2643,41 @@ const StorePortal = () => {
 
             {/* Desktop Table View inside Polaris Card */}
             <div className="polaris-card">
-              <div className="polaris-table-toolbar" style={{ flexWrap: 'wrap', gap: '10px', padding: '12px 16px' }}>
-                <div className="polaris-table-search" style={{ minWidth: '220px', flex: 1, height: '36px' }}>
-                  <Search size={14} style={{ color: 'var(--polaris-text-subdued)' }} />
+              {/* Responsive Orders Filter Bar */}
+              <div className="ord-responsive-filter-bar">
+                <div className="ord-filter-search-wrap">
+                  <Search size={15} style={{ color: '#64748b' }} />
                   <input
                     type="text"
-                    placeholder="Search by Order ID or Customer..."
+                    placeholder="Search by Order ID, Customer Name, or Phone..."
                     value={orderSearch}
                     onChange={(e) => setOrderSearch(e.target.value)}
                   />
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Status:</span>
+                <div className="ord-filter-controls-grid">
+                  <div className="ord-filter-group">
+                    <label>Status</label>
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      style={{
-                        height: '34px',
-                        padding: '0 10px',
-                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: 'var(--polaris-text-main)',
-                        backgroundColor: '#ffffff',
-                        outline: 'none',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
                     >
                       <option value="All">All Statuses</option>
                       <option value="new">New</option>
                       <option value="In Progress">In Progress</option>
-                      <option value="Partially Moved to Store">Partially Moved to Store</option>
+                      <option value="Partially Moved to Store">Partially Moved</option>
                       <option value="Moved to Store">Moved to Store</option>
-                      <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
+                      <option value="Partially Ready for Delivery">Partially Ready</option>
                       <option value="Ready for Delivery">Ready for Delivery</option>
                       <option value="Delivered">Delivered</option>
                     </select>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Payment:</span>
+                  <div className="ord-filter-group">
+                    <label>Payment</label>
                     <select
                       value={paymentStatusFilter}
                       onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                      style={{
-                        height: '34px',
-                        padding: '0 10px',
-                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: 'var(--polaris-text-main)',
-                        backgroundColor: '#ffffff',
-                        outline: 'none',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
                     >
                       <option value="All">All Payments</option>
                       <option value="Pending">Pending</option>
@@ -2709,113 +2686,56 @@ const StorePortal = () => {
                     </select>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Store:</span>
+                  <div className="ord-filter-group">
+                    <label>Store Outlet</label>
                     <select
                       value={storeFilter}
                       onChange={(e) => setStoreFilter(e.target.value)}
-                      style={{
-                        height: '34px',
-                        padding: '0 10px',
-                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: 'var(--polaris-text-main)',
-                        backgroundColor: '#ffffff',
-                        outline: 'none',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
                     >
-                      <option value="All">All Stores</option>
+                      <option value="All">All Outlets</option>
                       {stores.map(st => (
                         <option key={st.id} value={st.id}>{st.name}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Calendar size={13} color="var(--primary-color)" /> Delivery Date:
-                    </span>
+                  <div className="ord-filter-group">
+                    <label><Calendar size={12} /> Delivery Date</label>
                     <input
                       type="date"
                       value={deliveryDateFilter}
                       onChange={(e) => setDeliveryDateFilter(e.target.value)}
-                      style={{
-                        height: '34px',
-                        padding: '0 8px',
-                        border: '1px solid var(--polaris-border-strong, #c9cccf)',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: 'var(--polaris-text-main)',
-                        backgroundColor: '#ffffff',
-                        outline: 'none',
-                        fontWeight: '600'
-                      }}
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '4px' }}>
+                  <div className="ord-chip-bar">
                     <button
                       type="button"
+                      className={`ord-quick-chip ${deliveryDateFilter === getTodayStr() ? 'active' : ''}`}
                       onClick={() => setDeliveryDateFilter(getTodayStr())}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '16px',
-                        border: '1px solid ' + (deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : 'var(--polaris-border-strong, #c9cccf)'),
-                        background: deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : '#ffffff',
-                        color: deliveryDateFilter === getTodayStr() ? '#ffffff' : 'var(--polaris-text-subdued)',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s'
-                      }}
                     >
                       Today
                     </button>
                     <button
                       type="button"
+                      className={`ord-quick-chip ${deliveryDateFilter === getTomorrowStr() ? 'active' : ''}`}
                       onClick={() => setDeliveryDateFilter(getTomorrowStr())}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '16px',
-                        border: '1px solid ' + (deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : 'var(--polaris-border-strong, #c9cccf)'),
-                        background: deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : '#ffffff',
-                        color: deliveryDateFilter === getTomorrowStr() ? '#ffffff' : 'var(--polaris-text-subdued)',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s'
-                      }}
                     >
                       Tomorrow
                     </button>
                     {deliveryDateFilter && (
                       <button
                         type="button"
+                        className="ord-quick-chip clear"
                         onClick={() => setDeliveryDateFilter('')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '20px',
-                          border: '1px dashed var(--error-color)',
-                          background: '#fef2f2',
-                          color: 'var(--error-color)',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
                       >
-                        <X size={12} /> Clear
+                        <X size={12} /> Clear Date
                       </button>
                     )}
                   </div>
                 </div>
               </div>
+
 
               <table className="ord-list-table">
                 <thead>

@@ -1566,181 +1566,101 @@ const Orders = () => {
 
       {/* Polaris Main Card Panel */}
       <div className="polaris-card">
-        {/* Polaris Filter & Search Toolbar */}
-        <div className="polaris-table-toolbar">
-          <div className="polaris-table-search">
-            <Search size={14} style={{ color: 'var(--polaris-text-subdued)' }} />
+        {/* Responsive Orders Filter Bar */}
+        <div className="ord-responsive-filter-bar">
+          <div className="ord-filter-search-wrap">
+            <Search size={15} style={{ color: '#64748b' }} />
             <input
               type="text"
-              placeholder="Search by Order ID or Customer..."
+              placeholder="Search by Order ID, Customer Name, or Phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--polaris-text-subdued)' }}>Status:</span>
+          <div className="ord-filter-controls-grid">
+            <div className="ord-filter-group">
+              <label>Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="input-compact"
-                style={{ height: '32px', fontSize: '12px', width: 'auto' }}
               >
                 <option value="All">All Statuses</option>
                 <option value="new">New</option>
                 <option value="In Progress">In Progress</option>
-                <option value="Partially Moved to Store">Partially Moved to Store</option>
+                <option value="Partially Moved to Store">Partially Moved</option>
                 <option value="Moved to Store">Moved to Store</option>
-                <option value="Partially Ready for Delivery">Partially Ready for Delivery</option>
+                <option value="Partially Ready for Delivery">Partially Ready</option>
                 <option value="Ready for Delivery">Ready for Delivery</option>
+                <option value="Delivered">Delivered</option>
               </select>
             </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment:</span>
-            <select
-              value={paymentStatusFilter}
-              onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              style={{
-                height: '38px',
-                padding: '0 12px',
-                border: '1px solid var(--border-color)',
-                borderRadius: '10px',
-                fontSize: '13px',
-                color: 'var(--text-primary)',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="All">All Payments</option>
-              <option value="Pending">Pending</option>
-              <option value="Partial">Partial</option>
-              <option value="Done">Done</option>
-            </select>
-          </div>
+            <div className="ord-filter-group">
+              <label>Payment</label>
+              <select
+                value={paymentStatusFilter}
+                onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              >
+                <option value="All">All Payments</option>
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+                <option value="Done">Done</option>
+              </select>
+            </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>Store:</span>
-            <select
-              value={storeFilter}
-              onChange={(e) => setStoreFilter(e.target.value)}
-              style={{
-                height: '38px',
-                padding: '0 12px',
-                border: '1px solid var(--border-color)',
-                borderRadius: '10px',
-                fontSize: '13px',
-                color: 'var(--text-primary)',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="All">All Stores</option>
-              {stores.map(st => (
-                <option key={st.id} value={st.id}>{st.name}</option>
-              ))}
-            </select>
-          </div>
+            <div className="ord-filter-group">
+              <label>Store Outlet</label>
+              <select
+                value={storeFilter}
+                onChange={(e) => setStoreFilter(e.target.value)}
+              >
+                <option value="All">All Stores</option>
+                {stores.map(st => (
+                  <option key={st.id} value={st.id}>{st.name}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="ord-date-filter-container" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '12px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <Calendar size={14} color="var(--primary-color)" /> Delivery Date:
-              </span>
+            <div className="ord-filter-group">
+              <label><Calendar size={12} /> Delivery Date</label>
               <input
                 type="date"
                 value={deliveryDateFilter}
                 onChange={(e) => setDeliveryDateFilter(e.target.value)}
-                style={{
-                  height: '38px',
-                  padding: '0 12px',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  color: 'var(--text-primary)',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  fontWeight: '600'
-                }}
               />
             </div>
-            
-            <div style={{ display: 'flex', gap: '6px' }}>
+
+            <div className="ord-chip-bar">
               <button
                 type="button"
+                className={`ord-quick-chip ${deliveryDateFilter === getTodayStr() ? 'active' : ''}`}
                 onClick={() => setDeliveryDateFilter(getTodayStr())}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '20px',
-                  border: '1px solid ' + (deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : 'var(--border-color)'),
-                  background: deliveryDateFilter === getTodayStr() ? 'var(--primary-color)' : '#f8fafc',
-                  color: deliveryDateFilter === getTodayStr() ? '#ffffff' : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
               >
                 Today
               </button>
               <button
                 type="button"
+                className={`ord-quick-chip ${deliveryDateFilter === getTomorrowStr() ? 'active' : ''}`}
                 onClick={() => setDeliveryDateFilter(getTomorrowStr())}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '20px',
-                  border: '1px solid ' + (deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : 'var(--border-color)'),
-                  background: deliveryDateFilter === getTomorrowStr() ? 'var(--primary-color)' : '#f8fafc',
-                  color: deliveryDateFilter === getTomorrowStr() ? '#ffffff' : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
               >
                 Tomorrow
               </button>
               {deliveryDateFilter && (
                 <button
                   type="button"
+                  className="ord-quick-chip clear"
                   onClick={() => setDeliveryDateFilter('')}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    border: '1px dashed var(--error-color)',
-                    background: '#fef2f2',
-                    color: 'var(--error-color)',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
                 >
-                  <X size={12} /> Clear
+                  <X size={12} /> Clear Date
                 </button>
               )}
             </div>
           </div>
         </div>
-      </div>
 
-      <table className="ord-list-table">
+        <table className="ord-list-table">
+
 
           <thead>
             <tr>
