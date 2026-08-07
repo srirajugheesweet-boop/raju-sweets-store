@@ -749,6 +749,8 @@ const StorePortal = () => {
   const [cart, setCart] = useState([]);
   const [paymentMode, setPaymentMode] = useState('UPI');
   const [posDiscount, setPosDiscount] = useState('');
+  const [discountType, setDiscountType] = useState('percent'); // 'percent' (%) or 'amount' (₹)
+
   const [billingSearch, setBillingSearch] = useState('');
   const [stBarcodeInput, setStBarcodeInput] = useState('');
   const stBarcodeInputRef = useRef(null);
@@ -2264,22 +2266,34 @@ const StorePortal = () => {
 
   const addToCart = (item, quantity, amount) => {
     const existingIndex = cart.findIndex(c => c.id === item.id);
-    if (existingIndex > -1 && item.unit !== 'Weight') {
-      setCart(cart.map((c, i) => i === existingIndex ? { ...c, quantity: c.quantity + quantity, total: (c.quantity + quantity) * c.price } : c));
-    } else if (existingIndex > -1 && item.unit === 'Weight') {
-      setCart(cart.map((c, i) => i === existingIndex ? { ...c, quantity, total: parseFloat(amount) } : c));
+    if (existingIndex > -1) {
+      setCart(prev => prev.map((c, i) => {
+        if (i === existingIndex) {
+          if (item.unit === 'Weight') {
+            const newWeight = (parseFloat(c.quantity) + parseFloat(quantity)).toFixed(3);
+            const newTotal = parseFloat(newWeight) * c.price;
+            return { ...c, quantity: newWeight, total: newTotal };
+          } else {
+            const newQty = parseInt(c.quantity) + parseInt(quantity);
+            const newTotal = newQty * c.price;
+            return { ...c, quantity: newQty, total: newTotal };
+          }
+        }
+        return c;
+      }));
     } else {
-      setCart([...cart, { 
+      setCart(prev => [...prev, { 
         id: item.id, 
         name: item.name, 
         price: item.price, 
         unit: item.unit,
-        quantity, 
+        quantity: item.unit === 'Weight' ? parseFloat(quantity).toFixed(3) : parseInt(quantity), 
         total: parseFloat(amount) 
       }]);
     }
-    toast.success(`${item.name} added to cart`);
+    toast.success(`${item.name} updated in cart`);
   };
+
 
   const updateQuantity = (itemId, delta, isWeight = false) => {
     setCart(prev => {
@@ -2331,8 +2345,10 @@ const StorePortal = () => {
       const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
       const billId = generateBillId();
       const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
-      const discountVal = parseFloat(posDiscount) || 0;
+      const rawDiscount = parseFloat(posDiscount) || 0;
+      const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
       const totalAmt = Math.max(0, cartTotal - discountVal);
+
 
       const billData = {
         billId,
@@ -4029,10 +4045,46 @@ const StorePortal = () => {
 
                   <div className="st-summary-settle">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                          Discount ({discountType === 'percent' ? '%' : '₹'})
+                        </label>
+                        <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
+                          <button
+                            type="button"
+                            onClick={() => setDiscountType('percent')}
+                            style={{
+                              padding: '2px 8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              border: 'none',
+                              background: discountType === 'percent' ? 'var(--primary-color)' : '#f1f5f9',
+                              color: discountType === 'percent' ? '#ffffff' : '#475569',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            %
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDiscountType('amount')}
+                            style={{
+                              padding: '2px 8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              border: 'none',
+                              background: discountType === 'amount' ? 'var(--primary-color)' : '#f1f5f9',
+                              color: discountType === 'amount' ? '#ffffff' : '#475569',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            ₹
+                          </button>
+                        </div>
+                      </div>
                       <input 
                         type="number"
-                        placeholder="0.00"
+                        placeholder={discountType === 'percent' ? 'e.g. 10%' : 'e.g. 50'}
                         value={posDiscount}
                         onChange={(e) => setPosDiscount(e.target.value)}
                         style={{
@@ -4050,10 +4102,12 @@ const StorePortal = () => {
 
                     {(() => {
                       const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
-                      const discountVal = parseFloat(posDiscount) || 0;
+                      const rawDiscount = parseFloat(posDiscount) || 0;
+                      const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
                       const totalAmt = Math.max(0, cartTotal - discountVal);
                       const posSubtotal = totalAmt / 1.05;
                       const posGst = totalAmt - posSubtotal;
+
 
                       return (
                         <>
