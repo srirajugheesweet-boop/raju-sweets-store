@@ -57,8 +57,11 @@ import {
   History,
   ChevronRight,
   QrCode,
-  Camera
+  Camera,
+  Barcode,
+  UserCheck
 } from 'lucide-react';
+
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './StorePortal.css';
@@ -733,10 +736,57 @@ const StorePortal = () => {
   const [paymentMode, setPaymentMode] = useState('UPI');
   const [posDiscount, setPosDiscount] = useState('');
   const [billingSearch, setBillingSearch] = useState('');
+  const [stBarcodeInput, setStBarcodeInput] = useState('');
+  const stBarcodeInputRef = useRef(null);
   const [showWeightModal, setShowWeightModal] = useState(null);
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '' });
   const [submittingBill, setSubmittingBill] = useState(false);
   const [selectedReceiptBill, setSelectedReceiptBill] = useState(null); // receipt preview modal
+
+  const handleStBarcodeSubmit = (e) => {
+    if (e) e.preventDefault();
+    const cleanInput = stBarcodeInput.trim();
+    if (!cleanInput) return;
+
+    const parts = cleanInput.split('*');
+    const scannedCode = parts[0].trim();
+    const multiplier = parts.length > 1 ? parseFloat(parts[1]) : null;
+
+    const foundItem = storeItems.find(i => 
+      (i.barcode || i.barcodeId || '').toLowerCase() === scannedCode.toLowerCase() ||
+      i.id === scannedCode ||
+      i.name.toLowerCase() === scannedCode.toLowerCase()
+    );
+
+    if (foundItem) {
+      if (foundItem.unit === 'Weight') {
+        let weightInKg = 1;
+        if (multiplier) {
+          weightInKg = multiplier > 20 ? multiplier / 1000 : multiplier;
+        }
+        const amt = (weightInKg * foundItem.price).toFixed(2);
+        addToCart(foundItem, weightInKg.toFixed(3), amt);
+        toast.success(`Scanned: ${foundItem.name} (${weightInKg} kg)`);
+      } else {
+        const qty = multiplier ? Math.round(multiplier) : 1;
+        addToCart(foundItem, qty, foundItem.price * qty);
+        toast.success(`Scanned: ${foundItem.name} (${qty} pcs)`);
+      }
+    } else {
+      toast.error(`No item found matching Barcode ID: "${scannedCode}"`);
+    }
+
+    setStBarcodeInput('');
+    if (stBarcodeInputRef.current) stBarcodeInputRef.current.focus();
+  };
+
+  useEffect(() => {
+    if (tab === 'billing' && billingSubTab === 'pos' && stBarcodeInputRef.current) {
+      stBarcodeInputRef.current.focus();
+    }
+  }, [tab, billingSubTab]);
+
+
 
   // Shared Global Printer Connections
   const {
@@ -1279,12 +1329,13 @@ const StorePortal = () => {
 
   const links = [
     { label: 'Orders', icon: <ShoppingBag size={20} />, path: `/store-portal/${id}/orders` },
+    { label: 'Barcode Billing', icon: <Barcode size={20} />, path: `/store-portal/${id}/billing` },
     { label: 'Customers', icon: <Users size={20} />, path: `/store-portal/${id}/customers` },
     { label: 'Payments', icon: <CreditCard size={20} />, path: `/store-portal/${id}/payments` },
     { label: 'Store Worksheet', icon: <ClipboardList size={20} />, path: `/store-portal/${id}/worksheet` },
-    { label: 'Billing & POS', icon: <CreditCard size={20} />, path: `/store-portal/${id}/billing` },
     { label: 'Scan Box', icon: <QrCode size={20} />, path: `/store-portal/${id}/scan` }
   ];
+
 
   // Helper function to match dates across local format variations securely
   const isSameDay = (billDateStr, selectedDateStr) => {
@@ -3678,9 +3729,42 @@ const StorePortal = () => {
               </div>
             </div>
 
-            {/* --- SUB TAB 1: POS BILLING FUNCTIONALITY --- */}
+            {/* --- SUB TAB 1: POS BILLING & BARCODE SCANNING --- */}
             {billingSubTab === 'pos' && (
-              <div className="st-pos-layout">
+              <>
+                {/* Fast USB Barcode Gun Scanner Input Bar */}
+                <form 
+                  onSubmit={handleStBarcodeSubmit}
+                  style={{
+                    background: '#ffffff',
+                    border: '1.5px solid var(--primary-color)',
+                    borderRadius: '12px',
+                    padding: '12px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '16px',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)'
+                  }}
+                >
+                  <Barcode size={22} color="var(--primary-color)" />
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '6px 12px' }}>
+                    <input 
+                      ref={stBarcodeInputRef}
+                      type="text" 
+                      placeholder="Scan Barcode / Enter BarcodeID*Qty (e.g. 890123456789*500)..."
+                      value={stBarcodeInput}
+                      onChange={(e) => setStBarcodeInput(e.target.value)}
+                      style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '14px', fontWeight: '600', width: '100%', color: '#0f172a' }}
+                    />
+                  </div>
+                  <button type="submit" className="st-print-invoice-btn" style={{ height: '38px', padding: '0 16px', fontSize: '13px', fontWeight: '800' }}>
+                    Scan & Add
+                  </button>
+                </form>
+
+                <div className="st-pos-layout">
+
                 {/* POS Catalogue Panel */}
                 <div className="st-pos-catalogue">
                   <div className="st-catalogue-header">
@@ -3906,7 +3990,11 @@ const StorePortal = () => {
                   </div>
                 </div>
               </div>
-            )}
+            </>
+          )}
+
+
+
 
             {/* --- SUB TAB 2: BILLS LIST WITH TODAY DATE FILTER DEFAULT --- */}
             {billingSubTab === 'bills' && (

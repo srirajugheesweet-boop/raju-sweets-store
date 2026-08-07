@@ -458,9 +458,11 @@
   background: white;
   display: flex;
   flex-direction: column;
-  height: 520px;
+  min-height: 680px;
+  max-height: calc(100vh - 160px);
   overflow: hidden;
 }
+
 
 .st-summary-header {
   padding: 16px 20px;

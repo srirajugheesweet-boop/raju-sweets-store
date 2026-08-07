@@ -18,6 +18,7 @@ import {
   CreditCard, 
   LifeBuoy,
   Settings,
+  Receipt,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -26,6 +27,8 @@ import './Sidebar.css';
 export const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', badge: '15' },
+  { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing' },
+  { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales' },
   { id: 'items', label: 'Products', icon: <Box />, path: '/items' },
   { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
@@ -38,6 +41,7 @@ export const menuItems = [
   { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet' },
   { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support' },
 ];
+
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
@@ -87,7 +91,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         onScroll={handleScroll}
       >
         <div className="sidebar-section-title">Core Modules</div>
-        {menuItems.slice(0, 5).map((item) => (
+        {menuItems.slice(0, 4).map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
@@ -101,7 +105,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         ))}
 
         <div className="sidebar-section-title">Operations</div>
-        {menuItems.slice(5, 9).map((item) => (
+        {menuItems.slice(4, 11).map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
@@ -114,7 +118,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         ))}
 
         <div className="sidebar-section-title">Admin & Staff</div>
-        {menuItems.slice(9).map((item) => (
+        {menuItems.slice(11).map((item) => (
+
           <Link 
             key={item.id} 
             to={item.path} 
