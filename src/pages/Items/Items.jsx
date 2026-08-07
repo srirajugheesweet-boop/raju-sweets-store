@@ -16,8 +16,10 @@ import {
   AlertCircle,
   CheckCircle2,
   FileSpreadsheet,
-  Info
+  Info,
+  Barcode
 } from 'lucide-react';
+
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -128,6 +130,7 @@ const Items = () => {
 
   const [formData, setFormData] = useState({
     name: '',
+    barcode: '',
     unit: 'Weight', // 'Weight' or 'Piece'
     price: '',
     mUnitId: '',
@@ -231,6 +234,7 @@ const Items = () => {
       const { image, ...restData } = formData;
       const finalData = {
         ...restData,
+        barcode: (formData.barcode || '').trim(),
         price: Number(formData.price),
         image: finalImageUrl,
         updatedAt: serverTimestamp()
@@ -257,7 +261,7 @@ const Items = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '', showInWorksheet: true });
+    setFormData({ name: '', barcode: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '', showInWorksheet: true });
     setImageFile(null);
     setShowAddForm(false);
     setEditingItem(null);
@@ -267,6 +271,7 @@ const Items = () => {
     setEditingItem(item);
     setFormData({
       name: item.name,
+      barcode: item.barcode || item.barcodeId || '',
       unit: item.unit,
       price: item.price,
       mUnitId: item.mUnitId,
@@ -276,6 +281,7 @@ const Items = () => {
     });
     setShowAddForm(true);
   };
+
 
   const handleDelete = async () => {
     if (!showDeleteModal) return;
@@ -589,9 +595,14 @@ const Items = () => {
     setShowImportModal(false);
   };
 
-  const filteredItems = items.filter(item => 
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = items.filter(item => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const nameMatch = (item.name || '').toLowerCase().includes(q);
+    const barcodeMatch = (item.barcode || item.barcodeId || '').toLowerCase().includes(q);
+    const priceMatch = String(item.price || '').includes(q);
+    return nameMatch || barcodeMatch || priceMatch;
+  });
 
   return (
     <div className="polaris-page-container">
@@ -654,7 +665,7 @@ const Items = () => {
                 <Search size={14} style={{ color: 'var(--polaris-text-subdued)' }} />
                 <input 
                   type="text" 
-                  placeholder="Search and filter products..."
+                  placeholder="Search by name, barcode ID, price..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -673,6 +684,7 @@ const Items = () => {
                     <tr>
                       <th style={{ width: '40px' }}><input type="checkbox" /></th>
                       <th>Product</th>
+                      <th>Barcode ID</th>
                       <th>Status</th>
                       <th>Unit Type</th>
                       <th>Price</th>
@@ -687,6 +699,7 @@ const Items = () => {
                       const catName = categories.find(cat => cat.id === item.categoryId)?.name || 'Uncategorized';
                       const mUnitName = mUnits.find(mu => mu.id === item.mUnitId)?.name || 'Main Kitchen';
                       const imgSrc = (!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image;
+                      const barcodeVal = item.barcode || item.barcodeId || '';
 
                       return (
                         <tr key={item.id}>
@@ -704,6 +717,15 @@ const Items = () => {
                               />
                               <div className="polaris-item-title">{item.name}</div>
                             </div>
+                          </td>
+                          <td>
+                            {barcodeVal ? (
+                              <span className="polaris-badge" style={{ fontFamily: 'monospace', fontWeight: '700', fontSize: '11px', letterSpacing: '0.5px', background: '#f1f2f4', border: '1px solid #d1d5db', color: '#374151' }}>
+                                {barcodeVal}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
+                            )}
                           </td>
                           <td>
                             <span className="polaris-badge polaris-badge-active">Active</span>
@@ -785,7 +807,7 @@ const Items = () => {
                 </div>
 
                 <div className="items-input-group">
-                  <label>Item Name</label>
+                  <label>Item Name *</label>
                   <input 
                     type="text" 
                     name="name" 
@@ -795,6 +817,20 @@ const Items = () => {
                     required 
                   />
                 </div>
+
+                <div className="items-input-group">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Barcode size={15} style={{ color: 'var(--primary-color)' }} /> Barcode ID / SKU Code
+                  </label>
+                  <input 
+                    type="text" 
+                    name="barcode" 
+                    value={formData.barcode}
+                    onChange={handleInputChange}
+                    placeholder="e.g. 890123456789 or ITEM-101 (used in billing & POS)"
+                  />
+                </div>
+
 
                 <div className="items-form-row">
                   <CustomSelect
