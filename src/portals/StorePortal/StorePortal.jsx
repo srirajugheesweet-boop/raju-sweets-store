@@ -726,6 +726,20 @@ const StorePortal = () => {
   const [customers, setCustomers] = useState([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [customersLoading, setCustomersLoading] = useState(true);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [showCustDropdown, setShowCustDropdown] = useState(false);
+  const custDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (custDropdownRef.current && !custDropdownRef.current.contains(e.target)) {
+        setShowCustDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
 
   // Billing & POS State
   const [billingSubTab, setBillingSubTab] = useState('pos'); // 'pos' or 'bills'
@@ -2314,28 +2328,40 @@ const StorePortal = () => {
     if (cart.length === 0) return toast.error("Your cart is empty");
     setSubmittingBill(true);
     try {
+      const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
       const billId = generateBillId();
       const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
       const discountVal = parseFloat(posDiscount) || 0;
       const totalAmt = Math.max(0, cartTotal - discountVal);
+
       const billData = {
         billId,
         storeId: id,
         storeName: store?.name || 'Raju Ghee Sweets',
+        customerId: selectedCustomerId || '',
+        customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Walk-in Customer',
+        customerPhone: selectedCustomerObj ? selectedCustomerObj.mobileNumber : '',
         items: cart,
         discount: discountVal,
         totalAmount: totalAmt,
         paymentMode,
+        status: 'settled',
         createdAt: serverTimestamp(),
-        date: new Date().toLocaleDateString()
+        date: new Date().toLocaleDateString('en-IN')
       };
       
-      await addDoc(collection(db, 'stores', id, 'bills'), billData);
+      const docRef = await addDoc(collection(db, 'bills'), billData);
+      await addDoc(collection(db, 'stores', id, 'bills'), { ...billData, id: docRef.id }).catch(() => {});
       toast.success(`Bill settled successfully: ${billId}`);
       
       setCart([]);
       setPosDiscount('');
+      setSelectedCustomerId('');
       setSelectedReceiptBill(billData);
+      
+      // Auto-print receipt via USB/Bluetooth thermal printer or system dialog
+      handlePrintTrigger(billData);
+
     } catch (error) {
       console.error(error);
       toast.error("Failed to settle bill");
@@ -2343,6 +2369,7 @@ const StorePortal = () => {
       setSubmittingBill(false);
     }
   };
+
 
   const handlePrintReceipt = (bill) => {
     // If Bluetooth Printer is active, simulate command printing before standard layout fallback
@@ -3874,7 +3901,100 @@ const StorePortal = () => {
                     )}
                   </div>
 
+                  {/* Customer Auto-Suggest Selector (Optional) */}
+                  <div style={{ padding: '10px 15px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <UserCheck size={14} /> Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '10px' }}>(Optional)</span>
+                      </label>
+                    </div>
+
+                    {(() => {
+                      const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
+                      const filteredCusts = customers.filter(c => {
+                        const q = customerSearch.toLowerCase();
+                        return (c.firstName || '').toLowerCase().includes(q) ||
+                               (c.lastName || '').toLowerCase().includes(q) ||
+                               (c.mobileNumber || '').includes(q);
+                      });
+
+                      return (
+                        <div style={{ position: 'relative' }} ref={custDropdownRef}>
+                          {selectedCustomerObj ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#e6f4ea', border: '1px solid #a7f3d0', padding: '6px 10px', borderRadius: '6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <UserCheck size={14} color="#065f46" />
+                                <div>
+                                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#065f46' }}>
+                                    {selectedCustomerObj.firstName} {selectedCustomerObj.lastName || ''}
+                                  </div>
+                                  <div style={{ fontSize: '10px', color: '#047857' }}>
+                                    📱 {selectedCustomerObj.mobileNumber}
+                                  </div>
+                                </div>
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); }}
+                                style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}
+                                title="Clear selected customer"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ position: 'relative' }}>
+                              <input 
+                                type="text" 
+                                placeholder="Search customer by name or phone..."
+                                value={customerSearch}
+                                onFocus={() => setShowCustDropdown(true)}
+                                onChange={(e) => {
+                                  setCustomerSearch(e.target.value);
+                                  setShowCustDropdown(true);
+                                }}
+                                style={{ height: '32px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
+                              />
+
+                              {showCustDropdown && (
+                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '180px', overflowY: 'auto', marginTop: '4px' }}>
+                                  {filteredCusts.length > 0 ? (
+                                    filteredCusts.map(c => (
+                                      <div 
+                                        key={c.id}
+                                        onClick={() => {
+                                          setSelectedCustomerId(c.id);
+                                          setCustomerSearch(`${c.firstName} ${c.lastName || ''}`);
+                                          setShowCustDropdown(false);
+                                        }}
+                                        style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
+                                      >
+                                        <div>
+                                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                                            {c.firstName} {c.lastName || ''}
+                                          </div>
+                                          <div style={{ fontSize: '10px', color: '#64748b' }}>📱 {c.mobileNumber}</div>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div style={{ padding: '10px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
+                                      No customer matches "{customerSearch}"
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   <div className="st-summary-items">
+
                     {cart.map((item, idx) => (
                       <div key={idx} className="st-summary-row">
                         <div className="st-summary-details">

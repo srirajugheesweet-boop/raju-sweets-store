@@ -16,10 +16,14 @@ import {
   Clock,
   Receipt,
   UserCheck,
-  ShoppingBag
+  ShoppingBag,
+  Bluetooth,
+  Usb,
+  RefreshCw
 } from 'lucide-react';
 
-
+import { usePrinter } from '../../context/PrinterContext';
+import { buildBillESCPOS } from '../../utils/qzTray';
 import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -28,13 +32,32 @@ import './SuperAdminPOS.css';
 
 const DEFAULT_ITEM_IMAGE = logo;
 
+
 const SuperAdminPOS = () => {
+  const {
+    bluetoothConnected,
+    connectedDevice,
+    qzConnected,
+    selectedQZPrinter,
+    printRawUSB,
+    showBluetoothModal,
+    showQZModal,
+    qzConnecting,
+    setShowBluetoothModal,
+    setShowQZModal,
+    handleBluetoothConnect,
+    disconnectPrinter,
+    connectQZTray,
+    disconnectQZTray
+  } = usePrinter();
+
   const [stores, setStores] = useState([]);
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const [selectedStoreName, setSelectedStoreName] = useState('');
   const [items, setItems] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+
 
   // Active Billing State
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -326,6 +349,7 @@ const SuperAdminPOS = () => {
 
       if (billStatus === 'settled') {
         setReceiptBill(billData);
+        handlePrintTrigger(billData);
       }
 
       // Reset cart and billing state
@@ -340,6 +364,112 @@ const SuperAdminPOS = () => {
       setSubmittingBill(false);
     }
   };
+
+  const handlePrintReceipt = (bill) => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Invoice - ${bill.billId}</title>
+          <style>
+            @page { size: 80mm auto; margin: 4mm 3mm; }
+            * { box-sizing: border-box; }
+            body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 72mm; max-width: 72mm; margin: 0 auto; padding: 0; color: #000; background: #fff; }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .store-name { font-size: 16px; font-weight: bold; text-align: center; margin: 4px 0 2px; }
+            .store-sub { font-size: 11px; text-align: center; margin-bottom: 3px; }
+            .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
+            .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 1px 0; }
+            table { width: 100%; border-collapse: collapse; margin: 4px 0; }
+            th { font-size: 11px; font-weight: bold; text-align: left; padding: 2px 1px; border-bottom: 1px dashed #000; }
+            th.right, td.right { text-align: right; }
+            td { font-size: 11px; padding: 2px 1px; border-bottom: 1px dashed #eee; }
+            .total-row { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; padding: 4px 0; border-top: 1px solid #000; margin-top: 4px; }
+            .footer { text-align: center; font-size: 11px; margin-top: 6px; }
+            @media print { body { width: 72mm; } }
+          </style>
+        </head>
+        <body>
+          <div class="store-name">RAJU GHEE SWEETS</div>
+          <div class="store-sub">${bill.storeName || 'Outlet Store'}</div>
+          <div class="store-sub">Quality Sweets & Savouries</div>
+          <hr class="divider">
+          <div class="info-row"><span><b>Bill#:</b> ${bill.billId}</span><span>${bill.date}</span></div>
+          <div class="info-row"><span><b>Customer:</b> ${bill.customerName || 'Walk-in Customer'}</span><span><b>Payment:</b> ${bill.paymentMode}</span></div>
+          <hr class="divider">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:50%">Item</th>
+                <th class="right" style="width:15%">Qty</th>
+                <th class="right" style="width:17%">Rate</th>
+                <th class="right" style="width:18%">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(bill.items || []).map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td class="right">${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pc'}</td>
+                  <td class="right">Rs.${Number(item.price).toFixed(0)}</td>
+                  <td class="right">Rs.${Number(item.total).toFixed(0)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <hr class="divider">
+          ${Number(bill.discount || 0) > 0 ? `
+            <div class="info-row"><span>Cart Total</span><span>Rs.${(Number(bill.totalAmount) + Number(bill.discount)).toFixed(2)}</span></div>
+            <div class="info-row" style="color: #dc2626;"><span>Discount</span><span>-Rs.${Number(bill.discount).toFixed(2)}</span></div>
+          ` : ''}
+          <div class="info-row"><span>Subtotal (Excl. Tax)</span><span>Rs.${(Number(bill.totalAmount) / 1.05).toFixed(2)}</span></div>
+          <div class="info-row"><span>GST (5%)</span><span>Rs.${(Number(bill.totalAmount) - (Number(bill.totalAmount) / 1.05)).toFixed(2)}</span></div>
+          <hr class="divider">
+          <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(bill.totalAmount).toFixed(2)}</span></div>
+          <hr class="divider">
+          <div class="footer">Thank you for shopping!</div>
+          <div class="footer">Please visit again.</div>
+          <br>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=420,height=700');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
+  const handlePrintTrigger = async (bill) => {
+    if (bluetoothConnected) {
+      toast.success(`Sending ticket data to ${connectedDevice}...`);
+    }
+    if (qzConnected && selectedQZPrinter) {
+      try {
+        const bytes = buildBillESCPOS(bill);
+        await printRawUSB(bytes);
+        toast.success("Printed bill successfully on USB Thermal Printer!");
+        return;
+      } catch (err) {
+        console.error('QZ print error:', err);
+        let errorMsg = "USB print failed";
+        if (err.message && err.message.includes("not accepting job")) {
+          errorMsg = "Printer is offline or paused. Check Windows Print Queue";
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+        toast.error(`${errorMsg}. Opening system print fallback...`, { duration: 6000 });
+        handlePrintReceipt(bill);
+      }
+    } else {
+      handlePrintReceipt(bill);
+    }
+  };
+
 
   // Load Saved Bill back into Cart
   const loadSavedBill = (bill) => {
