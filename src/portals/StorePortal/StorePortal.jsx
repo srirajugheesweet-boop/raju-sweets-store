@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
-import PortalLayout from '../Shared/PortalLayout';
 import { buildBillESCPOS, buildOrderESCPOS } from '../../utils/qzTray';
+import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import { usePrinter } from '../../context/PrinterContext';
+
 import logo from '../../assets/logo.png';
 import { db } from '../../config/firebase';
 import { 
@@ -2388,94 +2389,9 @@ const StorePortal = () => {
 
 
   const handlePrintReceipt = (bill) => {
-    // If Bluetooth Printer is active, simulate command printing before standard layout fallback
-    if (bluetoothConnected) {
-      toast.success(`Sending ticket roll data to ${connectedDevice}...`);
-    }
-
-    const printContent = `
-      <html>
-        <head>
-          <title>Invoice - ${bill.billId}</title>
-          <style>
-            @page {
-              size: 80mm auto;
-              margin: 4mm 3mm;
-            }
-            * { box-sizing: border-box; }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              font-size: 12px;
-              width: 72mm;
-              max-width: 72mm;
-              margin: 0 auto;
-              padding: 0;
-              color: #000;
-              background: #fff;
-            }
-            .center { text-align: center; }
-            .right { text-align: right; }
-            .store-name { font-size: 16px; font-weight: bold; text-align: center; margin: 4px 0 2px; }
-            .store-sub { font-size: 11px; text-align: center; margin-bottom: 3px; }
-            .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-            .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 1px 0; }
-            table { width: 100%; border-collapse: collapse; margin: 4px 0; }
-            th { font-size: 11px; font-weight: bold; text-align: left; padding: 2px 1px; border-bottom: 1px dashed #000; }
-            th.right, td.right { text-align: right; }
-            td { font-size: 11px; padding: 2px 1px; border-bottom: 1px dashed #eee; }
-            .total-row { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; padding: 4px 0; border-top: 1px solid #000; margin-top: 4px; }
-            .footer { text-align: center; font-size: 11px; margin-top: 6px; }
-            @media print {
-              body { width: 72mm; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="store-name">RAJU GHEE SWEETS</div>
-          <div class="store-sub">${bill.storeName || 'Outlet Store'}</div>
-          <div class="store-sub">Quality Sweets & Savouries</div>
-          <hr class="divider">
-          <div class="info-row"><span><b>Bill#:</b> ${bill.billId}</span><span>${bill.date}</span></div>
-          <div class="info-row"><span><b>Payment:</b> ${bill.paymentMode}</span><span><b>Status:</b> Paid</span></div>
-          <hr class="divider">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:50%">Item</th>
-                <th class="right" style="width:15%">Qty</th>
-                <th class="right" style="width:17%">Rate</th>
-                <th class="right" style="width:18%">Amt</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${bill.items.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td class="right">${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pc'}</td>
-                  <td class="right">Rs.${Number(item.price).toFixed(0)}</td>
-                  <td class="right">Rs.${Number(item.total).toFixed(0)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <hr class="divider">
-          ${Number(bill.discount || 0) > 0 ? `
-            <div class="info-row"><span>Cart Total</span><span>Rs.${(Number(bill.totalAmount) + Number(bill.discount)).toFixed(2)}</span></div>
-            <div class="info-row" style="color: #dc2626;"><span>Discount</span><span>-Rs.${Number(bill.discount).toFixed(2)}</span></div>
-          ` : ''}
-          <div class="info-row"><span>Subtotal (Excl. Tax)</span><span>Rs.${(Number(bill.totalAmount) / 1.05).toFixed(2)}</span></div>
-          <div class="info-row"><span>GST (5%)</span><span>Rs.${(Number(bill.totalAmount) - (Number(bill.totalAmount) / 1.05)).toFixed(2)}</span></div>
-          <hr class="divider">
-          <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(bill.totalAmount).toFixed(2)}</span></div>
-          <hr class="divider">
-          <div class="footer">Thank you for shopping!</div>
-          <div class="footer">Please visit again.</div>
-          <br>
-        </body>
-      </html>
-    `;
-
+    const printContent = generateReceiptHTML(bill);
     const printWindow = window.open('', '_blank', 'width=420,height=700');
+    if (!printWindow) return toast.error("Please allow popups to print receipt.");
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
@@ -2484,6 +2400,7 @@ const StorePortal = () => {
       printWindow.close();
     }, 500);
   };
+
 
   const handlePrintTrigger = async (bill) => {
     // Priority 1: Bluetooth BLE direct
@@ -4009,7 +3926,18 @@ const StorePortal = () => {
                     })()}
                   </div>
 
+                  {/* Items Count Header Bar */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
+                      Total Items: <strong style={{ color: 'var(--primary-color)' }}>{cart.length}</strong>
+                    </span>
+                    <span style={{ fontSize: '10px', background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                      Units: {cart.reduce((sum, item) => sum + (item.unit === 'Weight' ? parseFloat(item.quantity) : parseInt(item.quantity)), 0).toFixed(cart.some(i => i.unit === 'Weight') ? 3 : 0)}
+                    </span>
+                  </div>
+
                   <div className="st-summary-items">
+
 
                     {cart.map((item, idx) => (
                       <div key={idx} className="st-summary-row">

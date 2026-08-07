@@ -15,9 +15,10 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { db } from '../../config/firebase';
-import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import logo from '../../assets/logo.png';
+
 import './WalkInSales.css';
 
 const DEFAULT_ITEM_IMAGE = logo;
@@ -119,67 +120,18 @@ const WalkInSales = () => {
     .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
 
   const handlePrintReceipt = (bill) => {
-    const printWindow = window.open('', '_blank');
+    const printContent = generateReceiptHTML(bill);
+    const printWindow = window.open('', '_blank', 'width=420,height=700');
     if (!printWindow) return toast.error("Please allow popups to print receipt.");
-
-    const itemsRows = (bill.items || []).map(item => `
-      <tr>
-        <td style="padding: 4px 0; border-bottom: 1px dashed #e2e8f0;">${item.name}</td>
-        <td style="padding: 4px 0; text-align: center; border-bottom: 1px dashed #e2e8f0;">${item.unit === 'Weight' ? `${item.quantity}kg` : item.quantity}</td>
-        <td style="padding: 4px 0; text-align: right; border-bottom: 1px dashed #e2e8f0;">₹${Number(item.total).toFixed(2)}</td>
-      </tr>
-    `).join('');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Receipt - ${bill.billId}</title>
-          <style>
-            body { font-family: monospace; width: 280px; margin: 0 auto; padding: 10px; font-size: 12px; }
-            .center { text-align: center; }
-            .right { text-align: right; }
-            .bold { font-weight: bold; }
-            .divider { border-top: 1px dashed #000; margin: 8px 0; }
-            table { width: 100%; border-collapse: collapse; }
-          </style>
-        </head>
-        <body>
-          <div class="center bold" style="font-size: 16px;">RAJU GHEE SWEETS</div>
-          <div class="center">${bill.storeName || 'Outlet Store'}</div>
-          <div class="divider"></div>
-          <div>Bill ID: <b>${bill.billId}</b></div>
-          <div>Date: ${bill.date || ''}</div>
-          <div>Customer: ${bill.customerName || 'Walk-in Customer'}</div>
-          ${bill.customerPhone ? `<div>Phone: ${bill.customerPhone}</div>` : ''}
-          <div class="divider"></div>
-          <table>
-            <thead>
-              <tr style="border-bottom: 1px solid #000;">
-                <th style="text-align: left;">Item</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>${itemsRows}</tbody>
-          </table>
-          <div class="divider"></div>
-          ${bill.discount > 0 ? `<div style="display:flex; justify-between;"><span>Discount:</span><span>-₹${bill.discount}</span></div>` : ''}
-          <div style="display: flex; justify-content: space-between;" class="bold">
-            <span>Grand Total:</span>
-            <span>₹${Number(bill.totalAmount || 0).toFixed(2)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span>Payment Mode:</span>
-            <span>${bill.paymentMode || 'Cash'}</span>
-          </div>
-          <div class="divider"></div>
-          <div class="center">Thank you for visiting!</div>
-          <script>window.onload = function() { window.print(); window.close(); }</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(printContent);
     printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
+
 
   return (
     <div className="walkin-sales-container">
@@ -379,7 +331,14 @@ const WalkInSales = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', marginBottom: '16px' }}>
               <div><b>Customer Name:</b> {previewBill.customerName || 'Walk-in Customer'}</div>
               <div><b>Customer Phone:</b> {previewBill.customerPhone || '—'}</div>
+              {previewBill.companyName && <div><b>B2B Company:</b> {previewBill.companyName}</div>}
+              {(previewBill.customerGst || previewBill.gstNumber) && (
+                <div style={{ color: '#1e3a8a', fontWeight: '700' }}>
+                  <b>Customer GSTIN:</b> {previewBill.customerGst || previewBill.gstNumber}
+                </div>
+              )}
               <div><b>Payment Mode:</b> {previewBill.paymentMode || 'Cash'}</div>
+
               <div>
                 <b>Bill Status:</b>{' '}
                 <span className={`walkin-status-badge ${previewBill.status || 'settled'}`}>

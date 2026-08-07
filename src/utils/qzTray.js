@@ -274,8 +274,8 @@ export const buildBillESCPOS = (bill, charsPerLine = 48) => {
   const CUT         = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
 
   const dashedLine = ''.padEnd(charsPerLine, '-') + '\n';
-  
-  // Helper to justify left and right text on the same line
+  const solidLine = ''.padEnd(charsPerLine, '=') + '\n';
+
   const justifyLR = (left, right) => {
     let spaces = charsPerLine - left.length - right.length;
     if (spaces < 1) spaces = 1;
@@ -283,97 +283,139 @@ export const buildBillESCPOS = (bill, charsPerLine = 48) => {
   };
 
   let bytes = [];
-
   bytes.push(...INIT);
 
-  // Header
-  bytes.push(...CENTER, ...DOUBLE_SIZE);
-  bytes.push(...encoder.encode('RAJU GHEE SWEETS\n'));
-  bytes.push(...NORMAL_SIZE);
-  bytes.push(...encoder.encode(`${bill.storeName || 'Outlet Store'}\n`));
-  bytes.push(...encoder.encode('Quality Sweets & Savouries\n'));
+  // Top Tag
+  bytes.push(...RIGHT, ...NORMAL_SIZE);
+  bytes.push(...encoder.encode('Customer Copy\n'));
+
+  // Store Header
+  bytes.push(...CENTER, ...BOLD_ON, ...DOUBLE_SIZE);
+  bytes.push(...encoder.encode('SRI RAJU SWEETS\n'));
+  bytes.push(...NORMAL_SIZE, ...BOLD_OFF);
+  bytes.push(...encoder.encode('56-11-20B, OPP JD TOWERS, PATAMATA MAIN\nROAD, VIJAYAWADA, ANDHRA PRADESH, 520010\n'));
+  bytes.push(...BOLD_ON);
+  bytes.push(...encoder.encode('PHONE: 9244757677\n'));
+  bytes.push(...encoder.encode('GSTIN: 37DFJPK6083N1ZO\n'));
+  bytes.push(...BOLD_OFF);
   bytes.push(...encoder.encode(dashedLine));
+
+  // Customer Block
+  bytes.push(...LEFT);
+  bytes.push(...encoder.encode(`Customer: ${bill.customerName || 'Walk-in Customer'}\n`));
+  if (bill.customerPhone) bytes.push(...encoder.encode(`Mobile:   ${bill.customerPhone}\n`));
+  if (bill.companyName) bytes.push(...encoder.encode(`${bill.companyName}\n`));
+  if (bill.customerGst || bill.gstNumber) bytes.push(...encoder.encode(`PH ${bill.customerPhone || ''} GST ${bill.customerGst || bill.gstNumber}\n`));
+
+  bytes.push(...CENTER, ...BOLD_ON);
+  bytes.push(...encoder.encode('Tax Invoice/Bill of Supply\n'));
+  bytes.push(...BOLD_OFF);
+  bytes.push(...encoder.encode(solidLine));
 
   // Bill Meta
   bytes.push(...LEFT);
-  bytes.push(...encoder.encode(justifyLR('Bill ID:', bill.billId.toString())));
-  bytes.push(...encoder.encode(justifyLR('Date:', bill.date || new Date().toLocaleDateString('en-IN'))));
-  bytes.push(...encoder.encode(justifyLR('Payment:', bill.paymentMode || 'Cash')));
-  bytes.push(...encoder.encode(dashedLine));
+  const formattedDate = bill.date || new Date().toLocaleDateString('en-IN');
+  const formattedTime = bill.time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  bytes.push(...encoder.encode(justifyLR(`Bill No. ${bill.billId}`, `Date ${formattedDate} ${formattedTime}`)));
+  bytes.push(...encoder.encode(solidLine));
 
-  // Table Header (Dynamic width calculation)
-  // Divide available space: Item (50%), Qty (20%), Total (30%)
-  const itemW = Math.floor(charsPerLine * 0.5);
-  const qtyW = Math.floor(charsPerLine * 0.2);
-  const totalW = charsPerLine - itemW - qtyW;
-
+  // Product Table Header
   bytes.push(...BOLD_ON);
+  bytes.push(...encoder.encode('Product\n'));
   bytes.push(...encoder.encode(
-    'Item'.padEnd(itemW) + 
-    'Qty'.padEnd(qtyW) + 
-    'Total'.padStart(totalW) + '\n'
+    'Qty'.padStart(10) + 
+    'Mrp'.padStart(12) + 
+    'S.Price'.padStart(12) + 
+    'Amount'.padStart(14) + '\n'
   ));
   bytes.push(...BOLD_OFF);
   bytes.push(...encoder.encode(dashedLine));
 
-  // Items
+  // Product Rows
+  let totalUnits = 0;
   (bill.items || []).forEach(item => {
-    const qtyText = item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity}pc`;
-    const priceText = `Rs.${Number(item.total).toFixed(0)}`;
-    
-    const maxNameLen = itemW - 1;
-    let namePart1 = item.name;
-    let namePart2 = '';
-    
-    if (namePart1.length > maxNameLen) {
-      namePart1 = item.name.substring(0, maxNameLen);
-      namePart2 = item.name.substring(maxNameLen);
-    }
-    
+    const qtyNum = item.unit === 'Weight' ? parseFloat(item.quantity) : parseInt(item.quantity);
+    totalUnits += (item.unit === 'Weight' ? 1 : qtyNum);
+
+    const qtyStr = item.unit === 'Weight' ? `${Number(item.quantity).toFixed(2)} KG` : `${item.quantity} PC`;
+    bytes.push(...BOLD_ON);
+    bytes.push(...encoder.encode(`${item.name} ${qtyStr}\n`));
+    bytes.push(...BOLD_OFF);
+
+    const qtyVal = Number(item.quantity).toFixed(2);
+    const mrpVal = Number(item.price).toFixed(2);
+    const spVal = Number(item.price).toFixed(2);
+    const amtVal = Number(item.total).toFixed(2);
+
     bytes.push(...encoder.encode(
-      namePart1.padEnd(itemW) + 
-      qtyText.padEnd(qtyW) + 
-      priceText.padStart(totalW) + '\n'
+      qtyVal.padStart(10) + 
+      mrpVal.padStart(12) + 
+      spVal.padStart(12) + 
+      amtVal.padStart(14) + '\n'
     ));
-    
-    while (namePart2.length > 0) {
-      const chunk = namePart2.substring(0, maxNameLen);
-      bytes.push(...encoder.encode(
-        chunk.padEnd(itemW) + 
-        ' '.repeat(qtyW + totalW) + '\n'
-      ));
-      namePart2 = namePart2.substring(maxNameLen);
-    }
   });
 
-  bytes.push(...encoder.encode(dashedLine));
+  bytes.push(...encoder.encode(solidLine));
 
-  // Grand Total with GST Details
+  // Net Amount Block
   const totalVal = Number(bill.totalAmount || 0);
-  const discountVal = Number(bill.discount || 0);
-  const grossTotal = totalVal + discountVal;
-  const subtotalVal = totalVal / 1.05;
-  const gstVal = totalVal - subtotalVal;
+  bytes.push(...BOLD_ON, ...DOUBLE_SIZE);
+  bytes.push(...encoder.encode(justifyLR('Net Amount :', `Rs.${totalVal.toFixed(2)}`)));
+  bytes.push(...NORMAL_SIZE, ...BOLD_OFF);
+  bytes.push(...encoder.encode(solidLine));
 
-  if (discountVal > 0) {
-    bytes.push(...encoder.encode(justifyLR('Cart Total:', `Rs.${grossTotal.toFixed(2)}`)));
-    bytes.push(...encoder.encode(justifyLR('Discount:', `-Rs.${discountVal.toFixed(2)}`)));
-  }
-  bytes.push(...encoder.encode(justifyLR('Subtotal (Excl. Tax):', `Rs.${subtotalVal.toFixed(2)}`)));
-  bytes.push(...encoder.encode(justifyLR('GST (5%):', `Rs.${gstVal.toFixed(2)}`)));
+  // GST Summary Block
+  const taxableVal = totalVal / 1.05;
+  const taxAmtVal = totalVal - taxableVal;
+  const cgstVal = taxAmtVal / 2;
+  const sgstVal = taxAmtVal / 2;
+
   bytes.push(...BOLD_ON);
-  bytes.push(...encoder.encode(justifyLR('GRAND TOTAL:', `Rs.${totalVal.toFixed(2)}`)));
+  bytes.push(...encoder.encode('GST Summary\n'));
+  bytes.push(...encoder.encode(solidLine));
+  bytes.push(...encoder.encode('Taxable     CGST    SGST    IGST    CESS  Tax Amt\n'));
   bytes.push(...BOLD_OFF);
+  bytes.push(...encoder.encode('GST 5%\n'));
+  bytes.push(...encoder.encode(
+    taxableVal.toFixed(2).padEnd(10) + 
+    cgstVal.toFixed(2).padEnd(8) + 
+    sgstVal.toFixed(2).padEnd(8) + 
+    '0.00'.padEnd(8) + 
+    '0.00'.padEnd(6) + 
+    taxAmtVal.toFixed(2).padStart(8) + '\n'
+  ));
+  bytes.push(...encoder.encode(dashedLine));
+  bytes.push(...BOLD_ON);
+  bytes.push(...encoder.encode(
+    taxableVal.toFixed(2).padEnd(10) + 
+    cgstVal.toFixed(2).padEnd(8) + 
+    sgstVal.toFixed(2).padEnd(8) + 
+    '0.00'.padEnd(8) + 
+    '0.00'.padEnd(6) + 
+    taxAmtVal.toFixed(2).padStart(8) + '\n'
+  ));
+  bytes.push(...BOLD_OFF);
+  bytes.push(...encoder.encode(solidLine));
+
+  // Amount in Words
+  bytes.push(...BOLD_ON);
+  bytes.push(...encoder.encode(`Word: ${numberToWords(totalVal)}\n`));
+  bytes.push(...BOLD_OFF);
+  bytes.push(...encoder.encode(solidLine));
+
+  // Footer Counters
+  bytes.push(...encoder.encode(justifyLR('Counter : 1', `${bill.paymentMode || 'CASH'}-${totalVal.toFixed(0)}`)));
+  bytes.push(...encoder.encode(justifyLR('User : admin', `Tot Qty : ${totalUnits}`)));
   bytes.push(...encoder.encode(dashedLine));
 
-  // Footer
-  bytes.push(...CENTER);
-  bytes.push(...encoder.encode('Thank you for shopping!\n'));
-  bytes.push(...encoder.encode('Please visit again.\n\n\n'));
-  bytes.push(...CUT);
+  // Footer Banner
+  bytes.push(...CENTER, ...BOLD_ON);
+  bytes.push(...encoder.encode('*** Thank you & Visit Again ***\n\n\n'));
+  bytes.push(...BOLD_OFF, ...CUT);
 
   return new Uint8Array(bytes);
 };
+
 
 /**
  * Build ESC/POS bytes for an Order receipt.

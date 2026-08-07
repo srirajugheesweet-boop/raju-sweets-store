@@ -24,7 +24,9 @@ import {
 
 import { usePrinter } from '../../context/PrinterContext';
 import { buildBillESCPOS } from '../../utils/qzTray';
+import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import { db } from '../../config/firebase';
+
 import { collection, addDoc, getDocs, doc, updateDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
@@ -99,8 +101,9 @@ const SuperAdminPOS = () => {
 
   // Create Customer Modal State
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
-  const [custForm, setCustForm] = useState({ firstName: '', lastName: '', mobileNumber: '', address: '', city: '' });
+  const [custForm, setCustForm] = useState({ firstName: '', lastName: '', mobileNumber: '', address: '', city: '', isB2B: false, companyName: '', gstNumber: '' });
   const [savingCustomer, setSavingCustomer] = useState(false);
+
 
   // Weight Item Modal
   const [showWeightModal, setShowWeightModal] = useState(null);
@@ -301,7 +304,8 @@ const SuperAdminPOS = () => {
       setSelectedCustomerId(docRef.id);
       toast.success("Customer created and selected!");
       setShowCreateCustomerModal(false);
-      setCustForm({ firstName: '', lastName: '', mobileNumber: '', address: '', city: '' });
+      setCustForm({ firstName: '', lastName: '', mobileNumber: '', address: '', city: '', isB2B: false, companyName: '', gstNumber: '' });
+
     } catch (err) {
       console.error(err);
       toast.error("Failed to create customer");
@@ -341,8 +345,11 @@ const SuperAdminPOS = () => {
         storeName: selectedStoreName || 'Outlet Store',
         customerId: selectedCustomerId,
         customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Walk-in Customer',
-
         customerPhone: selectedCustomerObj ? selectedCustomerObj.mobileNumber : '',
+        isB2B: selectedCustomerObj ? (selectedCustomerObj.isB2B || false) : false,
+        companyName: selectedCustomerObj ? (selectedCustomerObj.companyName || '') : '',
+        customerGst: selectedCustomerObj ? (selectedCustomerObj.gstNumber || selectedCustomerObj.gst || '') : '',
+
         items: cart,
         discount: discountVal,
         totalAmount: totalAmt,
@@ -382,75 +389,9 @@ const SuperAdminPOS = () => {
   };
 
   const handlePrintReceipt = (bill) => {
-    const printContent = `
-      <html>
-        <head>
-          <title>Invoice - ${bill.billId}</title>
-          <style>
-            @page { size: 80mm auto; margin: 4mm 3mm; }
-            * { box-sizing: border-box; }
-            body { font-family: 'Courier New', Courier, monospace; font-size: 12px; width: 72mm; max-width: 72mm; margin: 0 auto; padding: 0; color: #000; background: #fff; }
-            .center { text-align: center; }
-            .right { text-align: right; }
-            .store-name { font-size: 16px; font-weight: bold; text-align: center; margin: 4px 0 2px; }
-            .store-sub { font-size: 11px; text-align: center; margin-bottom: 3px; }
-            .divider { border: none; border-top: 1px dashed #000; margin: 5px 0; }
-            .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 1px 0; }
-            table { width: 100%; border-collapse: collapse; margin: 4px 0; }
-            th { font-size: 11px; font-weight: bold; text-align: left; padding: 2px 1px; border-bottom: 1px dashed #000; }
-            th.right, td.right { text-align: right; }
-            td { font-size: 11px; padding: 2px 1px; border-bottom: 1px dashed #eee; }
-            .total-row { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; padding: 4px 0; border-top: 1px solid #000; margin-top: 4px; }
-            .footer { text-align: center; font-size: 11px; margin-top: 6px; }
-            @media print { body { width: 72mm; } }
-          </style>
-        </head>
-        <body>
-          <div class="store-name">RAJU GHEE SWEETS</div>
-          <div class="store-sub">${bill.storeName || 'Outlet Store'}</div>
-          <div class="store-sub">Quality Sweets & Savouries</div>
-          <hr class="divider">
-          <div class="info-row"><span><b>Bill#:</b> ${bill.billId}</span><span>${bill.date}</span></div>
-          <div class="info-row"><span><b>Customer:</b> ${bill.customerName || 'Walk-in Customer'}</span><span><b>Payment:</b> ${bill.paymentMode}</span></div>
-          <hr class="divider">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:50%">Item</th>
-                <th class="right" style="width:15%">Qty</th>
-                <th class="right" style="width:17%">Rate</th>
-                <th class="right" style="width:18%">Amt</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(bill.items || []).map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td class="right">${item.unit === 'Weight' ? item.quantity + 'kg' : item.quantity + 'pc'}</td>
-                  <td class="right">Rs.${Number(item.price).toFixed(0)}</td>
-                  <td class="right">Rs.${Number(item.total).toFixed(0)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <hr class="divider">
-          ${Number(bill.discount || 0) > 0 ? `
-            <div class="info-row"><span>Cart Total</span><span>Rs.${(Number(bill.totalAmount) + Number(bill.discount)).toFixed(2)}</span></div>
-            <div class="info-row" style="color: #dc2626;"><span>Discount</span><span>-Rs.${Number(bill.discount).toFixed(2)}</span></div>
-          ` : ''}
-          <div class="info-row"><span>Subtotal (Excl. Tax)</span><span>Rs.${(Number(bill.totalAmount) / 1.05).toFixed(2)}</span></div>
-          <div class="info-row"><span>GST (5%)</span><span>Rs.${(Number(bill.totalAmount) - (Number(bill.totalAmount) / 1.05)).toFixed(2)}</span></div>
-          <hr class="divider">
-          <div class="total-row"><span>GRAND TOTAL</span><span>Rs.${Number(bill.totalAmount).toFixed(2)}</span></div>
-          <hr class="divider">
-          <div class="footer">Thank you for shopping!</div>
-          <div class="footer">Please visit again.</div>
-          <br>
-        </body>
-      </html>
-    `;
-
+    const printContent = generateReceiptHTML(bill);
     const printWindow = window.open('', '_blank', 'width=420,height=700');
+    if (!printWindow) return toast.error("Please allow popups to print receipt.");
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
@@ -459,6 +400,7 @@ const SuperAdminPOS = () => {
       printWindow.close();
     }, 500);
   };
+
 
   const handlePrintTrigger = async (bill) => {
     if (bluetoothConnected) {
@@ -740,8 +682,19 @@ const SuperAdminPOS = () => {
 
               </div>
 
+              {/* Items Count Header Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                  Total Items: <strong style={{ color: 'var(--primary-color)' }}>{cart.length}</strong>
+                </span>
+                <span style={{ fontSize: '11px', background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                  Total Units: {cart.reduce((sum, item) => sum + (item.unit === 'Weight' ? parseFloat(item.quantity) : parseInt(item.quantity)), 0).toFixed(cart.some(i => i.unit === 'Weight') ? 3 : 0)}
+                </span>
+              </div>
+
               {/* Cart Items List */}
               <div className="st-summary-items" style={{ minHeight: '260px', maxHeight: '380px', overflowY: 'auto' }}>
+
 
                 {cart.map((item, idx) => (
                   <div key={idx} className="st-summary-row">
@@ -932,7 +885,7 @@ const SuperAdminPOS = () => {
       {/* Create Customer Modal */}
       {showCreateCustomerModal && (
         <div className="walkin-modal-overlay">
-          <div className="walkin-modal-card" style={{ maxWidth: '400px' }}>
+          <div className="walkin-modal-card" style={{ maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Create New Customer</h3>
               <button onClick={() => setShowCreateCustomerModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
@@ -951,6 +904,42 @@ const SuperAdminPOS = () => {
                 <label>Mobile Number *</label>
                 <input type="tel" required value={custForm.mobileNumber} onChange={(e) => setCustForm(p => ({ ...p, mobileNumber: e.target.value }))} placeholder="e.g. 9876543210" />
               </div>
+
+              {/* B2B Customer Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '4px' }}>
+                <input 
+                  type="checkbox" 
+                  id="isB2BCheck"
+                  checked={custForm.isB2B}
+                  onChange={(e) => setCustForm(p => ({ ...p, isB2B: e.target.checked }))}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="isB2BCheck" style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', cursor: 'pointer', margin: 0 }}>
+                  Is B2B Commercial Customer?
+                </label>
+              </div>
+
+              {custForm.isB2B && (
+                <>
+                  <div className="items-input-group">
+                    <label>Company / Business Name *</label>
+                    <input type="text" required={custForm.isB2B} value={custForm.companyName} onChange={(e) => setCustForm(p => ({ ...p, companyName: e.target.value }))} placeholder="e.g. Vishnu Wholesale Sweets" />
+                  </div>
+                  <div className="items-input-group">
+                    <label>GSTIN / GST Number *</label>
+                    <input type="text" required={custForm.isB2B} value={custForm.gstNumber} onChange={(e) => setCustForm(p => ({ ...p, gstNumber: e.target.value.toUpperCase() }))} placeholder="e.g. 36AAAAA0000A1Z5" />
+                  </div>
+                  <div className="items-input-group">
+                    <label>Billing Address</label>
+                    <input type="text" value={custForm.address} onChange={(e) => setCustForm(p => ({ ...p, address: e.target.value }))} placeholder="e.g. Plot No 12, Main Road" />
+                  </div>
+                  <div className="items-input-group">
+                    <label>City</label>
+                    <input type="text" value={custForm.city} onChange={(e) => setCustForm(p => ({ ...p, city: e.target.value }))} placeholder="e.g. Hyderabad" />
+                  </div>
+                </>
+              )}
+
               <button type="submit" className="polaris-btn polaris-btn-primary" style={{ marginTop: '8px', justifyContent: 'center' }} disabled={savingCustomer}>
                 {savingCustomer ? 'Saving...' : 'Save & Select Customer'}
               </button>
@@ -958,6 +947,7 @@ const SuperAdminPOS = () => {
           </div>
         </div>
       )}
+
 
       {/* Weight Modal */}
       {showWeightModal && (
