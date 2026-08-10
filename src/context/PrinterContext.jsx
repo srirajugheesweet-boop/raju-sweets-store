@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { connectQZ, disconnectQZ, listQZPrinters, printRawToQZ } from '../utils/qzTray';
 import toast from 'react-hot-toast';
 
+const PrinterContext = createContext(null);
+
 // Helper to filter out virtual PDF/Fax printers and pick real thermal label printers
 export const findBestThermalPrinter = (printers = []) => {
   if (!Array.isArray(printers) || printers.length === 0) return '';
