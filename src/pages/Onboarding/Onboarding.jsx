@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Factory, Package, LogOut, Users, User } from 'lucide-react';
+import { Store, Factory, Package, LogOut, Users, User, Barcode } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -208,6 +208,25 @@ const Onboarding = () => {
               <div className="onb-card-body">
                 <h3>Employee Operations</h3>
                 <p>Staff & Attendance Management</p>
+              </div>
+              <span className="onb-action-chip">Launch Portal &rarr;</span>
+            </motion.div>
+          )}
+
+          {(profile.role === 'admin' || profile.access?.barcodeGenerator) && (
+            <motion.div 
+              key="barcode-portal" 
+              className="onb-card store" 
+              onClick={() => navigate('/barcode-generator')}
+              whileHover={{ y: -4 }}
+              transition={{ duration: 0.15 }}
+            >
+              <div className="onb-icon-box store" style={{ background: '#ecfdf5', color: '#059669' }}>
+                <Barcode size={28} />
+              </div>
+              <div className="onb-card-body">
+                <h3>Barcode Generator</h3>
+                <p>Weight & Sticker Printing</p>
               </div>
               <span className="onb-action-chip">Launch Portal &rarr;</span>
             </motion.div>

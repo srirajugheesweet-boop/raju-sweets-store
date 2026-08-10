@@ -197,33 +197,27 @@ const BarcodeGenerator = () => {
     setPrintQueue([]);
   };
 
-  // --- Browser Print Handler ---
+  // --- Browser & USB Print Handlers ---
   const handleBrowserPrintCurrent = () => {
     if (!selectedItem) return;
     window.print();
   };
 
-  // --- USB Printer (QZ Tray) TSPL / Raw Print Handler ---
+  // --- USB Printer Handler with Instant Driver Fallback ---
   const handleUSBPrintCurrent = async () => {
     if (!selectedItem) return;
 
-    if (!qzConnected || !selectedQZPrinter) {
-      toast.error("USB Printer is not connected via QZ Tray. Connecting now...");
-      connectQZTray();
-      return;
-    }
+    // 1. If QZ Tray software is connected, use raw silent TSPL printing
+    if (qzConnected && selectedQZPrinter) {
+      const toastId = toast.loading(`Sending ${quantity} label sticker(s) to ${selectedQZPrinter}...`);
 
-    const toastId = toast.loading(`Sending ${quantity} label sticker(s) to ${selectedQZPrinter}...`);
+      try {
+        const rawBarcodeId = customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004';
+        const weightStr = getFormattedWeightLabel();
+        const mrpText = `MRP: ${customPrice}/-`;
+        const copyQty = Number(quantity) || 1;
 
-    try {
-      // 1. Generate TSPL commands for USB sticker printer (TSC / Xprinter / etc.)
-      const rawBarcodeId = customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004';
-      const weightStr = getFormattedWeightLabel();
-      const mrpText = `MRP: ${customPrice}/-`;
-      const copyQty = Number(quantity) || 1;
-
-      // TSPL protocol label string formatted to match exact dimensions
-      const tsplCode = `
+        const tsplCode = `
 SIZE ${labelWidth} mm, ${labelHeight} mm
 GAP 2 mm, 0 mm
 DIRECTION 1
@@ -237,16 +231,22 @@ TEXT 240, 118, "3", 0, 1, 1, "${mrpText}"
 PRINT ${copyQty}
 `;
 
-      const encoder = new TextEncoder();
-      const dataBytes = encoder.encode(tsplCode);
-
-      await printRawUSB(dataBytes);
-      toast.success(`Successfully sent ${copyQty} label(s) to USB printer!`, { id: toastId });
-
-    } catch (err) {
-      console.error("USB Print Error:", err);
-      toast.error(`USB Print failed: ${err.message || 'Check printer connection'}`, { id: toastId });
+        const encoder = new TextEncoder();
+        await printRawUSB(encoder.encode(tsplCode));
+        toast.success(`Successfully sent ${copyQty} label(s) to USB printer!`, { id: toastId });
+        return;
+      } catch (err) {
+        console.error("USB Raw Print Error:", err);
+        toast.error(`Direct USB raw print failed. Launching Windows USB Driver Print...`, { id: toastId });
+      }
     }
+
+    // 2. If QZ Tray desktop app is not running/connected:
+    // Instantly open Windows USB Printer Driver dialog so printing works without any error!
+    toast("Opening Windows USB Printer Print...", { icon: '🖨️' });
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   // USB Batch Print
