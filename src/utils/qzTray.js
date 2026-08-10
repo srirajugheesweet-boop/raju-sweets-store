@@ -71,20 +71,33 @@ export const connectQZ = async () => {
     };
   });
 
-  // Wrap the connect call with a 5-second hard timeout so it fails fast
-  // when QZ Tray is not running instead of hanging for 10-15 seconds.
-  const connectPromise = qz.websocket.connect({
-    host: 'localhost',
-    port: { secure: [8181, 8182], insecure: [8182, 8181] },
-    retries: 1,
-    delay: 0.5,
-  });
+  const isHttps = window.location.protocol === 'https:';
 
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('QZ Tray connection timed out after 5 seconds')), 5000)
-  );
+  const tryConnect = async (useSecure) => {
+    const opts = {
+      host: 'localhost',
+      usingSecure: useSecure,
+      port: useSecure
+        ? { secure: [8181, 8182], insecure: [8182, 8181] }
+        : { insecure: [8182, 8181], secure: [8181, 8182] },
+      retries: 1,
+      delay: 0.5,
+    };
 
-  await Promise.race([connectPromise, timeoutPromise]);
+    const connectPromise = qz.websocket.connect(opts);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('QZ Tray connection timed out after 5 seconds')), 5000)
+    );
+
+    return Promise.race([connectPromise, timeoutPromise]);
+  };
+
+  try {
+    await tryConnect(isHttps);
+  } catch (primaryErr) {
+    console.warn("Primary QZ Tray WebSocket attempt failed, trying alternative security protocol...", primaryErr);
+    await tryConnect(!isHttps);
+  }
 };
 
 

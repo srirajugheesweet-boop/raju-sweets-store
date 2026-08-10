@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Barcode, 
   Printer, 
@@ -16,7 +17,10 @@ import {
   Settings2,
   Package,
   Eye,
-  FileText
+  FileText,
+  HelpCircle,
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -46,9 +50,17 @@ const WEIGHT_PRESETS = [
 const BarcodeGenerator = () => {
   const { 
     qzConnected, 
+    qzPrinters,
     selectedQZPrinter, 
+    showQZModal,
+    showQZSetupGuide,
+    qzConnecting,
+    qzConnectTimer,
+    setShowQZModal,
+    setShowQZSetupGuide,
     connectQZTray, 
-    setShowQZModal, 
+    confirmQZPrinter,
+    disconnectQZTray,
     printRawUSB 
   } = usePrinter();
 
@@ -256,18 +268,13 @@ PRINT ${copyQty}
       return;
     }
 
-    if (!qzConnected || !selectedQZPrinter) {
-      toast.error("Please connect USB Printer first");
-      connectQZTray();
-      return;
-    }
+    if (qzConnected && selectedQZPrinter) {
+      const toastId = toast.loading(`Sending batch (${printQueue.reduce((a, c) => a + c.quantity, 0)} stickers) to USB printer...`);
 
-    const toastId = toast.loading(`Sending batch (${printQueue.reduce((a, c) => a + c.quantity, 0)} stickers) to USB printer...`);
-
-    try {
-      let combinedTSPL = '';
-      printQueue.forEach(item => {
-        combinedTSPL += `
+      try {
+        let combinedTSPL = '';
+        printQueue.forEach(item => {
+          combinedTSPL += `
 SIZE ${labelWidth} mm, ${labelHeight} mm
 GAP 2 mm, 0 mm
 DIRECTION 1
@@ -280,15 +287,22 @@ TEXT 15, 105, "2", 0, 1, 1, "${item.barcodeId}"
 TEXT 240, 118, "3", 0, 1, 1, "MRP: ${item.mrp}/-"
 PRINT ${item.quantity}
 `;
-      });
+        });
 
-      const encoder = new TextEncoder();
-      await printRawUSB(encoder.encode(combinedTSPL));
-      toast.success(`Batch printed successfully!`, { id: toastId });
-    } catch (err) {
-      console.error("Batch USB Print Error:", err);
-      toast.error(`Batch USB Print failed: ${err.message}`, { id: toastId });
+        const encoder = new TextEncoder();
+        await printRawUSB(encoder.encode(combinedTSPL));
+        toast.success(`Batch printed successfully!`, { id: toastId });
+        return;
+      } catch (err) {
+        console.error("Batch USB Print Error:", err);
+      }
     }
+
+    // Fallback: Trigger Browser Print for entire batch
+    toast("Opening Windows USB Print dialog for batch...", { icon: '🖨️' });
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   return (
@@ -376,19 +390,15 @@ PRINT ${item.quantity}
           </div>
         </div>
 
-        {/* USB Printer Status Badge */}
+        {/* Top Actions */}
         <div className="barcode-header-actions">
-          <div className={`usb-status-badge ${qzConnected ? 'connected' : 'disconnected'}`}>
-            <Usb size={16} />
-            <span>{qzConnected ? (selectedQZPrinter || 'USB Printer Ready') : 'USB Printer Disconnected'}</span>
-          </div>
-
           <button 
             className="barcode-btn barcode-btn-secondary" 
-            onClick={() => qzConnected ? setShowQZModal(true) : connectQZTray()}
+            onClick={handleBrowserPrintCurrent}
+            disabled={!selectedItem}
           >
-            <Settings2 size={16} />
-            {qzConnected ? 'Printer Settings' : 'Connect USB Printer'}
+            <Printer size={16} />
+            Direct Windows Driver Print
           </button>
 
           <button 
@@ -396,9 +406,50 @@ PRINT ${item.quantity}
             onClick={handleUSBPrintCurrent}
             disabled={!selectedItem}
           >
-            <Printer size={16} />
-            Print ({quantity} Copies)
+            <Usb size={16} />
+            Print Stickers ({quantity} Copies)
           </button>
+        </div>
+      </div>
+
+      {/* USB PRINTER STATUS & SETUP BANNER */}
+      <div className="usb-printer-control-banner">
+        <div className="usb-banner-info">
+          <div className={`usb-status-dot ${qzConnected ? 'active' : 'inactive'}`} />
+          <div>
+            <h4 className="usb-banner-title">
+              {qzConnected ? `QZ Tray USB Service Active: ${selectedQZPrinter || 'Printer Connected'}` : 'USB Thermal Printer Setup'}
+            </h4>
+            <p className="usb-banner-sub">
+              {qzConnected 
+                ? 'Direct silent raw TSPL USB printing is active.' 
+                : 'QZ Tray background app is currently disconnected. You can connect QZ Tray for silent printing OR use Direct Windows Driver print.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="usb-banner-actions">
+          {qzConnected ? (
+            <>
+              <button className="barcode-btn barcode-btn-secondary" onClick={() => setShowQZModal(true)}>
+                <Settings2 size={14} /> Change Printer
+              </button>
+              <button className="barcode-btn barcode-btn-outline" onClick={disconnectQZTray}>
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="barcode-btn barcode-btn-primary" onClick={connectQZTray} disabled={qzConnecting}>
+                <RefreshCw size={14} className={qzConnecting ? 'animate-spin' : ''} />
+                {qzConnecting ? `Connecting (${qzConnectTimer}s)...` : 'Connect QZ Tray USB'}
+              </button>
+
+              <button className="barcode-btn barcode-btn-secondary" onClick={() => setShowQZSetupGuide(true)}>
+                <HelpCircle size={14} /> Setup & Download Guide
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -629,7 +680,7 @@ PRINT ${item.quantity}
                 disabled={!selectedItem}
               >
                 <Printer size={16} />
-                USB Direct Print ({quantity})
+                Print Labels ({quantity})
               </button>
 
               <button 
@@ -638,7 +689,7 @@ PRINT ${item.quantity}
                 disabled={!selectedItem}
               >
                 <FileText size={16} />
-                Browser Print / PDF
+                Windows Print / PDF
               </button>
             </div>
 
@@ -717,6 +768,137 @@ PRINT ${item.quantity}
         </div>
 
       </div>
+
+      {/* ========================================== */}
+      {/* IN-PAGE QZ TRAY MODALS                     */}
+      {/* ========================================== */}
+
+      {/* 1. Printer Selection Modal */}
+      <AnimatePresence>
+        {showQZModal && createPortal(
+          <div className="modal-overlay" style={{ zIndex: 9999 }} onClick={() => setShowQZModal(false)}>
+            <motion.div
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{ maxWidth: '420px', width: '95%' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
+                <Usb size={28} />
+              </div>
+              <h3 className="modal-title">Select USB Thermal Printer</h3>
+
+              <div style={{ margin: '15px 0', textAlign: 'left' }}>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '6px', display: 'block' }}>
+                  Detected System Printers
+                </label>
+                <select
+                  value={selectedQZPrinter}
+                  onChange={(e) => confirmQZPrinter(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '14px',
+                    background: '#ffffff',
+                    outline: 'none'
+                  }}
+                >
+                  {qzPrinters.length > 0 ? (
+                    qzPrinters.map(p => <option key={p} value={p}>{p}</option>)
+                  ) : (
+                    <option value="">No USB thermal printers found</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button className="barcode-btn barcode-btn-outline flex-1" onClick={() => { disconnectQZTray(); setShowQZModal(false); }}>
+                  Disconnect
+                </button>
+                <button
+                  className="barcode-btn barcode-btn-primary flex-1"
+                  onClick={() => setShowQZModal(false)}
+                >
+                  Confirm Selection
+                </button>
+              </div>
+            </motion.div>
+          </div>,
+          document.body
+        )}
+      </AnimatePresence>
+
+      {/* 2. QZ Tray Connection & Setup Guide Modal */}
+      <AnimatePresence>
+        {showQZSetupGuide && createPortal(
+          <div className="modal-overlay" style={{ zIndex: 9999 }} onClick={() => setShowQZSetupGuide(false)}>
+            <motion.div
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{ maxWidth: '480px', width: '95%', textAlign: 'left' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '15px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a' }}>
+                  <Usb size={20} style={{ color: '#2563eb' }} />
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>USB Thermal Printer Setup Guide</h3>
+                </div>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowQZSetupGuide(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <p style={{ margin: 0 }}>
+                  For <strong>silent direct USB printing</strong> without browser popups, the free <strong>QZ Tray</strong> desktop service must be running on your computer.
+                </p>
+
+                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', marginBottom: '6px' }}>Quick Setup Instructions:</div>
+                  <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <li>
+                      Download QZ Tray (Free for Windows):{' '}
+                      <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: '700', textDecoration: 'underline' }}>
+                        qz.io/download <ExternalLink size={12} style={{ display: 'inline' }} />
+                      </a>
+                    </li>
+                    <li>Install and open <strong>QZ Tray</strong> from your Windows Start Menu.</li>
+                    <li>If Windows requests permission, select <strong>"Allow Access / Always Trust"</strong>.</li>
+                    <li>Click the <strong>Retry Connect</strong> button below.</li>
+                  </ol>
+                </div>
+
+                <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0', fontSize: '12px', color: '#166534' }}>
+                  <strong>Alternative Option:</strong> You can also print directly to any USB printer using <strong>Windows Printer Driver Direct Print</strong> without installing QZ Tray!
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                <button className="barcode-btn barcode-btn-secondary" onClick={() => { setShowQZSetupGuide(false); handleBrowserPrintCurrent(); }}>
+                  <Printer size={14} /> Use Windows Driver
+                </button>
+                <button
+                  className="barcode-btn barcode-btn-primary"
+                  onClick={async () => {
+                    setShowQZSetupGuide(false);
+                    await connectQZTray();
+                  }}
+                >
+                  <RefreshCw size={14} /> Retry Connect
+                </button>
+              </div>
+            </motion.div>
+          </div>,
+          document.body
+        )}
+      </AnimatePresence>
     </div>
   );
 };
