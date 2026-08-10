@@ -495,6 +495,25 @@ PRINT ${item.quantity}
       </div>
 
       {/* USB PRINTER STATUS & SETUP BANNER */}
+      {qzConnected && /pdf|fax|onenote|xps|document writer|microsoft/i.test(selectedQZPrinter || '') && (
+        <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px 20px', borderRadius: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <AlertCircle size={22} style={{ color: '#dc2626', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: '800', color: '#991b1b', fontSize: '14px' }}>
+                Virtual File Printer Selected: "{selectedQZPrinter}"
+              </div>
+              <div style={{ fontSize: '13px', color: '#7f1d1d', marginTop: '2px' }}>
+                This is why Windows opens a "Save File" dialog instead of printing to paper. Please select your physical USB Sticker Printer (e.g. TSC, TVS, Xprinter, Zebra).
+              </div>
+            </div>
+          </div>
+          <button className="barcode-btn barcode-btn-primary" style={{ background: '#dc2626', border: 'none', whiteSpace: 'nowrap' }} onClick={() => setShowQZModal(true)}>
+            Select Physical USB Printer
+          </button>
+        </div>
+      )}
+
       <div className="usb-printer-control-banner">
         <div className="usb-banner-info">
           <div className={`usb-status-dot ${qzConnected ? 'active' : 'inactive'}`} />

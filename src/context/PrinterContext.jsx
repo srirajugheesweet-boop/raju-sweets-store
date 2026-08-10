@@ -2,7 +2,24 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { connectQZ, disconnectQZ, listQZPrinters, printRawToQZ } from '../utils/qzTray';
 import toast from 'react-hot-toast';
 
-const PrinterContext = createContext(null);
+// Helper to filter out virtual PDF/Fax printers and pick real thermal label printers
+export const findBestThermalPrinter = (printers = []) => {
+  if (!Array.isArray(printers) || printers.length === 0) return '';
+
+  // 1. Preferred keywords (label, sticker, barcode, tsc, tvs, zebra, xprinter, etc.)
+  const preferred = printers.find(p =>
+    /label|sticker|barcode|tsc|tvs|zebra|xprinter|godex|bixolon|epson|star|citizen|thermal|pos|receipt|58mm|80mm/i.test(p)
+  );
+  if (preferred) return preferred;
+
+  // 2. Second preference: any printer that is NOT a virtual PDF/Fax/OneNote printer
+  const realPrinter = printers.find(p =>
+    !/pdf|fax|onenote|xps|document writer|microsoft|virtual/i.test(p)
+  );
+  if (realPrinter) return realPrinter;
+
+  return printers[0] || '';
+};
 
 export const PrinterProvider = ({ children }) => {
   const [bluetoothConnected, setBluetoothConnected] = useState(false);
@@ -28,27 +45,24 @@ export const PrinterProvider = ({ children }) => {
   // Auto-connect QZ Tray if a printer selection was previously confirmed
   useEffect(() => {
     const savedPrinter = localStorage.getItem('selectedQZPrinter');
-    if (savedPrinter) {
-      const autoConnect = async () => {
-        try {
-          await connectQZ();
-          const printers = await listQZPrinters();
-          setQzPrinters(printers);
-          setQzConnected(true);
-          if (printers.includes(savedPrinter)) {
-            setSelectedQZPrinter(savedPrinter);
-          } else {
-            const thermal = printers.find(p =>
-              /thermal|pos|receipt|58mm|80mm|epson|star|citizen|bixolon|xprinter/i.test(p)
-            );
-            setSelectedQZPrinter(thermal || printers[0] || '');
-          }
-        } catch (_) {
-          // Silent fail on auto-connect, wait for manual user trigger
+    const autoConnect = async () => {
+      try {
+        await connectQZ();
+        const printers = await listQZPrinters();
+        setQzPrinters(printers);
+        setQzConnected(true);
+        if (savedPrinter && printers.includes(savedPrinter)) {
+          setSelectedQZPrinter(savedPrinter);
+        } else {
+          const best = findBestThermalPrinter(printers);
+          setSelectedQZPrinter(best);
+          if (best) localStorage.setItem('selectedQZPrinter', best);
         }
-      };
-      autoConnect();
-    }
+      } catch (_) {
+        // Silent fail on auto-connect, wait for manual user trigger
+      }
+    };
+    autoConnect();
   }, []);
 
   // Cleanup timers on unmount
@@ -201,14 +215,12 @@ export const PrinterProvider = ({ children }) => {
       const printers = await listQZPrinters();
       setQzPrinters(printers);
       setQzConnected(true);
-      const thermal = printers.find(p =>
-        /thermal|pos|receipt|58mm|80mm|epson|star|citizen|bixolon|xprinter/i.test(p)
-      );
-      const defaultPrinter = thermal || printers[0] || '';
+      const best = findBestThermalPrinter(printers);
+      const defaultPrinter = (selectedQZPrinter && printers.includes(selectedQZPrinter)) ? selectedQZPrinter : best;
       setSelectedQZPrinter(defaultPrinter);
       localStorage.setItem('selectedQZPrinter', defaultPrinter);
       setShowQZModal(true);
-      toast.success(`QZ Tray connected! Found ${printers.length} printer(s).`);
+      toast.success(`QZ Tray connected! Found ${printers.length} printer(s). Default: ${defaultPrinter}`);
     } catch (err) {
       console.error('QZ Tray connect error:', err);
       setQzConnected(false);
