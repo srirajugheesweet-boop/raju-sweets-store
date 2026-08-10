@@ -19,6 +19,7 @@ import {
   LifeBuoy,
   Settings,
   Receipt,
+  Barcode,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -30,6 +31,7 @@ export const menuItems = [
 
   { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing' },
   { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales' },
+  { id: 'barcode-generator', label: 'Barcode Generator', icon: <Barcode />, path: '/barcode-generator' },
   { id: 'items', label: 'Products', icon: <Box />, path: '/items' },
   { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
@@ -106,7 +108,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         ))}
 
         <div className="sidebar-section-title">Operations</div>
-        {menuItems.slice(4, 11).map((item) => (
+        {menuItems.slice(4, 12).map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
@@ -119,7 +121,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         ))}
 
         <div className="sidebar-section-title">Admin & Staff</div>
-        {menuItems.slice(11).map((item) => (
+        {menuItems.slice(12).map((item) => (
 
           <Link 
             key={item.id} 

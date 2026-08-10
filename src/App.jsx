@@ -34,6 +34,7 @@ import ScanBox from './pages/ScanBox/ScanBox';
 import Dashboard from './pages/Dashboard/Dashboard';
 import WalkInSales from './pages/WalkInSales/WalkInSales';
 import SuperAdminPOS from './pages/SuperAdminPOS/SuperAdminPOS';
+import BarcodeGenerator from './pages/BarcodeGenerator/BarcodeGenerator';
 import { Toaster } from 'react-hot-toast';
 
 import { NotificationProvider } from './context/NotificationContext';
@@ -99,6 +100,7 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/pos-billing" element={<ProtectedRoute><Layout><SuperAdminPOS /></Layout></ProtectedRoute>} />
+          <Route path="/barcode-generator" element={<ProtectedRoute><Layout><BarcodeGenerator /></Layout></ProtectedRoute>} />
           <Route path="/walkin-sales" element={<ProtectedRoute><Layout><WalkInSales /></Layout></ProtectedRoute>} />
           <Route path="/store-worksheet" element={<ProtectedRoute><Layout><StoreWorkSheet /></Layout></ProtectedRoute>} />
 
