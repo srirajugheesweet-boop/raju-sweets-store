@@ -22,7 +22,9 @@ import {
   ExternalLink,
   X,
   RotateCw,
-  Move
+  Move,
+  Columns,
+  Hash
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -49,6 +51,25 @@ const WEIGHT_PRESETS = [
   { label: '2500g (2.5 KG)', value: 2500 },
   { label: '5000g (5 KG)', value: 5000 },
 ];
+
+// Helper to extract clean numeric Barcode ID (e.g. 1004) instead of Firestore auto hashes (e.g. 7bnW...)
+export const extractCleanNumericBarcodeId = (item) => {
+  if (!item) return '1004';
+  const raw = (item.barcode || item.barcodeId || item.code || item.itemCode || '').toString().trim();
+  
+  // If item has an explicit custom barcode/code (e.g. 1004, 1024), use it
+  if (raw && !/^[a-zA-Z0-9]{15,30}$/.test(raw)) {
+    return raw;
+  }
+
+  // If candidate is a 20-char Firestore auto hash (like 7bnW9x...), extract numbers or default to 1004
+  const digits = (raw || item.id || '').replace(/[^0-9]/g, '');
+  if (digits.length >= 4) {
+    return digits.substring(0, 4);
+  }
+
+  return '1004';
+};
 
 const BarcodeGenerator = () => {
   const { 
@@ -77,13 +98,14 @@ const BarcodeGenerator = () => {
   const [grams, setGrams] = useState(400);
   const [quantity, setQuantity] = useState(1);
   const [customPrice, setCustomPrice] = useState('');
-  const [barcodeFormatOption, setBarcodeFormatOption] = useState('numeric'); // 'numeric' (10040400) or 'asterisk' (1004*0400)
-  const [customBarcodeId, setCustomBarcodeId] = useState('');
+  const [barcodeFormatOption, setBarcodeFormatOption] = useState('asterisk'); // Default 'asterisk' (1004*0400)
+  const [customBarcodeId, setCustomBarcodeId] = useState('1004');
 
   // Sticker Dimensions & Printer Calibration
-  const [labelWidth, setLabelWidth] = useState(50); // 50mm
-  const [labelHeight, setLabelHeight] = useState(25); // 25mm
-  const [printMode, setPrintMode] = useState('image'); // 'image' (High-precision HTML Canvas) or 'tspl' (TSPL Command)
+  const [labelColumns, setLabelColumns] = useState(2); // 2 Columns per row (2-Up Sticker Roll)
+  const [labelWidth, setLabelWidth] = useState(50); // 50mm per sticker
+  const [labelHeight, setLabelHeight] = useState(25); // 25mm per sticker
+  const [printMode, setPrintMode] = useState('tspl'); // 'tspl' (2-Column TSPL Text) or 'image' (Bitmap)
   const [labelDirection, setLabelDirection] = useState(0); // 0 = Standard, 1 = 180° Inverted
   const [xOffset, setXOffset] = useState(0);
   const [yOffset, setYOffset] = useState(0);
@@ -115,32 +137,31 @@ const BarcodeGenerator = () => {
     return () => unsubscribe();
   }, []);
 
-  // Update custom price when selected item or grams changes
+  // Update custom price & barcode ID when selected item or grams changes
   useEffect(() => {
     if (selectedItem) {
       const basePrice = Number(selectedItem.price) || 0;
       if (selectedItem.unit === 'Piece') {
         setCustomPrice(basePrice);
       } else {
-        // Calculated price for grams (Base price is per 1kg / 1000g)
         const calculated = Math.round((basePrice * grams) / 1000);
         setCustomPrice(calculated);
       }
-      setCustomBarcodeId(selectedItem.barcode || selectedItem.barcodeId || selectedItem.id?.substring(0, 4) || '1004');
+      const cleanId = extractCleanNumericBarcodeId(selectedItem);
+      setCustomBarcodeId(cleanId);
     }
   }, [selectedItem, grams]);
 
-  // Generate Barcode Value
+  // Generate Barcode Encoded String (e.g. 1004*0400)
   const getBarcodeValue = () => {
-    if (!selectedItem) return '10040400';
-    const rawBarcodeId = (customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004').trim();
-    // Padded 4-digit grams representation (e.g. 400 -> "0400", 1000 -> "1000", 50 -> "0050")
+    const rawBarcodeId = (customBarcodeId || (selectedItem ? extractCleanNumericBarcodeId(selectedItem) : '1004')).trim();
     const paddedWeight = String(grams || 0).padStart(4, '0');
 
-    if (barcodeFormatOption === 'asterisk') {
-      return `${rawBarcodeId}*${paddedWeight}`;
+    if (barcodeFormatOption === 'numeric') {
+      return `${rawBarcodeId}${paddedWeight}`;
     }
-    return `${rawBarcodeId}${paddedWeight}`;
+    // Delimited Format: 1004*0400
+    return `${rawBarcodeId}*${paddedWeight}`;
   };
 
   const barcodeValue = getBarcodeValue();
@@ -154,7 +175,7 @@ const BarcodeGenerator = () => {
           lineColor: "#000000",
           width: 1.6,
           height: 38,
-          displayValue: false, // We render clean text below barcode as per attached design
+          displayValue: false,
           margin: 0,
           background: "transparent"
         });
@@ -196,7 +217,7 @@ const BarcodeGenerator = () => {
       queueId: Date.now() + Math.random(),
       itemId: selectedItem.id,
       itemName: selectedItem.name,
-      barcodeId: customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004',
+      barcodeId: customBarcodeId || extractCleanNumericBarcodeId(selectedItem),
       barcodeValue,
       grams,
       weightLabel: getFormattedWeightLabel(),
@@ -217,22 +238,79 @@ const BarcodeGenerator = () => {
     setPrintQueue([]);
   };
 
+  // --- TSPL 2-Column Buffer Generator ---
+  const buildTSPLBuffer = (stickerItems) => {
+    let tspl = '';
+    const cols = Number(labelColumns);
+    const totalWidthMm = cols === 2 ? 104 : labelWidth;
+
+    for (let i = 0; i < stickerItems.length; i += cols) {
+      const col1 = stickerItems[i];
+      const col2 = cols === 2 ? stickerItems[i + 1] : null;
+
+      tspl += `
+SIZE ${totalWidthMm} mm, ${labelHeight} mm
+GAP 2 mm, 0 mm
+DIRECTION ${labelDirection}
+CLS
+`;
+
+      // --- COLUMN 1 (LEFT STICKER: X = 10) ---
+      const x1 = 10 + Number(xOffset);
+      const y1 = 8 + Number(yOffset);
+      tspl += `
+TEXT ${180 + x1}, ${y1}, "2", 0, 1, 1, "${STORE_NAME}"
+TEXT ${x1}, ${30 + y1}, "2", 0, 1, 1, "${col1.itemName.substring(0, 18)}"
+TEXT ${300 + x1}, ${30 + y1}, "2", 0, 1, 1, "${col1.weightLabel}"
+BARCODE ${15 + x1}, ${56 + y1}, "128", 40, 0, 0, 2, 2, "${col1.barcodeValue}"
+TEXT ${15 + x1}, ${102 + y1}, "2", 0, 1, 1, "${col1.barcodeId}"
+TEXT ${230 + x1}, ${102 + y1}, "2", 0, 1, 1, "MRP: ${col1.mrp}/-"
+`;
+
+      // --- COLUMN 2 (RIGHT STICKER: X = 425) ---
+      if (col2) {
+        const x2 = 425 + Number(xOffset);
+        const y2 = 8 + Number(yOffset);
+        tspl += `
+TEXT ${180 + x2}, ${y2}, "2", 0, 1, 1, "${STORE_NAME}"
+TEXT ${x2}, ${30 + y2}, "2", 0, 1, 1, "${col2.itemName.substring(0, 18)}"
+TEXT ${300 + x2}, ${30 + y2}, "2", 0, 1, 1, "${col2.weightLabel}"
+BARCODE ${15 + x2}, ${56 + y2}, "128", 40, 0, 0, 2, 2, "${col2.barcodeValue}"
+TEXT ${15 + x2}, ${102 + y2}, "2", 0, 1, 1, "${col2.barcodeId}"
+TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
+`;
+      }
+
+      tspl += `PRINT 1\n`;
+    }
+
+    return tspl;
+  };
+
   // --- Browser & USB Print Handlers ---
   const handleBrowserPrintCurrent = () => {
     if (!selectedItem) return;
     window.print();
   };
 
-  // --- USB Printer Handler with Image Mode & TSPL Mode ---
+  // --- USB Printer Handler ---
   const handleUSBPrintCurrent = async () => {
     if (!selectedItem) return;
 
     if (qzConnected && selectedQZPrinter) {
-      const toastId = toast.loading(`Printing ${quantity} sticker(s) to ${selectedQZPrinter}...`);
+      const copyQty = Number(quantity) || 1;
+      const toastId = toast.loading(`Printing ${copyQty} sticker(s) on 2-Column roll to ${selectedQZPrinter}...`);
 
       try {
-        const qz = window.qz;
-        const copyQty = Number(quantity) || 1;
+        const singleStickerObj = {
+          itemName: selectedItem.name,
+          weightLabel: getFormattedWeightLabel(),
+          barcodeValue,
+          barcodeId: customBarcodeId || extractCleanNumericBarcodeId(selectedItem),
+          mrp: Number(customPrice) || 0
+        };
+
+        const stickerItems = Array.from({ length: copyQty }).map(() => singleStickerObj);
 
         if (printMode === 'image') {
           // --- HIGH-PRECISION BITMAP RASTER MODE ---
@@ -248,8 +326,9 @@ const BarcodeGenerator = () => {
 
           const base64Data = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
 
+          const qz = window.qz;
           const config = qz.configs.create(selectedQZPrinter, {
-            size: { width: Number(labelWidth), height: Number(labelHeight) },
+            size: { width: Number(labelColumns) === 2 ? 104 : Number(labelWidth), height: Number(labelHeight) },
             units: 'mm',
             density: 203,
             copies: copyQty,
@@ -264,34 +343,14 @@ const BarcodeGenerator = () => {
           }];
 
           await qz.print(config, data);
-          toast.success(`Printed ${copyQty} sticker label(s) successfully!`, { id: toastId });
+          toast.success(`Printed ${copyQty} sticker(s) successfully!`, { id: toastId });
           return;
         } else {
-          // --- RAW TSPL TEXT COMMAND MODE ---
-          const rawBarcodeId = customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004';
-          const weightStr = getFormattedWeightLabel();
-          const mrpText = `MRP: ${customPrice}/-`;
-
-          const x = 10 + Number(xOffset);
-          const y = 8 + Number(yOffset);
-
-          const tsplCode = `
-SIZE ${labelWidth} mm, ${labelHeight} mm
-GAP 2 mm, 0 mm
-DIRECTION ${labelDirection}
-CLS
-TEXT ${190 + x}, ${y}, "3", 0, 1, 1, 2, "${STORE_NAME}"
-TEXT ${x}, ${32 + y}, "2", 0, 1, 1, "${selectedItem.name.substring(0, 20)}"
-TEXT ${320 + x}, ${32 + y}, "2", 0, 1, 1, "${weightStr}"
-BARCODE ${15 + x}, ${58 + y}, "128", 42, 0, 0, 2, 2, "${barcodeValue}"
-TEXT ${15 + x}, ${105 + y}, "2", 0, 1, 1, "${rawBarcodeId}"
-TEXT ${240 + x}, ${118 + y}, "3", 0, 1, 1, "${mrpText}"
-PRINT ${copyQty}
-`;
-
+          // --- 2-COLUMN TSPL MODE (RECOMMENDED FOR 2-UP ROLL) ---
+          const tsplCode = buildTSPLBuffer(stickerItems);
           const encoder = new TextEncoder();
           await printRawUSB(encoder.encode(tsplCode));
-          toast.success(`Sent ${copyQty} label(s) to USB printer!`, { id: toastId });
+          toast.success(`Sent 2-Column stickers (${barcodeValue}) to USB printer!`, { id: toastId });
           return;
         }
       } catch (err) {
@@ -316,63 +375,44 @@ PRINT ${copyQty}
 
     if (qzConnected && selectedQZPrinter) {
       const totalCount = printQueue.reduce((a, c) => a + c.quantity, 0);
-      const toastId = toast.loading(`Printing queue batch (${totalCount} stickers) to ${selectedQZPrinter}...`);
+      const toastId = toast.loading(`Printing 2-Column queue batch (${totalCount} stickers) to ${selectedQZPrinter}...`);
 
       try {
-        const qz = window.qz;
-        const config = qz.configs.create(selectedQZPrinter, {
-          size: { width: Number(labelWidth), height: Number(labelHeight) },
-          units: 'mm',
-          density: 203,
-          rotation: Number(labelDirection) === 1 ? 180 : 0
+        const flattenedStickers = [];
+        printQueue.forEach(item => {
+          for (let i = 0; i < item.quantity; i++) {
+            flattenedStickers.push(item);
+          }
         });
 
-        if (printMode === 'image') {
-          const previewElem = document.getElementById('physical-sticker-preview');
-          if (!previewElem) throw new Error("Sticker preview element not found");
-
-          const canvas = await html2canvas(previewElem, {
-            scale: 3,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            logging: false
-          });
-
-          const base64Data = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
-
-          const data = printQueue.flatMap(item => 
-            Array.from({ length: item.quantity }).map(() => ({
-              type: 'pixel',
-              format: 'image',
-              flavor: 'base64',
-              data: base64Data
-            }))
-          );
-
-          await qz.print(config, data);
-          toast.success(`Batch printed ${totalCount} sticker(s) successfully!`, { id: toastId });
+        if (printMode === 'tspl') {
+          const tsplCode = buildTSPLBuffer(flattenedStickers);
+          const encoder = new TextEncoder();
+          await printRawUSB(encoder.encode(tsplCode));
+          toast.success(`Printed ${totalCount} stickers on 2-Column roll!`, { id: toastId });
           return;
         } else {
-          let combinedTSPL = '';
-          printQueue.forEach(item => {
-            combinedTSPL += `
-SIZE ${labelWidth} mm, ${labelHeight} mm
-GAP 2 mm, 0 mm
-DIRECTION ${labelDirection}
-CLS
-TEXT 190, 8, "3", 0, 1, 1, 2, "${STORE_NAME}"
-TEXT 10, 32, "2", 0, 1, 1, "${item.itemName.substring(0, 20)}"
-TEXT 320, 32, "2", 0, 1, 1, "${item.weightLabel}"
-BARCODE 15, 58, "128", 42, 0, 0, 2, 2, "${item.barcodeValue}"
-TEXT 15, 105, "2", 0, 1, 1, "${item.barcodeId}"
-TEXT 240, 118, "3", 0, 1, 1, "MRP: ${item.mrp}/-"
-PRINT ${item.quantity}
-`;
+          const qz = window.qz;
+          const config = qz.configs.create(selectedQZPrinter, {
+            size: { width: Number(labelColumns) === 2 ? 104 : Number(labelWidth), height: Number(labelHeight) },
+            units: 'mm',
+            density: 203,
+            rotation: Number(labelDirection) === 1 ? 180 : 0
           });
 
-          const encoder = new TextEncoder();
-          await printRawUSB(encoder.encode(combinedTSPL));
-          toast.success(`Batch printed successfully!`, { id: toastId });
+          const previewElem = document.getElementById('physical-sticker-preview');
+          const canvas = await html2canvas(previewElem, { scale: 3, backgroundColor: '#ffffff', logging: false });
+          const base64Data = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+
+          const data = flattenedStickers.map(() => ({
+            type: 'pixel',
+            format: 'image',
+            flavor: 'base64',
+            data: base64Data
+          }));
+
+          await qz.print(config, data);
+          toast.success(`Batch printed ${totalCount} sticker(s)!`, { id: toastId });
           return;
         }
       } catch (err) {
@@ -452,7 +492,7 @@ PRINT ${item.quantity}
                 />
               </div>
               <div className="sticker-footer-row">
-                <span className="sticker-code-id">{customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004'}</span>
+                <span className="sticker-code-id">{customBarcodeId || extractCleanNumericBarcodeId(selectedItem)}</span>
                 <span className="sticker-mrp-price">MRP: {customPrice}/-</span>
               </div>
             </div>
@@ -468,7 +508,7 @@ PRINT ${item.quantity}
           </div>
           <div>
             <h1 className="barcode-page-title">Barcode Sticker Generator</h1>
-            <p className="barcode-page-subtitle">Select item, weight & quantity to print thermal weight barcodes</p>
+            <p className="barcode-page-subtitle">Select item, weight & quantity to print 2-column thermal barcodes</p>
           </div>
         </div>
 
@@ -523,7 +563,7 @@ PRINT ${item.quantity}
             </h4>
             <p className="usb-banner-sub">
               {qzConnected 
-                ? 'Direct silent raw TSPL / Bitmap USB printing is ready.' 
+                ? '2-Column 2-Up TSPL sticker printing is active.' 
                 : 'QZ Tray desktop app is disconnected. You can connect QZ Tray for silent printing OR use Direct Windows Driver print.'}
             </p>
           </div>
@@ -587,7 +627,7 @@ PRINT ${item.quantity}
             ) : filteredItems.length > 0 ? (
               filteredItems.map(item => {
                 const isSelected = selectedItem?.id === item.id;
-                const barcodeId = item.barcode || item.barcodeId || '1004';
+                const barcodeId = extractCleanNumericBarcodeId(item);
 
                 return (
                   <div 
@@ -649,15 +689,15 @@ PRINT ${item.quantity}
             </div>
           </div>
 
-          {/* Step 3: Quantity & Price */}
+          {/* Step 3: Quantity, Pricing & Barcode ID */}
           <div className="card-section-header margin-top">
             <Sliders size={18} />
-            <h3>3. Quantity & Pricing</h3>
+            <h3>3. Quantity & Barcode Details</h3>
           </div>
 
           <div className="form-row-2col">
             <div className="form-group">
-              <label>Number of Sticker Copies</label>
+              <label>Sticker Quantity (Copies)</label>
               <div className="quantity-counter">
                 <button 
                   type="button" 
@@ -677,15 +717,28 @@ PRINT ${item.quantity}
             </div>
 
             <div className="form-group">
-              <label>Calculated Sticker MRP (₹)</label>
+              <label>Item Barcode ID (e.g. 1004)</label>
               <div className="input-with-unit">
-                <span className="unit-prefix">₹</span>
+                <span className="unit-prefix"><Hash size={14} /></span>
                 <input 
-                  type="number" 
-                  value={customPrice}
-                  onChange={(e) => setCustomPrice(e.target.value)}
+                  type="text" 
+                  value={customBarcodeId}
+                  placeholder="1004"
+                  onChange={(e) => setCustomBarcodeId(e.target.value)}
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="form-group margin-top">
+            <label>Calculated Sticker MRP (₹)</label>
+            <div className="input-with-unit">
+              <span className="unit-prefix">₹</span>
+              <input 
+                type="number" 
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
+              />
             </div>
           </div>
 
@@ -695,25 +748,25 @@ PRINT ${item.quantity}
             <div className="format-toggle-group">
               <button 
                 type="button" 
-                className={`toggle-btn ${barcodeFormatOption === 'numeric' ? 'active' : ''}`}
-                onClick={() => setBarcodeFormatOption('numeric')}
-              >
-                Numeric (10040400)
-              </button>
-              <button 
-                type="button" 
                 className={`toggle-btn ${barcodeFormatOption === 'asterisk' ? 'active' : ''}`}
                 onClick={() => setBarcodeFormatOption('asterisk')}
               >
                 Delimited (1004*0400)
               </button>
+              <button 
+                type="button" 
+                className={`toggle-btn ${barcodeFormatOption === 'numeric' ? 'active' : ''}`}
+                onClick={() => setBarcodeFormatOption('numeric')}
+              >
+                Numeric (10040400)
+              </button>
             </div>
           </div>
 
-          {/* Step 5: Printer Calibration & Rotation Settings */}
+          {/* Step 5: Printer Calibration & 2-Column Settings */}
           <div className="card-section-header margin-top" style={{ cursor: 'pointer' }} onClick={() => setShowCalibration(!showCalibration)}>
             <Settings2 size={18} />
-            <h3>4. Printer Calibration & Rotation Settings</h3>
+            <h3>4. Printer Calibration & 2-Column Settings</h3>
             <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#64748b' }}>{showCalibration ? '▲ Hide' : '▼ Expand'}</span>
           </div>
 
@@ -725,28 +778,48 @@ PRINT ${item.quantity}
               exit={{ opacity: 0, height: 0 }}
             >
               <div className="form-group">
-                <label>Print Engine Mode</label>
+                <label>Sticker Paper Roll Layout</label>
                 <div className="format-toggle-group">
                   <button 
                     type="button" 
-                    className={`toggle-btn ${printMode === 'image' ? 'active' : ''}`}
-                    onClick={() => setPrintMode('image')}
+                    className={`toggle-btn ${labelColumns === 2 ? 'active' : ''}`}
+                    onClick={() => setLabelColumns(2)}
                   >
-                    Image Mode (Exact Preview Match)
+                    2 Columns (2-Up Roll)
                   </button>
+                  <button 
+                    type="button" 
+                    className={`toggle-btn ${labelColumns === 1 ? 'active' : ''}`}
+                    onClick={() => setLabelColumns(1)}
+                  >
+                    1 Column (Single Roll)
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group margin-top">
+                <label>Print Engine Mode</label>
+                <div className="format-toggle-group">
                   <button 
                     type="button" 
                     className={`toggle-btn ${printMode === 'tspl' ? 'active' : ''}`}
                     onClick={() => setPrintMode('tspl')}
                   >
-                    TSPL Text Mode
+                    TSPL Mode (2-Column Align)
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`toggle-btn ${printMode === 'image' ? 'active' : ''}`}
+                    onClick={() => setPrintMode('image')}
+                  >
+                    Image Mode (HTML Canvas)
                   </button>
                 </div>
               </div>
 
               <div className="form-row-2col margin-top">
                 <div className="form-group">
-                  <label>Label Width (mm)</label>
+                  <label>Single Label Width (mm)</label>
                   <input 
                     type="number" 
                     value={labelWidth}
@@ -755,7 +828,7 @@ PRINT ${item.quantity}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Label Height (mm)</label>
+                  <label>Single Label Height (mm)</label>
                   <input 
                     type="number" 
                     value={labelHeight}
@@ -825,7 +898,7 @@ PRINT ${item.quantity}
             <div className="card-section-header">
               <Eye size={18} />
               <h3>Live Sticker Preview</h3>
-              <span className="live-tag">Exact Format Match</span>
+              <span className="live-tag">Clean Crisp Format</span>
             </div>
 
             <div className="sticker-preview-wrapper">
@@ -847,7 +920,7 @@ PRINT ${item.quantity}
                 {/* Fourth & Fifth Line: Barcode ID (Left) | MRP (Right) */}
                 <div className="preview-footer-row">
                   <span className="preview-barcode-id">
-                    {customBarcodeId || selectedItem?.barcode || selectedItem?.barcodeId || '1024'}
+                    {customBarcodeId || extractCleanNumericBarcodeId(selectedItem)}
                   </span>
                   <span className="preview-mrp">MRP: {customPrice || 360}/-</span>
                 </div>
@@ -856,12 +929,12 @@ PRINT ${item.quantity}
 
             <div className="preview-info-box">
               <div className="info-item">
-                <span className="info-label">Barcode Value:</span>
-                <span className="info-val monospace">{barcodeValue}</span>
+                <span className="info-label">Scanned Barcode:</span>
+                <span className="info-val monospace" style={{ fontWeight: '700', color: '#047857' }}>{barcodeValue}</span>
               </div>
               <div className="info-item">
-                <span className="info-label">Print Copies:</span>
-                <span className="info-val">{quantity} Sticker(s)</span>
+                <span className="info-label">Print Layout:</span>
+                <span className="info-val">{labelColumns} Columns / Row</span>
               </div>
             </div>
 
