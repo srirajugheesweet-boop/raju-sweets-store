@@ -20,11 +20,14 @@ import {
   FileText,
   HelpCircle,
   ExternalLink,
-  X
+  X,
+  RotateCw,
+  Move
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import JsBarcode from 'jsbarcode';
+import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePrinter } from '../../context/PrinterContext';
@@ -77,9 +80,14 @@ const BarcodeGenerator = () => {
   const [barcodeFormatOption, setBarcodeFormatOption] = useState('numeric'); // 'numeric' (10040400) or 'asterisk' (1004*0400)
   const [customBarcodeId, setCustomBarcodeId] = useState('');
 
-  // Sticker Dimensions & Settings (mm)
+  // Sticker Dimensions & Printer Calibration
   const [labelWidth, setLabelWidth] = useState(50); // 50mm
   const [labelHeight, setLabelHeight] = useState(25); // 25mm
+  const [printMode, setPrintMode] = useState('image'); // 'image' (High-precision HTML Canvas) or 'tspl' (TSPL Command)
+  const [labelDirection, setLabelDirection] = useState(0); // 0 = Standard, 1 = 180° Inverted
+  const [xOffset, setXOffset] = useState(0);
+  const [yOffset, setYOffset] = useState(0);
+  const [showCalibration, setShowCalibration] = useState(false);
 
   // Batch Print Queue
   const [printQueue, setPrintQueue] = useState([]);
@@ -215,47 +223,85 @@ const BarcodeGenerator = () => {
     window.print();
   };
 
-  // --- USB Printer Handler with Instant Driver Fallback ---
+  // --- USB Printer Handler with Image Mode & TSPL Mode ---
   const handleUSBPrintCurrent = async () => {
     if (!selectedItem) return;
 
-    // 1. If QZ Tray software is connected, use raw silent TSPL printing
     if (qzConnected && selectedQZPrinter) {
-      const toastId = toast.loading(`Sending ${quantity} label sticker(s) to ${selectedQZPrinter}...`);
+      const toastId = toast.loading(`Printing ${quantity} sticker(s) to ${selectedQZPrinter}...`);
 
       try {
-        const rawBarcodeId = customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004';
-        const weightStr = getFormattedWeightLabel();
-        const mrpText = `MRP: ${customPrice}/-`;
+        const qz = window.qz;
         const copyQty = Number(quantity) || 1;
 
-        const tsplCode = `
+        if (printMode === 'image') {
+          // --- HIGH-PRECISION BITMAP RASTER MODE ---
+          const previewElem = document.getElementById('physical-sticker-preview');
+          if (!previewElem) throw new Error("Sticker preview element not found");
+
+          const canvas = await html2canvas(previewElem, {
+            scale: 3,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+          });
+
+          const base64Data = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+
+          const config = qz.configs.create(selectedQZPrinter, {
+            size: { width: Number(labelWidth), height: Number(labelHeight) },
+            units: 'mm',
+            density: 203,
+            copies: copyQty,
+            rotation: Number(labelDirection) === 1 ? 180 : 0
+          });
+
+          const data = [{
+            type: 'pixel',
+            format: 'image',
+            flavor: 'base64',
+            data: base64Data
+          }];
+
+          await qz.print(config, data);
+          toast.success(`Printed ${copyQty} sticker label(s) successfully!`, { id: toastId });
+          return;
+        } else {
+          // --- RAW TSPL TEXT COMMAND MODE ---
+          const rawBarcodeId = customBarcodeId || selectedItem.barcode || selectedItem.barcodeId || '1004';
+          const weightStr = getFormattedWeightLabel();
+          const mrpText = `MRP: ${customPrice}/-`;
+
+          const x = 10 + Number(xOffset);
+          const y = 8 + Number(yOffset);
+
+          const tsplCode = `
 SIZE ${labelWidth} mm, ${labelHeight} mm
 GAP 2 mm, 0 mm
-DIRECTION 1
+DIRECTION ${labelDirection}
 CLS
-TEXT 190, 8, "3", 0, 1, 1, 2, "${STORE_NAME}"
-TEXT 10, 32, "2", 0, 1, 1, "${selectedItem.name.substring(0, 20)}"
-TEXT 320, 32, "2", 0, 1, 1, "${weightStr}"
-BARCODE 15, 58, "128", 42, 0, 0, 2, 2, "${barcodeValue}"
-TEXT 15, 105, "2", 0, 1, 1, "${rawBarcodeId}"
-TEXT 240, 118, "3", 0, 1, 1, "${mrpText}"
+TEXT ${190 + x}, ${y}, "3", 0, 1, 1, 2, "${STORE_NAME}"
+TEXT ${x}, ${32 + y}, "2", 0, 1, 1, "${selectedItem.name.substring(0, 20)}"
+TEXT ${320 + x}, ${32 + y}, "2", 0, 1, 1, "${weightStr}"
+BARCODE ${15 + x}, ${58 + y}, "128", 42, 0, 0, 2, 2, "${barcodeValue}"
+TEXT ${15 + x}, ${105 + y}, "2", 0, 1, 1, "${rawBarcodeId}"
+TEXT ${240 + x}, ${118 + y}, "3", 0, 1, 1, "${mrpText}"
 PRINT ${copyQty}
 `;
 
-        const encoder = new TextEncoder();
-        await printRawUSB(encoder.encode(tsplCode));
-        toast.success(`Successfully sent ${copyQty} label(s) to USB printer!`, { id: toastId });
-        return;
+          const encoder = new TextEncoder();
+          await printRawUSB(encoder.encode(tsplCode));
+          toast.success(`Sent ${copyQty} label(s) to USB printer!`, { id: toastId });
+          return;
+        }
       } catch (err) {
-        console.error("USB Raw Print Error:", err);
-        toast.error(`Direct USB raw print failed. Launching Windows USB Driver Print...`, { id: toastId });
+        console.error("USB Print Error:", err);
+        toast.error(`Direct USB print error: ${err.message || 'Check printer'}. Trying Windows Driver...`, { id: toastId });
       }
     }
 
-    // 2. If QZ Tray desktop app is not running/connected:
-    // Instantly open Windows USB Printer Driver dialog so printing works without any error!
-    toast("Opening Windows USB Printer Print...", { icon: '🖨️' });
+    // Fallback: Windows Printer Driver Print
+    toast("Opening Windows USB Printer Driver...", { icon: '🖨️' });
     setTimeout(() => {
       window.print();
     }, 150);
@@ -269,15 +315,50 @@ PRINT ${copyQty}
     }
 
     if (qzConnected && selectedQZPrinter) {
-      const toastId = toast.loading(`Sending batch (${printQueue.reduce((a, c) => a + c.quantity, 0)} stickers) to USB printer...`);
+      const totalCount = printQueue.reduce((a, c) => a + c.quantity, 0);
+      const toastId = toast.loading(`Printing queue batch (${totalCount} stickers) to ${selectedQZPrinter}...`);
 
       try {
-        let combinedTSPL = '';
-        printQueue.forEach(item => {
-          combinedTSPL += `
+        const qz = window.qz;
+        const config = qz.configs.create(selectedQZPrinter, {
+          size: { width: Number(labelWidth), height: Number(labelHeight) },
+          units: 'mm',
+          density: 203,
+          rotation: Number(labelDirection) === 1 ? 180 : 0
+        });
+
+        if (printMode === 'image') {
+          const previewElem = document.getElementById('physical-sticker-preview');
+          if (!previewElem) throw new Error("Sticker preview element not found");
+
+          const canvas = await html2canvas(previewElem, {
+            scale: 3,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+          });
+
+          const base64Data = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+
+          const data = printQueue.flatMap(item => 
+            Array.from({ length: item.quantity }).map(() => ({
+              type: 'pixel',
+              format: 'image',
+              flavor: 'base64',
+              data: base64Data
+            }))
+          );
+
+          await qz.print(config, data);
+          toast.success(`Batch printed ${totalCount} sticker(s) successfully!`, { id: toastId });
+          return;
+        } else {
+          let combinedTSPL = '';
+          printQueue.forEach(item => {
+            combinedTSPL += `
 SIZE ${labelWidth} mm, ${labelHeight} mm
 GAP 2 mm, 0 mm
-DIRECTION 1
+DIRECTION ${labelDirection}
 CLS
 TEXT 190, 8, "3", 0, 1, 1, 2, "${STORE_NAME}"
 TEXT 10, 32, "2", 0, 1, 1, "${item.itemName.substring(0, 20)}"
@@ -287,12 +368,13 @@ TEXT 15, 105, "2", 0, 1, 1, "${item.barcodeId}"
 TEXT 240, 118, "3", 0, 1, 1, "MRP: ${item.mrp}/-"
 PRINT ${item.quantity}
 `;
-        });
+          });
 
-        const encoder = new TextEncoder();
-        await printRawUSB(encoder.encode(combinedTSPL));
-        toast.success(`Batch printed successfully!`, { id: toastId });
-        return;
+          const encoder = new TextEncoder();
+          await printRawUSB(encoder.encode(combinedTSPL));
+          toast.success(`Batch printed successfully!`, { id: toastId });
+          return;
+        }
       } catch (err) {
         console.error("Batch USB Print Error:", err);
       }
@@ -418,12 +500,12 @@ PRINT ${item.quantity}
           <div className={`usb-status-dot ${qzConnected ? 'active' : 'inactive'}`} />
           <div>
             <h4 className="usb-banner-title">
-              {qzConnected ? `QZ Tray USB Service Active: ${selectedQZPrinter || 'Printer Connected'}` : 'USB Thermal Printer Setup'}
+              {qzConnected ? `QZ Tray USB Active: ${selectedQZPrinter || 'Printer Connected'}` : 'USB Thermal Printer Setup'}
             </h4>
             <p className="usb-banner-sub">
               {qzConnected 
-                ? 'Direct silent raw TSPL USB printing is active.' 
-                : 'QZ Tray background app is currently disconnected. You can connect QZ Tray for silent printing OR use Direct Windows Driver print.'}
+                ? 'Direct silent raw TSPL / Bitmap USB printing is ready.' 
+                : 'QZ Tray desktop app is disconnected. You can connect QZ Tray for silent printing OR use Direct Windows Driver print.'}
             </p>
           </div>
         </div>
@@ -609,8 +691,100 @@ PRINT ${item.quantity}
             </div>
           </div>
 
+          {/* Step 5: Printer Calibration & Rotation Settings */}
+          <div className="card-section-header margin-top" style={{ cursor: 'pointer' }} onClick={() => setShowCalibration(!showCalibration)}>
+            <Settings2 size={18} />
+            <h3>4. Printer Calibration & Rotation Settings</h3>
+            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#64748b' }}>{showCalibration ? '▲ Hide' : '▼ Expand'}</span>
+          </div>
+
+          {showCalibration && (
+            <motion.div 
+              className="calibration-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div className="form-group">
+                <label>Print Engine Mode</label>
+                <div className="format-toggle-group">
+                  <button 
+                    type="button" 
+                    className={`toggle-btn ${printMode === 'image' ? 'active' : ''}`}
+                    onClick={() => setPrintMode('image')}
+                  >
+                    Image Mode (Exact Preview Match)
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`toggle-btn ${printMode === 'tspl' ? 'active' : ''}`}
+                    onClick={() => setPrintMode('tspl')}
+                  >
+                    TSPL Text Mode
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-row-2col margin-top">
+                <div className="form-group">
+                  <label>Label Width (mm)</label>
+                  <input 
+                    type="number" 
+                    value={labelWidth}
+                    onChange={(e) => setLabelWidth(Number(e.target.value))}
+                    className="calibration-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Label Height (mm)</label>
+                  <input 
+                    type="number" 
+                    value={labelHeight}
+                    onChange={(e) => setLabelHeight(Number(e.target.value))}
+                    className="calibration-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group margin-top">
+                <label>Label Feed Orientation / Rotation</label>
+                <select 
+                  value={labelDirection} 
+                  onChange={(e) => setLabelDirection(Number(e.target.value))}
+                  className="calibration-select"
+                >
+                  <option value={0}>0° Standard Top-to-Bottom</option>
+                  <option value={1}>180° Inverted (Rotated upside down)</option>
+                </select>
+              </div>
+
+              {printMode === 'tspl' && (
+                <div className="form-row-2col margin-top">
+                  <div className="form-group">
+                    <label>X-Offset Alignment (dots)</label>
+                    <input 
+                      type="number" 
+                      value={xOffset}
+                      onChange={(e) => setXOffset(Number(e.target.value))}
+                      className="calibration-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Y-Offset Alignment (dots)</label>
+                    <input 
+                      type="number" 
+                      value={yOffset}
+                      onChange={(e) => setYOffset(Number(e.target.value))}
+                      className="calibration-input"
+                    />
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {/* Action Buttons */}
-          <div className="form-actions-row">
+          <div className="form-actions-row margin-top">
             <button 
               type="button" 
               className="barcode-btn barcode-btn-outline full-width"
@@ -636,7 +810,7 @@ PRINT ${item.quantity}
             </div>
 
             <div className="sticker-preview-wrapper">
-              <div className="physical-sticker-preview">
+              <div className="physical-sticker-preview" id="physical-sticker-preview">
                 {/* Header: SRI RAJU SWEETS */}
                 <div className="preview-store-header">{STORE_NAME}</div>
                 
