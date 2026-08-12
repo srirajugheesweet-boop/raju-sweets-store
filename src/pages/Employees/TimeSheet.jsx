@@ -286,8 +286,8 @@ const TimeSheet = () => {
     const debitAmount = debitedDays * perDayPay;
     const presentPay = paidDays * perDayPay;
 
-    const hasPerfectAttendance = present >= daysInMonth && absent === 0;
-    const bonus = hasPerfectAttendance ? (2 * perDayPay) : 0;
+    const acceptedLeavesDays = acceptedLeaves > 0 ? acceptedLeaves : 2;
+    const bonus = acceptedLeavesDays * perDayPay;
     
     const basicNetPay = Math.max(0, salary - debitAmount + bonus);
 

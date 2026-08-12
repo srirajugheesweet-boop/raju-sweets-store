@@ -23,8 +23,10 @@ import {
   ChevronUp,
   Bluetooth,
   Usb,
-  RefreshCw
+  RefreshCw,
+  Upload
 } from 'lucide-react';
+import { uploadToImageKit } from '../../config/imagekit';
 import { buildOrderESCPOS } from '../../utils/qzTray';
 import { usePrinter } from '../../context/PrinterContext';
 import logo from '../../assets/logo.png';
@@ -635,6 +637,23 @@ const Orders = () => {
   const [globalDescription, setGlobalDescription] = useState('');
   const [mUnitDescription, setMUnitDescription] = useState('');
   const [pUnitDescription, setPUnitDescription] = useState('');
+  const [orderImageUrl, setOrderImageUrl] = useState('');
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+
+  const handleImageChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      setSelectedImageFile(file);
+      setImagePreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setImagePreviewUrl('');
+    setOrderImageUrl('');
+  };
   const [paymentMode, setPaymentMode] = useState('Cash');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [discount, setDiscount] = useState('');
@@ -1029,6 +1048,17 @@ const Orders = () => {
         }
       }
 
+      // Upload image to ImageKit on save if a new file was chosen
+      let finalImageUrl = orderImageUrl || '';
+      if (selectedImageFile) {
+        try {
+          finalImageUrl = await uploadToImageKit(selectedImageFile);
+        } catch (imgErr) {
+          console.error("ImageKit upload error during order save:", imgErr);
+          toast.error("Image upload failed. Saving order without new image.");
+        }
+      }
+
       const orderData = {
         orderId,
         serialNumber,
@@ -1047,6 +1077,7 @@ const Orders = () => {
         globalDescription,
         mUnitDescription,
         pUnitDescription,
+        imageUrl: finalImageUrl,
         items: cart,
         discount: discountVal,
         totalAmount: totalAmt,
@@ -1101,6 +1132,9 @@ const Orders = () => {
     setGlobalDescription('');
     setMUnitDescription('');
     setPUnitDescription('');
+    setOrderImageUrl('');
+    setSelectedImageFile(null);
+    setImagePreviewUrl('');
     setCart([]);
     setPaymentMode('Cash');
     setReceivedAmount('');
@@ -1121,6 +1155,9 @@ const Orders = () => {
     setGlobalDescription(order.globalDescription || '');
     setMUnitDescription(order.mUnitDescription || '');
     setPUnitDescription(order.pUnitDescription || '');
+    setOrderImageUrl(order.imageUrl || '');
+    setSelectedImageFile(null);
+    setImagePreviewUrl(order.imageUrl || '');
     setPaymentMode(order.paymentMode || 'Cash');
     setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
     setDiscount(order.discount !== undefined ? order.discount.toString() : '');
@@ -2331,6 +2368,46 @@ const Orders = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Order Image Upload Row */}
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Order Reference Image (Optional)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <label style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        background: 'var(--primary-color)',
+                        color: '#fff',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: submitting ? 'not-allowed' : 'pointer',
+                        opacity: submitting ? 0.7 : 1,
+                        transition: 'all 0.2s'
+                      }}>
+                        <Upload size={14} />
+                        Choose Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          style={{ display: 'none' }}
+                          disabled={submitting}
+                        />
+                      </label>
+                      {imagePreviewUrl && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '4px 10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                          <img src={imagePreviewUrl} alt="Order reference" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px' }} />
+                          <a href={imagePreviewUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#2563eb', fontWeight: '700', textDecoration: 'none' }}>View</a>
+                          <button type="button" onClick={handleRemoveImage} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Remove image">
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2741,6 +2818,14 @@ const Orders = () => {
                     {previewOrder.globalDescription && <p><strong>Global Note:</strong> {previewOrder.globalDescription}</p>}
                     {previewOrder.mUnitDescription && <p><strong>Mfg Note:</strong> {previewOrder.mUnitDescription}</p>}
                     {previewOrder.pUnitDescription && <p><strong>Pack Note:</strong> {previewOrder.pUnitDescription}</p>}
+                    {previewOrder.imageUrl && (
+                      <div style={{ marginTop: '8px' }}>
+                        <p style={{ margin: '0 0 4px 0' }}><strong>Order Attachment / Image:</strong></p>
+                        <a href={previewOrder.imageUrl} target="_blank" rel="noopener noreferrer">
+                          <img src={previewOrder.imageUrl} alt="Order reference attachment" style={{ maxWidth: '140px', maxHeight: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   {/* Tabs Header */}

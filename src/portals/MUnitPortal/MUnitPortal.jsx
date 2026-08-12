@@ -242,6 +242,7 @@ const MUnitPortal = () => {
                 createdAt: order.createdAt,
                 itemDescription: item.description || '',
                 mUnitDescription: order.mUnitDescription || '',
+                imageUrl: order.imageUrl || '',
                 deliveryDate: order.deliveryDate || '',
                 deliveryTime: order.deliveryTime || ''
               });
@@ -722,10 +723,18 @@ const MUnitPortal = () => {
                                       </div>
 
                                       {/* Note section */}
-                                      {(link.itemDescription || link.mUnitDescription) && (
+                                      {(link.itemDescription || link.mUnitDescription || link.imageUrl) && (
                                         <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 10px', borderRadius: '8px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
                                           {link.itemDescription && <div style={{ fontWeight: '700' }}>💡 Item Note: {link.itemDescription}</div>}
                                           {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '4px' : '0', fontStyle: 'italic' }}>⚙️ Mfg Note: {link.mUnitDescription}</div>}
+                                          {link.imageUrl && (
+                                            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                              <span style={{ fontWeight: '700' }}>📷 Order Image:</span>
+                                              <a href={link.imageUrl} target="_blank" rel="noopener noreferrer">
+                                                <img src={link.imageUrl} alt="Order reference" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                                              </a>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
 
@@ -885,10 +894,18 @@ const MUnitPortal = () => {
                                       </div>
 
                                       {/* Note section */}
-                                      {(link.itemDescription || link.mUnitDescription) && (
+                                      {(link.itemDescription || link.mUnitDescription || link.imageUrl) && (
                                         <div style={{ fontSize: '10.5px', background: '#fffbeb', border: '1px solid #fef3c7', padding: '6px 10px', borderRadius: '8px', color: '#92400e', textAlign: 'left', lineHeight: '1.3' }}>
                                           {link.itemDescription && <div style={{ fontWeight: '700' }}>💡 Item Note: {link.itemDescription}</div>}
                                           {link.mUnitDescription && <div style={{ marginTop: link.itemDescription ? '4px' : '0', fontStyle: 'italic' }}>⚙️ Mfg Note: {link.mUnitDescription}</div>}
+                                          {link.imageUrl && (
+                                            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                              <span style={{ fontWeight: '700' }}>📷 Order Image:</span>
+                                              <a href={link.imageUrl} target="_blank" rel="noopener noreferrer">
+                                                <img src={link.imageUrl} alt="Order reference" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                                              </a>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
 

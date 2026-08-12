@@ -1401,7 +1401,7 @@ const PUnitPortal = () => {
                               }}>
                                 🏪 {order.storeName || 'Outlet Store'}
                               </span>
-                              {order.globalDescription && (
+                              {(order.globalDescription || order.pUnitDescription || order.imageUrl) && (
                                 <div style={{
                                   marginTop: '6px',
                                   padding: '6px 10px',
@@ -1412,12 +1412,30 @@ const PUnitPortal = () => {
                                   fontWeight: '600',
                                   color: '#92400e',
                                   display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '6px',
+                                  flexDirection: 'column',
+                                  gap: '4px',
                                   lineHeight: '1.4'
                                 }}>
-                                  <span style={{ flexShrink: 0 }}>📝</span>
-                                  <span><strong>Order Note:</strong> {order.globalDescription}</span>
+                                  {order.globalDescription && (
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                      <span style={{ flexShrink: 0 }}>📝</span>
+                                      <span><strong>Order Note:</strong> {order.globalDescription}</span>
+                                    </div>
+                                  )}
+                                  {order.pUnitDescription && (
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                      <span style={{ flexShrink: 0 }}>📦</span>
+                                      <span><strong>Pack Note:</strong> {order.pUnitDescription}</span>
+                                    </div>
+                                  )}
+                                  {order.imageUrl && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                      <span>📷 <strong>Order Image:</strong></span>
+                                      <a href={order.imageUrl} target="_blank" rel="noopener noreferrer">
+                                        <img src={order.imageUrl} alt="Order reference" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                                      </a>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
