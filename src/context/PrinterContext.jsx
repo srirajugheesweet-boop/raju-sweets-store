@@ -278,6 +278,7 @@ export const PrinterProvider = ({ children }) => {
     const saved = localStorage.getItem('inbuiltPOSActive');
     return saved !== null ? saved === 'true' : true;
   });
+  const [showPOSModal, setShowPOSModal] = useState(false);
   const [webUsbConnected, setWebUsbConnected] = useState(false);
   const [webUsbDevice, setWebUsbDevice] = useState(null);
   const webUsbEndpointRef = useRef(null);
@@ -327,6 +328,40 @@ export const PrinterProvider = ({ children }) => {
     await webUsbDevice.transferOut(endpointNumber, new Uint8Array(dataBytes));
   };
 
+  const testInbuiltPOSPrint = async () => {
+    toast.loading("Sending test receipt to Inbuilt POS printer...", { id: 'test-pos-print' });
+    try {
+      const testHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              @page { size: 80mm auto; margin: 0; }
+              body { font-family: 'Courier New', monospace; width: 72mm; margin: 0 auto; padding: 5px; font-size: 12px; text-align: center; }
+              .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
+            </style>
+          </head>
+          <body>
+            <div style="font-size: 16px; font-weight: bold;">RAJU GHEE SWEETS</div>
+            <div>RK3568 POS THERMAL PRINTER</div>
+            <div class="divider"></div>
+            <div>STATUS: ONLINE & ACTIVE</div>
+            <div>DATE: ${new Date().toLocaleString('en-IN')}</div>
+            <div>DEVICE: Rockchip RK3568 (Android 11)</div>
+            <div class="divider"></div>
+            <div style="font-size: 11px;">*** TEST PRINT SUCCESSFUL ***</div>
+          </body>
+        </html>
+      `;
+      await printHTMLContent(testHtml);
+      toast.dismiss('test-pos-print');
+      toast.success("Test receipt dispatched!");
+    } catch (err) {
+      toast.dismiss('test-pos-print');
+      toast.error("Test print failed");
+    }
+  };
+
   return (
     <PrinterContext.Provider
       value={{
@@ -336,6 +371,7 @@ export const PrinterProvider = ({ children }) => {
         qzPrinters,
         selectedQZPrinter,
         inbuiltPOSActive,
+        showPOSModal,
         webUsbConnected,
         webUsbDevice,
         isScanningBt,
@@ -348,6 +384,7 @@ export const PrinterProvider = ({ children }) => {
         qzConnectTimer,
         setShowBluetoothModal,
         setShowQZModal,
+        setShowPOSModal,
         setShowQZSetupGuide,
         handleBluetoothConnect,
         restartBtScan,
@@ -359,6 +396,7 @@ export const PrinterProvider = ({ children }) => {
         toggleInbuiltPOS,
         printInbuiltPOS,
         handleWebUSBConnect,
+        testInbuiltPOSPrint,
         printRawBLE,
         printRawUSB,
         printRawWebUSB,

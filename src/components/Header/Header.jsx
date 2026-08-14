@@ -24,6 +24,12 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     selectedQZPrinter,
     inbuiltPOSActive,
     toggleInbuiltPOS,
+    showPOSModal,
+    setShowPOSModal,
+    testInbuiltPOSPrint,
+    handleWebUSBConnect,
+    webUsbConnected,
+    webUsbDevice,
     isScanningBt,
     btDevices,
     connectingBtDevice,
@@ -98,8 +104,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
             {/* Inbuilt POS Thermal Printer Button */}
             <button
               className={`header-print-status-btn ${inbuiltPOSActive ? 'connected pos' : 'disconnected pos'}`}
-              title={inbuiltPOSActive ? "Inbuilt POS Thermal Printer: Active (Scangle / Android POS)" : "Enable Inbuilt POS Printer"}
-              onClick={toggleInbuiltPOS}
+              title="Inbuilt POS Thermal Printer Setup (RK3568 / Scangle)"
+              onClick={() => setShowPOSModal(true)}
             >
               <PrinterIcon size={13} />
               <span>POS: {inbuiltPOSActive ? 'Active' : 'Off'}</span>
@@ -323,6 +329,75 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                 >
                   <RefreshCw size={12} /> Retry Connect
                 </button>
+              </div>
+            </motion.div>
+          </div>,
+          document.body
+        )}
+      </AnimatePresence>
+
+      {/* Inbuilt POS Printer Setup & Diagnostics Modal */}
+      <AnimatePresence>
+        {showPOSModal && createPortal(
+          <div className="modal-overlay" style={{ zIndex: 9000 }} onClick={() => setShowPOSModal(false)}>
+            <motion.div
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{ maxWidth: '440px', width: '95%' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-icon-box" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+                <PrinterIcon size={28} />
+              </div>
+              <h3 className="modal-title">Inbuilt POS Printer (RK3568)</h3>
+
+              <div style={{ margin: '15px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
+                  <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Device Hardware Specs:</div>
+                  <div>• Model: <strong>RK3568 (Android 11)</strong></div>
+                  <div>• Hardware Board: <strong>Inbuilt Thermal Printer V1.0.1</strong></div>
+                  <div>• Active Mode: <strong style={{ color: inbuiltPOSActive ? '#16a34a' : '#dc2626' }}>{inbuiltPOSActive ? 'ENABLED' : 'DISABLED'}</strong></div>
+                  {webUsbConnected && <div>• Direct WebUSB: <strong style={{ color: '#2563eb' }}>{webUsbDevice}</strong></div>}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    className="polaris-btn"
+                    style={{ flex: 1, fontSize: '12px', height: '34px', background: '#2563eb', color: '#fff', border: 'none' }}
+                    onClick={handleWebUSBConnect}
+                  >
+                    <UsbIcon size={14} /> Pair WebUSB Printer
+                  </button>
+                  <button
+                    className="polaris-btn"
+                    style={{ flex: 1, fontSize: '12px', height: '34px' }}
+                    onClick={testInbuiltPOSPrint}
+                  >
+                    <PrinterIcon size={14} /> Send Test Print
+                  </button>
+                </div>
+
+                <div style={{ background: '#fffbebfb', padding: '12px', borderRadius: '8px', border: '1px solid #fef3c7', fontSize: '11px', color: '#92400e' }}>
+                  <div style={{ fontWeight: '800', marginBottom: '4px', textTransform: 'uppercase' }}>Android 11 Hardware Driver Guide:</div>
+                  <ol style={{ margin: 0, paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <li>When the print preview appears, tap the top <strong>Printer Dropdown</strong>.</li>
+                    <li>Select your internal <strong>Thermal Printer Driver</strong> (or RawBT / POS Service) instead of "Save as PDF".</li>
+                    <li>Click <strong>Print</strong>. Android 11 will remember your choice for all future receipts!</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  className="modal-btn"
+                  style={{ fontSize: '12px', color: inbuiltPOSActive ? '#dc2626' : '#16a34a' }}
+                  onClick={toggleInbuiltPOS}
+                >
+                  {inbuiltPOSActive ? 'Disable Inbuilt POS' : 'Enable Inbuilt POS'}
+                </button>
+                <button className="modal-btn cancel" onClick={() => setShowPOSModal(false)}>Close</button>
               </div>
             </motion.div>
           </div>,
