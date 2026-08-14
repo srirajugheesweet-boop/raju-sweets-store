@@ -50,11 +50,14 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import './StoreDetails.css';
 import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
+import { usePrinter } from '../../context/PrinterContext';
+import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 
 
 const StoreDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { printHTMLContent } = usePrinter();
   const [store, setStore] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -234,9 +237,10 @@ const StoreDetails = () => {
   };
 
 
-  const handlePrint = (bill) => {
-    toast.success(`Printing Bill: ${bill.billId}`);
-    // Future: Add real print logic
+  const handlePrint = async (bill) => {
+    if (!bill) return;
+    const printContent = generateReceiptHTML(bill);
+    await printHTMLContent(printContent, bill);
   };
 
 

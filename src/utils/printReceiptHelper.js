@@ -32,9 +32,9 @@ export const numberToWords = (num) => {
 };
 
 /**
- * Returns formatted HTML for 80mm thermal receipt matching physical bill layout.
+ * Returns formatted HTML for 80mm thermal receipt matching physical POS bill layout.
  */
-export const generateReceiptHTML = (bill) => {
+export const generateReceiptHTML = (bill = {}) => {
   const totalVal = Number(bill.totalAmount || 0);
   const discountVal = Number(bill.discount || 0);
   const grossVal = totalVal + discountVal;
@@ -44,18 +44,18 @@ export const generateReceiptHTML = (bill) => {
   const sgstVal = taxAmtVal / 2;
   const totalQty = (bill.items || []).reduce((acc, i) => acc + (i.unit === 'Weight' ? 1 : Number(i.quantity || 1)), 0);
 
-  const formattedDate = bill.date || new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
-  const formattedTime = bill.time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formattedDate = bill.date || (bill.createdAt?.toDate ? bill.createdAt.toDate().toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }));
+  const formattedTime = bill.time || (bill.createdAt?.toDate ? bill.createdAt.toDate().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }));
 
   const itemsRows = (bill.items || []).map(item => `
     <tr>
-      <td colspan="4" style="padding-top: 3px; font-weight: bold; text-align: left;">${item.name} ${item.unit === 'Weight' ? `${item.quantity} KG` : ''}</td>
+      <td colspan="4" style="padding-top: 3px; font-weight: bold; text-align: left;">${item.name || 'Item'} ${item.unit === 'Weight' ? `${item.quantity} KG` : ''}</td>
     </tr>
     <tr>
-      <td style="text-align: right;">${Number(item.quantity).toFixed(2)}</td>
-      <td style="text-align: right;">${Number(item.price).toFixed(2)}</td>
-      <td style="text-align: right;">${Number(item.price).toFixed(2)}</td>
-      <td style="text-align: right; font-weight: bold;">${Number(item.total).toFixed(2)}</td>
+      <td style="text-align: right;">${Number(item.quantity || 1).toFixed(2)}</td>
+      <td style="text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
+      <td style="text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
+      <td style="text-align: right; font-weight: bold;">${Number(item.total || ((Number(item.quantity || 1) * Number(item.price || 0)))).toFixed(2)}</td>
     </tr>
   `).join('');
 
@@ -63,7 +63,7 @@ export const generateReceiptHTML = (bill) => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Receipt - ${bill.billId}</title>
+        <title>Receipt - ${bill.billId || 'POS'}</title>
         <style>
           @page { size: 80mm auto; margin: 2mm; }
           * { box-sizing: border-box; }
@@ -93,13 +93,13 @@ export const generateReceiptHTML = (bill) => {
         <div class="right" style="font-size: 10px;">Customer Copy</div>
         <div class="center bold" style="font-size: 16px; margin-top: 2px;">SRI RAJU SWEETS</div>
         <div class="center" style="font-size: 10px; margin-top: 2px; line-height: 1.2;">
-          56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA, ANDHRA PRADESH, 520010
+          ${bill.storeAddress || '56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA, AP 520010'}
         </div>
         <div class="center bold" style="font-size: 10px; margin-top: 2px;">
-          PHONE: 9244757677
+          PHONE: ${bill.storePhone || '9244757677'}
         </div>
         <div class="center bold" style="font-size: 10px;">
-          GSTIN: 37DFJPK6083N1ZO
+          GSTIN: ${bill.storeGst || '37DFJPK6083N1ZO'}
         </div>
         <div class="divider"></div>
 
@@ -116,7 +116,7 @@ export const generateReceiptHTML = (bill) => {
         <div class="solid-divider"></div>
 
         <div class="info-row bold" style="font-size: 12px;">
-          <span>Bill No. <span style="font-size: 16px;">${bill.billId}</span></span>
+          <span>Bill No. <span style="font-size: 16px;">${bill.billId || '-'}</span></span>
           <span>Date <b>${formattedDate}</b> &nbsp; ${formattedTime}</span>
         </div>
         <div class="solid-divider"></div>
@@ -198,7 +198,7 @@ export const generateReceiptHTML = (bill) => {
           <span><b>${bill.paymentMode || 'CASH'}-${totalVal.toFixed(0)}</b></span>
         </div>
         <div class="info-row">
-          <span>User : admin</span>
+          <span>User : ${bill.storeName || 'admin'}</span>
           <span>Tot Qty : ${totalQty}</span>
         </div>
         <div class="divider"></div>
@@ -209,4 +209,376 @@ export const generateReceiptHTML = (bill) => {
       </body>
     </html>
   `;
+};
+
+/**
+ * Returns formatted HTML for 80mm thermal receipt for customer orders.
+ */
+export const generateOrderReceiptHTML = (order = {}) => {
+  const totalVal = Number(order.totalAmount || 0);
+  const discountVal = Number(order.discount || 0);
+  const grossVal = totalVal + discountVal;
+  const taxableVal = totalVal / 1.05;
+  const taxAmtVal = totalVal - taxableVal;
+  const cgstVal = taxAmtVal / 2;
+  const sgstVal = taxAmtVal / 2;
+  const receivedVal = Number(order.receivedAmount || 0);
+  const balanceVal = Math.max(0, totalVal - receivedVal);
+
+  const orderNumStr = order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId || '-'}`;
+  const formattedDate = order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'));
+  const formattedTime = order.deliveryTime || (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '');
+
+  const itemsRows = (order.items || []).map(item => `
+    <tr>
+      <td colspan="4" style="padding-top: 3px; font-weight: bold; text-align: left;">
+        ${item.name || 'Item'} ${item.unit === 'Weight' ? `${item.quantity} KG` : ''}
+        ${item.description ? `<div style="font-size: 10px; font-weight: normal; color: #444;">(${item.description})</div>` : ''}
+      </td>
+    </tr>
+    <tr>
+      <td style="text-align: right;">${Number(item.quantity || 1).toFixed(2)}</td>
+      <td style="text-align: right;">${Number(item.price || (Number(item.total || 0) / Number(item.quantity || 1))).toFixed(2)}</td>
+      <td style="text-align: right;">${Number(item.price || (Number(item.total || 0) / Number(item.quantity || 1))).toFixed(2)}</td>
+      <td style="text-align: right; font-weight: bold;">${Number(item.total || 0).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Order Receipt - ${orderNumStr}</title>
+        <style>
+          @page { size: 80mm auto; margin: 2mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            width: 72mm;
+            max-width: 72mm;
+            margin: 0 auto;
+            padding: 2px;
+            color: #000;
+            background: #fff;
+          }
+          .right { text-align: right; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 4px 0; }
+          .solid-divider { border-top: 1px solid #000; margin: 4px 0; }
+          .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 2px 0; font-size: 11px; }
+          th { padding: 2px 0; border-bottom: 1px dashed #000; }
+          td { padding: 1px 0; }
+          @media print { body { width: 72mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="right" style="font-size: 10px;">Order Copy</div>
+        <div class="center bold" style="font-size: 16px; margin-top: 2px;">SRI RAJU SWEETS</div>
+        <div class="center" style="font-size: 10px; margin-top: 2px; line-height: 1.2;">
+          ${order.storeName || 'Store Outlet'}
+        </div>
+        <div class="center" style="font-size: 10px; line-height: 1.2;">
+          56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA
+        </div>
+        <div class="center bold" style="font-size: 10px; margin-top: 2px;">
+          PHONE: 9244757677 | GSTIN: 37DFJPK6083N1ZO
+        </div>
+        <div class="divider"></div>
+
+        <div style="font-size: 11px;">
+          <div><b>Customer:</b> ${order.customerName || 'Customer'}</div>
+          ${order.customerPhone ? `<div><b>Phone:</b> ${order.customerPhone}</div>` : ''}
+          ${order.deliveryDate ? `<div><b>Delivery Date:</b> ${order.deliveryDate} ${order.deliveryTime || ''}</div>` : ''}
+          ${order.orderType ? `<div><b>Type:</b> ${order.orderType}</div>` : ''}
+        </div>
+
+        <div class="center bold" style="font-size: 13px; margin: 6px 0 3px;">
+          ORDER RECEIPT
+        </div>
+        <div class="solid-divider"></div>
+
+        <div class="info-row bold" style="font-size: 12px;">
+          <span>Order No: <span style="font-size: 15px;">${orderNumStr}</span></span>
+          <span>Date: <b>${formattedDate}</b></span>
+        </div>
+        <div class="solid-divider"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: left;" colspan="4">Product</th>
+            </tr>
+            <tr>
+              <th class="right" style="width: 25%;">Qty</th>
+              <th class="right" style="width: 25%;">Mrp</th>
+              <th class="right" style="width: 25%;">Rate</th>
+              <th class="right" style="width: 25%;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows}
+          </tbody>
+        </table>
+        <div class="solid-divider"></div>
+
+        ${discountVal > 0 ? `
+          <div class="info-row"><span>Gross Total</span><span>₹ ${grossVal.toFixed(2)}</span></div>
+          <div class="info-row" style="color: #dc2626;"><span>Discount</span><span>-₹ ${discountVal.toFixed(2)}</span></div>
+          <div class="solid-divider"></div>
+        ` : ''}
+
+        <div class="info-row bold" style="font-size: 14px; margin: 3px 0;">
+          <span>Grand Total :</span>
+          <span style="font-size: 17px;">₹ ${totalVal.toFixed(2)}</span>
+        </div>
+
+        <div class="info-row" style="font-size: 11px;">
+          <span>Advance Paid :</span>
+          <span>₹ ${receivedVal.toFixed(2)}</span>
+        </div>
+
+        <div class="info-row bold" style="font-size: 14px; color: ${balanceVal > 0 ? '#b91c1c' : '#047857'}; margin-bottom: 3px;">
+          <span>Balance Due :</span>
+          <span style="font-size: 16px;">₹ ${balanceVal.toFixed(2)}</span>
+        </div>
+        <div class="solid-divider"></div>
+
+        <div class="bold" style="font-size: 10px; margin-bottom: 2px;">GST (5% Included in Total)</div>
+        <div class="info-row" style="font-size: 10px;">
+          <span>Taxable: ₹${taxableVal.toFixed(2)}</span>
+          <span>CGST (2.5%): ₹${cgstVal.toFixed(2)}</span>
+          <span>SGST (2.5%): ₹${sgstVal.toFixed(2)}</span>
+        </div>
+        <div class="solid-divider"></div>
+
+        <div style="font-size: 10px; font-weight: bold; margin: 3px 0;">
+          Word: <i>${numberToWords(totalVal)}</i>
+        </div>
+        <div class="solid-divider"></div>
+
+        <div class="info-row">
+          <span>Payment: <b>${order.paymentMode || order.paymentType || 'CASH'}</b></span>
+          <span>Outlet: ${order.storeName || 'Vijayawada'}</span>
+        </div>
+        <div class="divider"></div>
+
+        <div class="center bold" style="font-size: 11px; margin-top: 4px;">
+          *** Thank you for your business! ***
+        </div>
+      </body>
+    </html>
+  `;
+};
+
+/**
+ * Generates raw ESC/POS binary data for 80mm thermal receipt for Walk-in Bills.
+ */
+export const buildReceiptESCPOS = (bill = {}) => {
+  const enc = new TextEncoder();
+  const bytes = [];
+  const push = (...arrs) => arrs.forEach(a => bytes.push(...a));
+
+  const ESC = 0x1B, GS = 0x1D;
+  const INIT    = [ESC, 0x40];
+  const CENTER  = [ESC, 0x61, 0x01];
+  const LEFT    = [ESC, 0x61, 0x00];
+  const DBL     = [GS,  0x21, 0x11];
+  const NORMAL  = [GS,  0x21, 0x00];
+  const DBL_H   = [GS,  0x21, 0x01];
+  const BOLD_ON = [ESC, 0x45, 0x01];
+  const BOLD_OFF= [ESC, 0x45, 0x00];
+  const DIV     = '-'.repeat(42) + '\n';
+  const DIV_S   = '=' .repeat(42) + '\n';
+
+  const txt = (s) => enc.encode(String(s ?? ''));
+
+  const totalVal    = Number(bill?.totalAmount || 0);
+  const discountVal = Number(bill?.discount || 0);
+  const grossVal    = totalVal + discountVal;
+  const taxableVal  = totalVal / 1.05;
+  const taxAmt      = totalVal - taxableVal;
+  const cgst        = taxAmt / 2;
+  const sgst        = taxAmt / 2;
+
+  const fmtDate = bill?.date || (bill?.createdAt?.toDate ? bill.createdAt.toDate().toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'2-digit' }));
+  const fmtTime = bill?.time || (bill?.createdAt?.toDate ? bill.createdAt.toDate().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true }) : new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true }));
+
+  // --- Header ---
+  push(INIT, CENTER, DBL);
+  push(txt('SRI RAJU SWEETS\n'));
+  push(NORMAL);
+  push(txt('56-11-20B, OPP JD TOWERS\n'));
+  push(txt('PATAMATA MAIN ROAD, VIJAYAWADA\n'));
+  push(txt('ANDHRA PRADESH - 520010\n'));
+  push(txt('Ph: 9244757677\n'));
+  push(txt('GSTIN: 37DFJPK6083N1ZO\n'));
+  push(txt(DIV));
+
+  // --- Customer Info ---
+  push(LEFT);
+  push(txt(`Customer: ${bill?.customerName || 'Walk-in Customer'}\n`));
+  if (bill?.customerPhone) push(txt(`Mobile: ${bill.customerPhone}\n`));
+  if (bill?.companyName)   push(txt(`Company: ${bill.companyName}\n`));
+  if (bill?.customerGst || bill?.gstNumber) push(txt(`GST: ${bill.customerGst || bill.gstNumber}\n`));
+  push(txt(DIV));
+
+  // --- Bill Info ---
+  push(CENTER, BOLD_ON);
+  push(txt('Tax Invoice / Bill of Supply\n'));
+  push(BOLD_OFF, txt(DIV_S));
+  push(LEFT);
+  push(BOLD_ON);
+  push(txt(`Bill No: ${bill?.billId || '-'}    Date: ${fmtDate}  ${fmtTime}\n`));
+  push(BOLD_OFF, txt(DIV));
+
+  // --- Items header ---
+  push(BOLD_ON);
+  const hdr = 'Item'.padEnd(20) + 'Qty'.padStart(6) + 'Price'.padStart(8) + 'Amt'.padStart(8) + '\n';
+  push(txt(hdr));
+  push(BOLD_OFF, txt(DIV));
+
+  // --- Items ---
+  (bill?.items || []).forEach(item => {
+    const name  = String(item.name || '');
+    const qty   = Number(item.quantity || 0).toFixed(2);
+    const price = Number(item.price || 0).toFixed(2);
+    const total = Number(item.total || 0).toFixed(2);
+    const unit  = item.unit === 'Weight' ? 'KG' : 'pc';
+
+    push(BOLD_ON, txt(name.substring(0, 20).padEnd(20)));
+    push(BOLD_OFF);
+    push(txt(qty.padStart(6) + price.padStart(8) + total.padStart(8) + '\n'));
+
+    if (name.length > 20) {
+      push(txt('  ' + name.substring(20, 38) + (item.unit === 'Weight' ? `  ${item.quantity}${unit}` : '') + '\n'));
+    }
+  });
+  push(txt(DIV));
+
+  // --- Totals ---
+  if (discountVal > 0) {
+    push(txt(`Gross Total:  ${ ('Rs.' + grossVal.toFixed(2)).padStart(28) }\n`));
+    push(txt(`Discount:    ${('-Rs.' + discountVal.toFixed(2)).padStart(28) }\n`));
+    push(txt(DIV));
+  }
+  push(DBL_H, BOLD_ON);
+  push(txt(`Net Amount: ${ ('Rs.' + totalVal.toFixed(2)).padStart(29) }\n`));
+  push(BOLD_OFF, NORMAL, txt(DIV));
+
+  // --- GST Summary ---
+  push(BOLD_ON, txt('GST Summary\n'), BOLD_OFF);
+  push(txt(DIV));
+  push(txt('Taxable     CGST    SGST    Tax Amt\n'));
+  push(txt(
+    taxableVal.toFixed(2).padEnd(12) +
+    cgst.toFixed(2).padStart(6)  +
+    sgst.toFixed(2).padStart(8)  +
+    taxAmt.toFixed(2).padStart(10) + '\n'
+  ));
+  push(txt(DIV));
+
+  // --- Payment & Footer ---
+  push(txt(`Payment: ${bill?.paymentMode || 'CASH'}\n`));
+  push(txt(DIV));
+  push(CENTER);
+  push(txt('*** Thank You & Visit Again ***\n\n\n'));
+
+  // Feed + cut
+  push([ESC, 0x64, 0x04]);
+  push([GS,  0x56, 0x41, 0x10]);
+
+  return new Uint8Array(bytes);
+};
+
+/**
+ * Generates raw ESC/POS binary data for 80mm thermal receipt for Orders.
+ */
+export const buildOrderESCPOS = (order = {}) => {
+  const enc = new TextEncoder();
+  const bytes = [];
+  const push = (...arrs) => arrs.forEach(a => bytes.push(...a));
+
+  const ESC = 0x1B, GS = 0x1D;
+  const INIT    = [ESC, 0x40];
+  const CENTER  = [ESC, 0x61, 0x01];
+  const LEFT    = [ESC, 0x61, 0x00];
+  const DBL     = [GS,  0x21, 0x11];
+  const NORMAL  = [GS,  0x21, 0x00];
+  const DBL_H   = [GS,  0x21, 0x01];
+  const BOLD_ON = [ESC, 0x45, 0x01];
+  const BOLD_OFF= [ESC, 0x45, 0x00];
+  const DIV     = '-'.repeat(42) + '\n';
+  const DIV_S   = '=' .repeat(42) + '\n';
+
+  const txt = (s) => enc.encode(String(s ?? ''));
+
+  const totalVal    = Number(order?.totalAmount || 0);
+  const discountVal = Number(order?.discount || 0);
+  const grossVal    = totalVal + discountVal;
+  const receivedVal = Number(order?.receivedAmount || 0);
+  const balanceVal  = Math.max(0, totalVal - receivedVal);
+  const orderNumStr = order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId || '-'}`;
+
+  const fmtDate = order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-IN') : (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'));
+
+  // --- Header ---
+  push(INIT, CENTER, DBL);
+  push(txt('SRI RAJU SWEETS\n'));
+  push(NORMAL);
+  push(txt(`${order.storeName || 'Vijayawada'}\n`));
+  push(txt('Quality Sweets & Savouries\n'));
+  push(txt(DIV));
+
+  // --- Order Info ---
+  push(LEFT);
+  push(txt(`Order No: ${orderNumStr}\n`));
+  push(txt(`Customer: ${order.customerName || 'Customer'}\n`));
+  if (order.customerPhone) push(txt(`Phone: ${order.customerPhone}\n`));
+  push(txt(`Date: ${fmtDate} ${order.deliveryTime || ''}\n`));
+  push(txt(DIV_S));
+
+  // --- Items header ---
+  push(BOLD_ON);
+  const hdr = 'Item'.padEnd(20) + 'Qty'.padStart(6) + 'Rate'.padStart(8) + 'Amt'.padStart(8) + '\n';
+  push(txt(hdr));
+  push(BOLD_OFF, txt(DIV));
+
+  // --- Items ---
+  (order?.items || []).forEach(item => {
+    const name  = String(item.name || '');
+    const qty   = Number(item.quantity || 0).toFixed(2);
+    const price = Number(item.price || (Number(item.total || 0) / Math.max(1, Number(item.quantity || 1)))).toFixed(2);
+    const total = Number(item.total || 0).toFixed(2);
+
+    push(BOLD_ON, txt(name.substring(0, 20).padEnd(20)));
+    push(BOLD_OFF);
+    push(txt(qty.padStart(6) + price.padStart(8) + total.padStart(8) + '\n'));
+  });
+  push(txt(DIV));
+
+  // --- Totals ---
+  if (discountVal > 0) {
+    push(txt(`Gross Total:  ${ ('Rs.' + grossVal.toFixed(2)).padStart(28) }\n`));
+    push(txt(`Discount:    ${('-Rs.' + discountVal.toFixed(2)).padStart(28) }\n`));
+  }
+  push(DBL_H, BOLD_ON);
+  push(txt(`Grand Total:  ${ ('Rs.' + totalVal.toFixed(2)).padStart(28) }\n`));
+  push(BOLD_OFF, NORMAL);
+  push(txt(`Advance Paid: ${ ('Rs.' + receivedVal.toFixed(2)).padStart(28) }\n`));
+  push(BOLD_ON);
+  push(txt(`Balance Due:  ${ ('Rs.' + balanceVal.toFixed(2)).padStart(28) }\n`));
+  push(BOLD_OFF, txt(DIV));
+
+  // --- Footer ---
+  push(CENTER);
+  push(txt('*** Thank You & Visit Again ***\n\n\n'));
+
+  // Feed + cut
+  push([ESC, 0x64, 0x04]);
+  push([GS,  0x56, 0x41, 0x10]);
+
+  return new Uint8Array(bytes);
 };

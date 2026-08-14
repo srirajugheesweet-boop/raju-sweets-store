@@ -28,6 +28,7 @@ import {
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { printHTMLContent } from '../../context/PrinterContext';
 import './IndividualPortal.css';
 
 const IndividualPortal = () => {
@@ -427,14 +428,7 @@ const IndividualPortal = () => {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=800,height=900');
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+    printHTMLContent(printContent);
   };
 
   const tabs = [

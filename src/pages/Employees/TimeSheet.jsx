@@ -36,9 +36,9 @@ import {
   Edit,
   Save
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../../components/Layout/Layout';
+import { printHTMLContent } from '../../context/PrinterContext';
 import './TimeSheet.css';
 
 const TimeSheet = () => {
@@ -759,14 +759,7 @@ const TimeSheet = () => {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=800,height=900');
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+    printHTMLContent(printContent);
   };
 
   const filteredEmployees = employees.filter(emp => {

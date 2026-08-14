@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { connectQZ, disconnectQZ, listQZPrinters, printRawToQZ } from '../utils/qzTray';
+import { buildReceiptESCPOS, buildOrderESCPOS } from '../utils/printReceiptHelper';
 import toast from 'react-hot-toast';
 
 const PrinterContext = createContext(null);
@@ -526,14 +527,20 @@ export const PrinterProvider = ({ children }) => {
   const webUsbEndpointNumRef = useRef(1); // stores endpoint number separately
 
   const smartPrint = async (htmlContent, billData = null) => {
-    // Use proper ESC/POS builder from bill object; if no billData just use system dialog
-    const getEscBytes = () => billData ? buildReceiptESCPOS(billData) : null;
+    // Determine ESC/POS bytes based on whether data is an order or a POS bill
+    const getEscBytes = () => {
+      if (!billData) return null;
+      if (billData.orderId || billData.deliveryDate || billData.orderType) {
+        return buildOrderESCPOS(billData);
+      }
+      return buildReceiptESCPOS(billData);
+    };
 
     // 1. BLE Bluetooth connected → send ESC/POS bytes via GATT characteristic
     if (printerCharacteristicRef.current || bluetoothConnected) {
       if (printerCharacteristicRef.current) {
         const escBytes = getEscBytes();
-        if (!escBytes) return printHTMLContent(htmlContent); // no bill data → dialog
+        if (!escBytes) return printHTMLContent(htmlContent);
         try {
           toast.loading('Printing via Bluetooth...', { id: 'smart-print' });
           const CHUNK_SIZE = 20;
@@ -548,11 +555,9 @@ export const PrinterProvider = ({ children }) => {
         } catch (err) {
           toast.dismiss('smart-print');
           console.error('BLE print error:', err);
-          toast.error('Bluetooth print failed — trying system dialog');
-          // fall through
+          toast.error('Bluetooth print failed — opening print dialog');
         }
       } else {
-        // bluetoothConnected=true but no GATT char (paired via system) → use system print
         return printHTMLContent(htmlContent);
       }
     }
@@ -560,11 +565,10 @@ export const PrinterProvider = ({ children }) => {
     // 2. WebUSB connected → send ESC/POS bytes directly via USB bulk-out
     if (webUsbDeviceRef.current) {
       const escBytes = getEscBytes();
-      if (!escBytes) return printHTMLContent(htmlContent); // no bill data → dialog
+      if (!escBytes) return printHTMLContent(htmlContent);
       try {
         toast.loading('Printing via WebUSB...', { id: 'smart-print' });
         const device = webUsbDeviceRef.current;
-        // Re-open device if it was closed
         if (!device.opened) {
           await device.open();
           if (device.configuration === null) await device.selectConfiguration(1);
@@ -573,7 +577,6 @@ export const PrinterProvider = ({ children }) => {
           const ep = iface.alternate.endpoints.find(e => e.direction === 'out');
           webUsbEndpointNumRef.current = ep ? ep.endpointNumber : 1;
         }
-        // Chunk transfer for large receipts (USB bulk-out max packet size varies)
         const CHUNK = 512;
         for (let i = 0; i < escBytes.length; i += CHUNK) {
           await device.transferOut(webUsbEndpointNumRef.current, escBytes.slice(i, i + CHUNK));
@@ -585,7 +588,6 @@ export const PrinterProvider = ({ children }) => {
         toast.dismiss('smart-print');
         console.error('WebUSB print error:', err);
         toast.error(`WebUSB print failed: ${err.message || 'Check USB connection'}`);
-        // fall through to dialog
       }
     }
 
@@ -605,7 +607,6 @@ export const PrinterProvider = ({ children }) => {
         toast.dismiss('smart-print');
         console.error('WebSerial print error:', err);
         toast.error('USB Serial print failed — opening dialog');
-        // fall through
       }
     }
 
@@ -622,137 +623,12 @@ export const PrinterProvider = ({ children }) => {
         } catch (err) {
           toast.dismiss('smart-print');
           console.error('QZ print error:', err);
-          // fall through
         }
       }
     }
 
-    // 5. Fallback: browser print dialog (iframe)
+    // 5. Fallback: browser print dialog (isolated iframe)
     return printHTMLContent(htmlContent);
-  };
-
-  // Builds correct ESC/POS bytes from bill data object for 80mm thermal paper
-  // Mirrors generateReceiptHTML layout exactly
-  const buildReceiptESCPOS = (bill) => {
-    const enc = new TextEncoder();
-    const bytes = [];
-    const push = (...arrs) => arrs.forEach(a => bytes.push(...a));
-
-    const ESC = 0x1B, GS = 0x1D;
-    const INIT    = [ESC, 0x40];
-    const CENTER  = [ESC, 0x61, 0x01];
-    const LEFT    = [ESC, 0x61, 0x00];
-    const DBL     = [GS,  0x21, 0x11]; // double width+height
-    const NORMAL  = [GS,  0x21, 0x00];
-    const DBL_H   = [GS,  0x21, 0x01]; // double height only
-    const BOLD_ON = [ESC, 0x45, 0x01];
-    const BOLD_OFF= [ESC, 0x45, 0x00];
-    const DIV     = '-'.repeat(42) + '\n';
-    const DIV_S   = '=' .repeat(42) + '\n';
-
-    const txt = (s) => enc.encode(String(s ?? ''));
-
-    const totalVal    = Number(bill?.totalAmount || 0);
-    const discountVal = Number(bill?.discount || 0);
-    const grossVal    = totalVal + discountVal;
-    const taxableVal  = totalVal / 1.05;
-    const taxAmt      = totalVal - taxableVal;
-    const cgst        = taxAmt / 2;
-    const sgst        = taxAmt / 2;
-
-    const fmtDate = bill?.date || new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'2-digit' });
-    const fmtTime = bill?.time || new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
-
-    // --- Header ---
-    push(INIT, CENTER, DBL);
-    push(txt('SRI RAJU SWEETS\n'));
-    push(NORMAL);
-    push(txt('56-11-20B, OPP JD TOWERS\n'));
-    push(txt('PATAMATA MAIN ROAD, VIJAYAWADA\n'));
-    push(txt('ANDHRA PRADESH - 520010\n'));
-    push(txt('Ph: 9244757677\n'));
-    push(txt('GSTIN: 37DFJPK6083N1ZO\n'));
-    push(txt(DIV));
-
-    // --- Customer Info ---
-    push(LEFT);
-    push(txt(`Customer: ${bill?.customerName || 'Walk-in Customer'}\n`));
-    if (bill?.customerPhone) push(txt(`Mobile: ${bill.customerPhone}\n`));
-    if (bill?.companyName)   push(txt(`Company: ${bill.companyName}\n`));
-    if (bill?.customerGst || bill?.gstNumber) push(txt(`GST: ${bill.customerGst || bill.gstNumber}\n`));
-    push(txt(DIV));
-
-    // --- Bill Info ---
-    push(CENTER, BOLD_ON);
-    push(txt('Tax Invoice / Bill of Supply\n'));
-    push(BOLD_OFF, txt(DIV_S));
-    push(LEFT);
-    push(BOLD_ON);
-    push(txt(`Bill No: ${bill?.billId || '-'}    Date: ${fmtDate}  ${fmtTime}\n`));
-    push(BOLD_OFF, txt(DIV));
-
-    // --- Items header ---
-    push(BOLD_ON);
-    const hdr = 'Item'.padEnd(20) + 'Qty'.padStart(6) + 'Price'.padStart(8) + 'Amt'.padStart(8) + '\n';
-    push(txt(hdr));
-    push(BOLD_OFF, txt(DIV));
-
-    // --- Items ---
-    (bill?.items || []).forEach(item => {
-      const name  = String(item.name || '');
-      const qty   = Number(item.quantity || 0).toFixed(2);
-      const price = Number(item.price || 0).toFixed(2);
-      const total = Number(item.total || 0).toFixed(2);
-      const unit  = item.unit === 'Weight' ? 'KG' : 'pc';
-
-      // item name line (wrap if > 20 chars)
-      push(BOLD_ON, txt(name.substring(0, 20).padEnd(20)));
-      push(BOLD_OFF);
-      push(txt(qty.padStart(6) + price.padStart(8) + total.padStart(8) + '\n'));
-
-      // second name line if long
-      if (name.length > 20) {
-        push(txt('  ' + name.substring(20, 38) + (item.unit === 'Weight' ? `  ${item.quantity}${unit}` : '') + '\n'));
-      }
-    });
-    push(txt(DIV));
-
-    // --- Totals ---
-    if (discountVal > 0) {
-      push(txt(`Gross Total:  ${ ('Rs.' + grossVal.toFixed(2)).padStart(28) }\n`));
-      push(txt(`Discount:    ${('-Rs.' + discountVal.toFixed(2)).padStart(28) }\n`));
-      push(txt(DIV));
-    }
-    push(DBL_H, BOLD_ON);
-    push(txt(`Net Amount: ${ ('Rs.' + totalVal.toFixed(2)).padStart(29) }\n`));
-    push(BOLD_OFF, NORMAL, txt(DIV));
-
-    // --- GST Summary ---
-    push(BOLD_ON, txt('GST Summary\n'), BOLD_OFF);
-    push(txt(DIV));
-    push(txt('Taxable     CGST    SGST    Tax Amt\n'));
-    push(txt(
-      taxableVal.toFixed(2).padEnd(12) +
-      cgst.toFixed(2).padStart(6)  +
-      sgst.toFixed(2).padStart(8)  +
-      taxAmt.toFixed(2).padStart(10) + '\n'
-    ));
-    push(txt(DIV));
-
-    // --- Payment & Amount in Words ---
-    push(txt(`Payment: ${bill?.paymentMode || 'CASH'}\n`));
-    push(txt(DIV));
-
-    // --- Footer ---
-    push(CENTER);
-    push(txt('*** Thank You & Visit Again ***\n'));
-    push(txt('\n\n'));
-
-    // Feed + partial cut
-    push([ESC, 0x64, 0x04]);       // feed 4 lines
-    push([GS,  0x56, 0x41, 0x10]); // partial cut
-
-    return new Uint8Array(bytes);
   };
 
   return (
@@ -819,45 +695,73 @@ export const PrinterProvider = ({ children }) => {
 export const printHTMLContent = (htmlContent) => {
   return new Promise((resolve) => {
     try {
-      let iframe = document.getElementById('pos-print-iframe');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'pos-print-iframe';
-        iframe.style.position = 'fixed';
-        iframe.style.right = '0';
-        iframe.style.bottom = '0';
-        iframe.style.width = '0px';
-        iframe.style.height = '0px';
-        iframe.style.border = 'none';
-        iframe.style.opacity = '0';
-        iframe.style.pointerEvents = 'none';
-        document.body.appendChild(iframe);
+      const existingIframe = document.getElementById('pos-print-iframe');
+      if (existingIframe && existingIframe.parentNode) {
+        existingIframe.parentNode.removeChild(existingIframe);
       }
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'pos-print-iframe';
+      iframe.name = 'pos-print-frame-' + Date.now();
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0px';
+      iframe.style.height = '0px';
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow.document;
       doc.open();
       doc.write(htmlContent);
       doc.close();
 
-      setTimeout(() => {
+      const executePrint = () => {
         try {
           iframe.contentWindow.focus();
           iframe.contentWindow.print();
           resolve(true);
         } catch (e) {
           console.error("Iframe print error, attempting popup fallback:", e);
-          const win = window.open('', '_blank', 'width=420,height=700');
+          const win = window.open('', '_blank', 'width=800,height=700');
           if (win) {
             win.document.write(htmlContent);
             win.document.close();
             win.focus();
             setTimeout(() => { win.print(); win.close(); resolve(true); }, 400);
           } else {
-            toast.error("Print blocked. Please allow popups or use iframe print.");
+            toast.error("Print dialog could not be opened. Please check browser permissions.");
             resolve(false);
           }
         }
-      }, 300);
+      };
+
+      const images = doc.images;
+      if (images && images.length > 0) {
+        let loadedCount = 0;
+        const total = images.length;
+        const onImgDone = () => {
+          loadedCount++;
+          if (loadedCount >= total) {
+            setTimeout(executePrint, 150);
+          }
+        };
+        for (let i = 0; i < total; i++) {
+          if (images[i].complete) {
+            loadedCount++;
+          } else {
+            images[i].onload = onImgDone;
+            images[i].onerror = onImgDone;
+          }
+        }
+        if (loadedCount >= total) {
+          setTimeout(executePrint, 150);
+        }
+      } else {
+        setTimeout(executePrint, 250);
+      }
     } catch (err) {
       console.error("Error executing printHTMLContent:", err);
       resolve(false);

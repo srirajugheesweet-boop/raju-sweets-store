@@ -389,37 +389,13 @@ const SuperAdminPOS = () => {
     }
   };
 
-  const handlePrintReceipt = (bill) => {
+  const handlePrintReceipt = async (bill) => {
+    if (!bill) return;
     const printContent = generateReceiptHTML(bill);
-    printHTMLContent(printContent);
+    await printHTMLContent(printContent, bill);
   };
 
-
-  const handlePrintTrigger = async (bill) => {
-    if (bluetoothConnected) {
-      toast.success(`Sending ticket data to ${connectedDevice}...`);
-    }
-    if (qzConnected && selectedQZPrinter) {
-      try {
-        const bytes = buildBillESCPOS(bill);
-        await printRawUSB(bytes);
-        toast.success("Printed bill successfully on USB Thermal Printer!");
-        return;
-      } catch (err) {
-        console.error('QZ print error:', err);
-        let errorMsg = "USB print failed";
-        if (err.message && err.message.includes("not accepting job")) {
-          errorMsg = "Printer is offline or paused. Check Windows Print Queue";
-        } else if (err.message) {
-          errorMsg = err.message;
-        }
-        toast.error(`${errorMsg}. Opening system print fallback...`, { duration: 6000 });
-        handlePrintReceipt(bill);
-      }
-    } else {
-      handlePrintReceipt(bill);
-    }
-  };
+  const handlePrintTrigger = handlePrintReceipt;
 
 
   // Load Saved Bill back into Cart

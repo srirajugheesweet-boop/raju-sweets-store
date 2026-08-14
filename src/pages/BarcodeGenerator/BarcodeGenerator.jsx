@@ -85,7 +85,8 @@ const BarcodeGenerator = () => {
     connectQZTray, 
     confirmQZPrinter,
     disconnectQZTray,
-    printRawUSB 
+    printRawUSB,
+    printHTMLContent
   } = usePrinter();
 
   // Item & Data states
@@ -287,10 +288,100 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
     return tspl;
   };
 
+  const printStickersViaIframe = () => {
+    if (!printAreaRef.current) return;
+    const stickerHtml = printAreaRef.current.innerHTML;
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Barcodes - Raju Ghee Sweets</title>
+          <style>
+            @page {
+              size: 104mm auto;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+            }
+            .printable-stickers-area {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 2mm 3mm;
+              width: 103mm;
+              padding: 1mm;
+              box-sizing: border-box;
+            }
+            .print-sticker-card {
+              width: 50mm;
+              height: 25mm;
+              border: 1px solid #d1d5db;
+              border-radius: 1mm;
+              padding: 1.5mm 2mm;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              page-break-inside: avoid;
+              font-family: 'Arial', sans-serif;
+              color: #000000;
+            }
+            .sticker-header-title {
+              text-align: center;
+              font-size: 9pt;
+              font-weight: 700;
+              letter-spacing: 0.3px;
+              text-transform: uppercase;
+            }
+            .sticker-sub-row {
+              display: flex;
+              justify-content: space-between;
+              font-size: 8pt;
+              font-weight: 600;
+              color: #000000;
+            }
+            .sticker-barcode-wrapper {
+              display: flex;
+              justify-content: center;
+              height: 11mm;
+              overflow: hidden;
+            }
+            .sticker-barcode-wrapper svg {
+              height: 100%;
+              width: 100%;
+            }
+            .sticker-footer-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+            }
+            .sticker-code-id {
+              font-size: 8pt;
+              font-weight: 600;
+              font-family: monospace;
+            }
+            .sticker-mrp-price {
+              font-size: 10pt;
+              font-weight: 700;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="printable-stickers-area">
+            ${stickerHtml}
+          </div>
+        </body>
+      </html>
+    `;
+    printHTMLContent(fullHtml);
+  };
+
   // --- Browser & USB Print Handlers ---
   const handleBrowserPrintCurrent = () => {
     if (!selectedItem) return;
-    window.print();
+    printStickersViaIframe();
   };
 
   // --- USB Printer Handler ---
@@ -359,10 +450,10 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
       }
     }
 
-    // Fallback: Windows Printer Driver Print
+    // Fallback: Windows Printer Driver Print via isolated iframe
     toast("Opening Windows USB Printer Driver...", { icon: '🖨️' });
     setTimeout(() => {
-      window.print();
+      printStickersViaIframe();
     }, 150);
   };
 
@@ -420,10 +511,10 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
       }
     }
 
-    // Fallback: Trigger Browser Print for entire batch
+    // Fallback: Trigger Browser Print for entire batch via isolated iframe
     toast("Opening Windows USB Print dialog for batch...", { icon: '🖨️' });
     setTimeout(() => {
-      window.print();
+      printStickersViaIframe();
     }, 150);
   };
 
