@@ -132,8 +132,8 @@ const WalkInSales = () => {
 
   const handlePrintReceipt = async (bill) => {
     const printContent = generateReceiptHTML(bill);
-    // smartPrint inside printHTMLContent already handles BLE → WebUSB → WebSerial → dialog routing
-    await printHTMLContent(printContent);
+    // Pass bill object as 2nd arg so smartPrint uses buildReceiptESCPOS for direct printers
+    await printHTMLContent(printContent, bill);
   };
 
 

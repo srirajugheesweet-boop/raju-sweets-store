@@ -525,17 +525,20 @@ export const PrinterProvider = ({ children }) => {
   const webUsbDeviceRef = useRef(null); // stores the actual USBDevice object
   const webUsbEndpointNumRef = useRef(1); // stores endpoint number separately
 
-  const smartPrint = async (htmlContent) => {
+  const smartPrint = async (htmlContent, billData = null) => {
+    // Use proper ESC/POS builder from bill object; if no billData just use system dialog
+    const getEscBytes = () => billData ? buildReceiptESCPOS(billData) : null;
+
     // 1. BLE Bluetooth connected → send ESC/POS bytes via GATT characteristic
     if (printerCharacteristicRef.current || bluetoothConnected) {
       if (printerCharacteristicRef.current) {
+        const escBytes = getEscBytes();
+        if (!escBytes) return printHTMLContent(htmlContent); // no bill data → dialog
         try {
           toast.loading('Printing via Bluetooth...', { id: 'smart-print' });
-          const escBytes = htmlToESCPOS(htmlContent);
-          const dataArray = new Uint8Array(escBytes);
           const CHUNK_SIZE = 20;
-          for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
-            const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+          for (let i = 0; i < escBytes.length; i += CHUNK_SIZE) {
+            const chunk = escBytes.slice(i, i + CHUNK_SIZE);
             await printerCharacteristicRef.current.writeValue(chunk);
             await new Promise(r => setTimeout(r, 30));
           }
@@ -549,16 +552,17 @@ export const PrinterProvider = ({ children }) => {
           // fall through
         }
       } else {
-        // bluetoothConnected=true but no GATT char (simulated/paired via system) → use system print
+        // bluetoothConnected=true but no GATT char (paired via system) → use system print
         return printHTMLContent(htmlContent);
       }
     }
 
     // 2. WebUSB connected → send ESC/POS bytes directly via USB bulk-out
     if (webUsbDeviceRef.current) {
+      const escBytes = getEscBytes();
+      if (!escBytes) return printHTMLContent(htmlContent); // no bill data → dialog
       try {
         toast.loading('Printing via WebUSB...', { id: 'smart-print' });
-        const escBytes = htmlToESCPOS(htmlContent);
         const device = webUsbDeviceRef.current;
         // Re-open device if it was closed
         if (!device.opened) {
@@ -569,7 +573,11 @@ export const PrinterProvider = ({ children }) => {
           const ep = iface.alternate.endpoints.find(e => e.direction === 'out');
           webUsbEndpointNumRef.current = ep ? ep.endpointNumber : 1;
         }
-        await device.transferOut(webUsbEndpointNumRef.current, new Uint8Array(escBytes));
+        // Chunk transfer for large receipts (USB bulk-out max packet size varies)
+        const CHUNK = 512;
+        for (let i = 0; i < escBytes.length; i += CHUNK) {
+          await device.transferOut(webUsbEndpointNumRef.current, escBytes.slice(i, i + CHUNK));
+        }
         toast.dismiss('smart-print');
         toast.success('Receipt printed via WebUSB!');
         return true;
@@ -577,17 +585,18 @@ export const PrinterProvider = ({ children }) => {
         toast.dismiss('smart-print');
         console.error('WebUSB print error:', err);
         toast.error(`WebUSB print failed: ${err.message || 'Check USB connection'}`);
-        // fall through
+        // fall through to dialog
       }
     }
 
     // 3. WebSerial connected → send ESC/POS bytes via serial port
     if (webSerialPort && webSerialPort.writable) {
+      const escBytes = getEscBytes();
+      if (!escBytes) return printHTMLContent(htmlContent);
       try {
         toast.loading('Printing via USB Serial...', { id: 'smart-print' });
-        const escBytes = htmlToESCPOS(htmlContent);
         const writer = webSerialPort.writable.getWriter();
-        await writer.write(new Uint8Array(escBytes));
+        await writer.write(escBytes);
         writer.releaseLock();
         toast.dismiss('smart-print');
         toast.success('Receipt printed via USB Serial!');
@@ -602,17 +611,19 @@ export const PrinterProvider = ({ children }) => {
 
     // 4. QZ Tray USB printer connected → use QZ
     if (qzConnected && selectedQZPrinter) {
-      try {
-        toast.loading('Printing via QZ Tray USB...', { id: 'smart-print' });
-        const escBytes = htmlToESCPOS(htmlContent);
-        await printRawToQZ(selectedQZPrinter, escBytes);
-        toast.dismiss('smart-print');
-        toast.success('Receipt printed via USB!');
-        return true;
-      } catch (err) {
-        toast.dismiss('smart-print');
-        console.error('QZ print error:', err);
-        // fall through
+      const escBytes = getEscBytes();
+      if (escBytes) {
+        try {
+          toast.loading('Printing via QZ Tray USB...', { id: 'smart-print' });
+          await printRawToQZ(selectedQZPrinter, Array.from(escBytes));
+          toast.dismiss('smart-print');
+          toast.success('Receipt printed via USB!');
+          return true;
+        } catch (err) {
+          toast.dismiss('smart-print');
+          console.error('QZ print error:', err);
+          // fall through
+        }
       }
     }
 
@@ -620,86 +631,128 @@ export const PrinterProvider = ({ children }) => {
     return printHTMLContent(htmlContent);
   };
 
-  // Converts receipt HTML content to ESC/POS byte array for 80mm thermal paper
-  const htmlToESCPOS = (htmlContent) => {
+  // Builds correct ESC/POS bytes from bill data object for 80mm thermal paper
+  // Mirrors generateReceiptHTML layout exactly
+  const buildReceiptESCPOS = (bill) => {
+    const enc = new TextEncoder();
     const bytes = [];
-    // ESC @ — Initialize printer
-    bytes.push(0x1B, 0x40);
-    // ESC a 1 — Center align
-    bytes.push(0x1B, 0x61, 0x01);
-    // GS ! 0x11 — double-width+height for header
-    bytes.push(0x1D, 0x21, 0x11);
-    appendText(bytes, 'SRI RAJU SWEETS\n');
-    // Reset font size
-    bytes.push(0x1D, 0x21, 0x00);
-    appendText(bytes, '56-11-20B, Patamata Main Road\nVijayawada, AP - 520010\n');
-    appendText(bytes, 'Ph: 9244757677  GSTIN: 37DFJPK6083N1ZO\n');
-    appendDivider(bytes);
+    const push = (...arrs) => arrs.forEach(a => bytes.push(...a));
 
-    // Extract bill info from HTML using regex
-    const getText = (re) => { const m = htmlContent.match(re); return m ? m[1].trim() : ''; };
-    const billNo = getText(/Bill No\.\s*<[^>]+>(\d+)/i) || getText(/Bill No\.\s*(\d+)/i) || '';
-    const date = getText(/Date\s*<b>([^<]+)<\/b>/i) || '';
-    const customer = getText(/Customer:\s*([^<\n]+)/i) || 'Walk-in Customer';
-    const total = getText(/₹\s*([\d.,]+)<\/span>\s*<\/div>\s*<div class="solid-divider/i) ||
-                  getText(/Net Amount\s*:\s*[^₹]*₹\s*([\d.,]+)/i) || '';
-    const payment = getText(/CASH|CARD|UPI|CREDIT/i) || 'CASH';
+    const ESC = 0x1B, GS = 0x1D;
+    const INIT    = [ESC, 0x40];
+    const CENTER  = [ESC, 0x61, 0x01];
+    const LEFT    = [ESC, 0x61, 0x00];
+    const DBL     = [GS,  0x21, 0x11]; // double width+height
+    const NORMAL  = [GS,  0x21, 0x00];
+    const DBL_H   = [GS,  0x21, 0x01]; // double height only
+    const BOLD_ON = [ESC, 0x45, 0x01];
+    const BOLD_OFF= [ESC, 0x45, 0x00];
+    const DIV     = '-'.repeat(42) + '\n';
+    const DIV_S   = '=' .repeat(42) + '\n';
 
-    // ESC a 0 — Left align
-    bytes.push(0x1B, 0x61, 0x00);
-    if (billNo) appendText(bytes, `Bill No: ${billNo}    Date: ${date}\n`);
-    appendText(bytes, `Customer: ${customer}\n`);
-    appendDivider(bytes);
+    const txt = (s) => enc.encode(String(s ?? ''));
 
-    // Items — extract from HTML table rows
-    const itemMatches = [...htmlContent.matchAll(/<td[^>]*>([A-Z][^<]{2,})<\/td>[\s\S]*?<td[^>]*>([\d.]+)<\/td>[\s\S]*?<td[^>]*>([\d.]+)<\/td>[\s\S]*?<td[^>]*><strong>([\d.]+)<\/strong><\/td>/gi)];
-    if (itemMatches.length === 0) {
-      // simpler fallback: just mention items section
-      appendText(bytes, '(See printed receipt for items)\n');
-    } else {
-      appendText(bytes, padLine('Item', 'Qty', 'Price', 'Amt'));
-      itemMatches.forEach(m => {
-        appendText(bytes, padLine(m[1].substring(0, 16), m[2], m[3], m[4]));
-      });
+    const totalVal    = Number(bill?.totalAmount || 0);
+    const discountVal = Number(bill?.discount || 0);
+    const grossVal    = totalVal + discountVal;
+    const taxableVal  = totalVal / 1.05;
+    const taxAmt      = totalVal - taxableVal;
+    const cgst        = taxAmt / 2;
+    const sgst        = taxAmt / 2;
+
+    const fmtDate = bill?.date || new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'2-digit' });
+    const fmtTime = bill?.time || new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+
+    // --- Header ---
+    push(INIT, CENTER, DBL);
+    push(txt('SRI RAJU SWEETS\n'));
+    push(NORMAL);
+    push(txt('56-11-20B, OPP JD TOWERS\n'));
+    push(txt('PATAMATA MAIN ROAD, VIJAYAWADA\n'));
+    push(txt('ANDHRA PRADESH - 520010\n'));
+    push(txt('Ph: 9244757677\n'));
+    push(txt('GSTIN: 37DFJPK6083N1ZO\n'));
+    push(txt(DIV));
+
+    // --- Customer Info ---
+    push(LEFT);
+    push(txt(`Customer: ${bill?.customerName || 'Walk-in Customer'}\n`));
+    if (bill?.customerPhone) push(txt(`Mobile: ${bill.customerPhone}\n`));
+    if (bill?.companyName)   push(txt(`Company: ${bill.companyName}\n`));
+    if (bill?.customerGst || bill?.gstNumber) push(txt(`GST: ${bill.customerGst || bill.gstNumber}\n`));
+    push(txt(DIV));
+
+    // --- Bill Info ---
+    push(CENTER, BOLD_ON);
+    push(txt('Tax Invoice / Bill of Supply\n'));
+    push(BOLD_OFF, txt(DIV_S));
+    push(LEFT);
+    push(BOLD_ON);
+    push(txt(`Bill No: ${bill?.billId || '-'}    Date: ${fmtDate}  ${fmtTime}\n`));
+    push(BOLD_OFF, txt(DIV));
+
+    // --- Items header ---
+    push(BOLD_ON);
+    const hdr = 'Item'.padEnd(20) + 'Qty'.padStart(6) + 'Price'.padStart(8) + 'Amt'.padStart(8) + '\n';
+    push(txt(hdr));
+    push(BOLD_OFF, txt(DIV));
+
+    // --- Items ---
+    (bill?.items || []).forEach(item => {
+      const name  = String(item.name || '');
+      const qty   = Number(item.quantity || 0).toFixed(2);
+      const price = Number(item.price || 0).toFixed(2);
+      const total = Number(item.total || 0).toFixed(2);
+      const unit  = item.unit === 'Weight' ? 'KG' : 'pc';
+
+      // item name line (wrap if > 20 chars)
+      push(BOLD_ON, txt(name.substring(0, 20).padEnd(20)));
+      push(BOLD_OFF);
+      push(txt(qty.padStart(6) + price.padStart(8) + total.padStart(8) + '\n'));
+
+      // second name line if long
+      if (name.length > 20) {
+        push(txt('  ' + name.substring(20, 38) + (item.unit === 'Weight' ? `  ${item.quantity}${unit}` : '') + '\n'));
+      }
+    });
+    push(txt(DIV));
+
+    // --- Totals ---
+    if (discountVal > 0) {
+      push(txt(`Gross Total:  ${ ('Rs.' + grossVal.toFixed(2)).padStart(28) }\n`));
+      push(txt(`Discount:    ${('-Rs.' + discountVal.toFixed(2)).padStart(28) }\n`));
+      push(txt(DIV));
     }
-    appendDivider(bytes);
+    push(DBL_H, BOLD_ON);
+    push(txt(`Net Amount: ${ ('Rs.' + totalVal.toFixed(2)).padStart(29) }\n`));
+    push(BOLD_OFF, NORMAL, txt(DIV));
 
-    // Total
-    bytes.push(0x1B, 0x61, 0x02); // right align
-    bytes.push(0x1B, 0x45, 0x01); // bold on
-    bytes.push(0x1D, 0x21, 0x01); // double height
-    if (total) appendText(bytes, `Total: Rs.${total}\n`);
-    bytes.push(0x1D, 0x21, 0x00);
-    bytes.push(0x1B, 0x45, 0x00); // bold off
-    bytes.push(0x1B, 0x61, 0x00); // left align
-    appendDivider(bytes);
-    appendText(bytes, `Payment: ${payment}\n`);
-    appendDivider(bytes);
+    // --- GST Summary ---
+    push(BOLD_ON, txt('GST Summary\n'), BOLD_OFF);
+    push(txt(DIV));
+    push(txt('Taxable     CGST    SGST    Tax Amt\n'));
+    push(txt(
+      taxableVal.toFixed(2).padEnd(12) +
+      cgst.toFixed(2).padStart(6)  +
+      sgst.toFixed(2).padStart(8)  +
+      taxAmt.toFixed(2).padStart(10) + '\n'
+    ));
+    push(txt(DIV));
 
-    // Footer
-    bytes.push(0x1B, 0x61, 0x01); // center
-    appendText(bytes, '*** Thank you & Visit Again ***\n\n\n');
+    // --- Payment & Amount in Words ---
+    push(txt(`Payment: ${bill?.paymentMode || 'CASH'}\n`));
+    push(txt(DIV));
 
-    // Feed and cut
-    bytes.push(0x1B, 0x64, 0x04); // feed 4 lines
-    bytes.push(0x1D, 0x56, 0x41, 0x10); // partial cut
-    return bytes;
-  };
+    // --- Footer ---
+    push(CENTER);
+    push(txt('*** Thank You & Visit Again ***\n'));
+    push(txt('\n\n'));
 
-  const appendText = (bytes, text) => {
-    for (let i = 0; i < text.length; i++) {
-      bytes.push(text.charCodeAt(i) & 0xFF);
-    }
-  };
-  const appendDivider = (bytes) => {
-    appendText(bytes, '-'.repeat(42) + '\n');
-  };
-  const padLine = (a, b, c, d) => {
-    const col1 = (a + '                ').substring(0, 18);
-    const col2 = ('        ' + b).slice(-6);
-    const col3 = ('        ' + c).slice(-8);
-    const col4 = ('        ' + d).slice(-8);
-    return col1 + col2 + col3 + col4 + '\n';
+    // Feed + partial cut
+    push([ESC, 0x64, 0x04]);       // feed 4 lines
+    push([GS,  0x56, 0x41, 0x10]); // partial cut
+
+    return new Uint8Array(bytes);
   };
 
   return (
