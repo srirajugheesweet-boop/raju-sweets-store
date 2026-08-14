@@ -321,7 +321,7 @@ export const PrinterProvider = ({ children }) => {
   const handleWebUSBConnect = async () => {
     if (!navigator.usb) {
       if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        toast.error("WebUSB requires HTTPS or localhost access. Please open site via localhost or enable WebUSB in chrome://flags/#enable-experimental-web-platform-features");
+        toast.error("WebUSB requires HTTPS or localhost access. Please open site via localhost.");
       } else {
         toast.error("WebUSB is not supported in this browser. Please use Google Chrome or Edge.");
       }
@@ -338,16 +338,17 @@ export const PrinterProvider = ({ children }) => {
       }
       const iface = device.configuration ? device.configuration.interfaces[0] : null;
       if (iface) {
-        await device.claimInterface(iface.interfaceNumber || 0);
+        try { await device.claimInterface(iface.interfaceNumber || 0); } catch (_) {}
         const endpoint = iface.alternate.endpoints.find(e => e.direction === 'out');
+        webUsbEndpointNumRef.current = endpoint ? endpoint.endpointNumber : 1;
         webUsbEndpointRef.current = endpoint || { endpointNumber: 1 };
       }
 
       const devName = device.productName || device.manufacturerName || `USB Printer (VID:${device.vendorId})`;
       setWebUsbDevice(devName);
-      webUsbDeviceRef.current = device; // store actual USBDevice object for direct transferOut
+      webUsbDeviceRef.current = device; // store actual USBDevice for smartPrint
       setWebUsbConnected(true);
-      toast.success(`Connected to ${devName}! Ready to print directly.`);
+      toast.success(`Connected to ${devName}! Now printing goes directly to USB 🖨️`);
     } catch (err) {
       toast.dismiss('webusb-pick');
       if (err.name === 'NotFoundError') {
@@ -520,40 +521,65 @@ export const PrinterProvider = ({ children }) => {
     }
   };
 
-  // --- Smart Print: auto-routes to WebUSB / WebSerial / browser dialog ---
-  // Converts bill data (passed as billObj) or raw HTML to ESC/POS if a direct USB printer is connected
-  const webUsbDeviceRef = useRef(null); // keep the actual USBDevice object
-  const webUsbEndpointNumRef = useRef(1);
+  // --- Smart Print: auto-routes to BLE / WebUSB / WebSerial / browser dialog ---
+  const webUsbDeviceRef = useRef(null); // stores the actual USBDevice object
+  const webUsbEndpointNumRef = useRef(1); // stores endpoint number separately
 
-  // Override setWebUsbDevice to also store the actual device object
-  const [_webUsbDevice, _setWebUsbDevice] = useState(null);
+  const smartPrint = async (htmlContent) => {
+    const escBytes = htmlToESCPOS(htmlContent);
 
-  const smartPrint = async (htmlContent, billObj = null) => {
-    // 1. WebUSB connected → send ESC/POS binary directly
-    if (webUsbDeviceRef.current && webUsbEndpointRef.current) {
+    // 1. BLE Bluetooth connected → send ESC/POS bytes via GATT characteristic
+    if (printerCharacteristicRef.current) {
+      try {
+        toast.loading('Printing via Bluetooth...', { id: 'smart-print' });
+        const dataArray = new Uint8Array(escBytes);
+        const CHUNK_SIZE = 20;
+        for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+          const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+          await printerCharacteristicRef.current.writeValue(chunk);
+          await new Promise(r => setTimeout(r, 30));
+        }
+        toast.dismiss('smart-print');
+        toast.success('Receipt printed via Bluetooth!');
+        return true;
+      } catch (err) {
+        toast.dismiss('smart-print');
+        console.error('BLE print error:', err);
+        toast.error('Bluetooth print failed — opening dialog instead');
+        // fall through
+      }
+    }
+
+    // 2. WebUSB connected → send ESC/POS bytes directly via USB bulk-out
+    if (webUsbDeviceRef.current) {
       try {
         toast.loading('Printing via WebUSB...', { id: 'smart-print' });
-        const escBytes = htmlToESCPOS(htmlContent);
-        await webUsbDeviceRef.current.transferOut(
-          webUsbEndpointRef.current.endpointNumber || 1,
-          new Uint8Array(escBytes)
-        );
+        const device = webUsbDeviceRef.current;
+        // Re-open if needed
+        if (device.opened === false) {
+          await device.open();
+          if (device.configuration === null) await device.selectConfiguration(1);
+          const iface = device.configuration.interfaces[0];
+          await device.claimInterface(iface.interfaceNumber || 0);
+          const ep = iface.alternate.endpoints.find(e => e.direction === 'out');
+          webUsbEndpointNumRef.current = ep ? ep.endpointNumber : 1;
+        }
+        await device.transferOut(webUsbEndpointNumRef.current, new Uint8Array(escBytes));
         toast.dismiss('smart-print');
         toast.success('Receipt printed via WebUSB!');
         return true;
       } catch (err) {
         toast.dismiss('smart-print');
         console.error('WebUSB print error:', err);
-        toast.error('WebUSB print failed — opening dialog instead');
-        // fall through to browser print
+        toast.error(`WebUSB print failed: ${err.message || 'Check USB connection'}`);
+        // fall through
       }
     }
 
-    // 2. WebSerial connected → send ESC/POS binary via serial port
+    // 3. WebSerial connected → send ESC/POS bytes via serial port
     if (webSerialPort && webSerialPort.writable) {
       try {
         toast.loading('Printing via USB Serial...', { id: 'smart-print' });
-        const escBytes = htmlToESCPOS(htmlContent);
         const writer = webSerialPort.writable.getWriter();
         await writer.write(new Uint8Array(escBytes));
         writer.releaseLock();
@@ -564,11 +590,11 @@ export const PrinterProvider = ({ children }) => {
         toast.dismiss('smart-print');
         console.error('WebSerial print error:', err);
         toast.error('USB Serial print failed — opening dialog instead');
-        // fall through to browser print
+        // fall through
       }
     }
 
-    // 3. Fallback: browser print dialog (iframe)
+    // 4. Fallback: browser print dialog (iframe)
     return printHTMLContent(htmlContent);
   };
 

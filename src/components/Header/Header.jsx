@@ -113,7 +113,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
         </div>
 
         {/* Polaris Search Bar Center */}
-        <div className="header-search-container">
+        {/* <div className="header-search-container">
           <Search size={14} className="header-search-icon" />
           <input
             type="text"
@@ -123,7 +123,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
           <span className="header-search-shortcut">
             <kbd>CTRL</kbd> <kbd>K</kbd>
           </span>
-        </div>
+        </div> */}
 
         <div className="header-right">
           {/* Reload Page Button */}
