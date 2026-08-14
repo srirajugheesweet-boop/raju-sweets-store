@@ -71,6 +71,16 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     }
   }, [wifiPrinterIp]);
 
+  const handleOpenWifiModal = () => {
+    setShowWifiModal(true);
+    setShowLocalWifiModal(true);
+  };
+
+  const handleCloseWifiModal = () => {
+    setShowWifiModal(false);
+    setShowLocalWifiModal(false);
+  };
+
   return (
     <>
       <header className="header">
@@ -134,12 +144,12 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
             {/* Wi-Fi Network Thermal Printer Button */}
             {wifiConnected ? (
-              <button className="header-print-status-btn connected wifi" title={`Wi-Fi Printer: ${wifiPrinterIp}`} onClick={() => setShowLocalWifiModal(true)}>
+              <button className="header-print-status-btn connected wifi" title={`Wi-Fi Printer: ${wifiPrinterIp}`} onClick={handleOpenWifiModal}>
                 <WifiIcon size={13} />
                 <span>WiFi: {wifiPrinterIp ? (wifiPrinterIp.length > 8 ? `${wifiPrinterIp.substring(0, 8)}...` : wifiPrinterIp) : 'Connected'}</span>
               </button>
             ) : (
-              <button className="header-print-status-btn disconnected wifi" title="Connect Wi-Fi Network Printer" onClick={() => setShowLocalWifiModal(true)}>
+              <button className="header-print-status-btn disconnected wifi" title="Connect Wi-Fi Network Printer" onClick={handleOpenWifiModal}>
                 <WifiIcon size={13} />
                 <span>WiFi</span>
               </button>
@@ -461,8 +471,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
       {/* Wi-Fi / Network Thermal Printer Setup Modal */}
       <AnimatePresence>
-        {showLocalWifiModal && createPortal(
-          <div className="modal-overlay" style={{ zIndex: 9000 }} onClick={() => setShowLocalWifiModal(false)}>
+        {(showWifiModal || showLocalWifiModal) && createPortal(
+          <div className="modal-overlay" style={{ zIndex: 9999 }} onClick={handleCloseWifiModal}>
             <motion.div
               className="custom-modal"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -510,7 +520,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                     style={{ flex: 1, fontSize: '12px', height: '34px', background: '#0ea5e9', color: '#fff', border: 'none' }}
                     onClick={() => {
                       connectWifiPrinter(inputWifiIp);
-                      setShowLocalWifiModal(false);
+                      handleCloseWifiModal();
                     }}
                   >
                     Save & Connect Wi-Fi
@@ -527,11 +537,11 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
               <div className="modal-actions" style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {wifiConnected ? (
-                  <button className="modal-btn" style={{ fontSize: '11px', color: '#dc2626' }} onClick={() => { disconnectWifiPrinter(); setShowLocalWifiModal(false); }}>
+                  <button className="modal-btn" style={{ fontSize: '11px', color: '#dc2626' }} onClick={() => { disconnectWifiPrinter(); handleCloseWifiModal(); }}>
                     Disconnect Wi-Fi
                   </button>
                 ) : <div />}
-                <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={() => setShowLocalWifiModal(false)}>Close</button>
+                <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={handleCloseWifiModal}>Close</button>
               </div>
             </motion.div>
           </div>,
