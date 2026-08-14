@@ -1955,6 +1955,131 @@ tr.row-expanded > td {
   }
 }
 
+/* Orders List Pagination Bar (45 items per page) */
+.ord-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0 0 16px 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ord-pagination-info {
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+  font-weight: 500;
+}
+
+.ord-pagination-info strong {
+  color: var(--text-primary, #0f172a);
+  font-weight: 700;
+}
+
+.ord-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ord-page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: #ffffff;
+  color: var(--text-primary, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ord-page-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: var(--primary-color, #0A2A1B);
+  color: var(--primary-color, #0A2A1B);
+}
+
+.ord-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.ord-page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ord-page-number-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: #ffffff;
+  color: var(--text-primary, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.ord-page-number-btn:hover:not(.active) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.ord-page-number-btn.active {
+  background: var(--primary-color, #0A2A1B);
+  color: #ffffff;
+  border-color: var(--primary-color, #0A2A1B);
+  box-shadow: 0 2px 4px rgba(10, 42, 27, 0.2);
+}
+
+.ord-page-ellipsis {
+  padding: 0 4px;
+  color: var(--text-secondary, #94a3b8);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .ord-pagination-bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .ord-pagination-info {
+    font-size: 12px;
+  }
+
+  .ord-page-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .ord-page-number-btn {
+    min-width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+}
+
+
 
 
 

@@ -21,6 +21,8 @@ import {
   Edit,
   Eye,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Bluetooth,
   Usb,
   RefreshCw,
@@ -595,6 +597,8 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeModalTab, setActiveModalTab] = useState('items'); // 'items' or 'summary'
+  const ITEMS_PER_PAGE = 45;
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -604,6 +608,11 @@ const Orders = () => {
   const [accordionTabs, setAccordionTabs] = useState({}); // { [orderId]: 'items' | 'payment' | 'packing' }
   const getAccordionTab = (orderId) => accordionTabs[orderId] || 'items';
   const setAccordionTab = (orderId, tabName) => setAccordionTabs(prev => ({ ...prev, [orderId]: tabName }));
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, deliveryDateFilter, statusFilter, paymentStatusFilter, storeFilter]);
 
   // Date helper functions for filter shortcuts
   const getTodayStr = () => new Date().toISOString().split('T')[0];
@@ -1334,6 +1343,12 @@ const Orders = () => {
     return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus && matchesStore;
   });
 
+  const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredOrders.length);
+  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
 
   return (
     <div className="polaris-page-container">
@@ -1500,8 +1515,8 @@ const Orders = () => {
           <tbody>
             {loading ? (
               <tr><td colSpan="9" style={{ textAlign: 'center', padding: '100px' }}><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></td></tr>
-            ) : filteredOrders.length > 0 ? (
-              filteredOrders.map(order => (
+            ) : paginatedOrders.length > 0 ? (
+              paginatedOrders.map(order => (
                 <React.Fragment key={order.id}>
                   <tr className={expandedOrders.includes(order.id) ? "row-expanded" : ""}>
                     <td className="ord-id-cell">
@@ -1756,8 +1771,8 @@ const Orders = () => {
       <div className="ord-mobile-cards-list">
         {loading ? (
           <div className="ord-portal-loading"><div className="loader" style={{ borderBottomColor: 'var(--primary-color)' }}></div></div>
-        ) : filteredOrders.length > 0 ? (
-          filteredOrders.map(order => {
+        ) : paginatedOrders.length > 0 ? (
+          paginatedOrders.map(order => {
             const isExpanded = expandedOrders.includes(order.id);
             return (
               <div key={order.id} className={`ord-mobile-card ${isExpanded ? 'expanded' : ''}`}>
@@ -1995,6 +2010,83 @@ const Orders = () => {
             </div>
           )}
         </div>
+
+        {/* Pagination Bar (45 items per page) */}
+        {!loading && filteredOrders.length > 0 && (
+          <div className="ord-pagination-bar">
+            <div className="ord-pagination-info">
+              Showing <strong>{startIndex + 1}</strong>–<strong>{endIndex}</strong> of <strong>{filteredOrders.length}</strong> orders (Page {safeCurrentPage} of {totalPages})
+            </div>
+
+            {totalPages > 1 && (
+              <div className="ord-pagination-controls">
+                <button
+                  type="button"
+                  className="ord-page-btn"
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={safeCurrentPage === 1}
+                  title="Previous page"
+                >
+                  <ChevronLeft size={16} />
+                  <span>Prev</span>
+                </button>
+
+                <div className="ord-page-numbers">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(pageNum => {
+                      return (
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
+                        Math.abs(pageNum - safeCurrentPage) <= 1
+                      );
+                    })
+                    .reduce((acc, pageNum, idx, arr) => {
+                      if (idx > 0 && pageNum - arr[idx - 1] > 1) {
+                        acc.push({ type: 'ellipsis', key: `ellipsis-${pageNum}` });
+                      }
+                      acc.push({ type: 'page', page: pageNum, key: `page-${pageNum}` });
+                      return acc;
+                    }, [])
+                    .map(item => {
+                      if (item.type === 'ellipsis') {
+                        return <span key={item.key} className="ord-page-ellipsis">...</span>;
+                      }
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={`ord-page-number-btn ${safeCurrentPage === item.page ? 'active' : ''}`}
+                          onClick={() => {
+                            setCurrentPage(item.page);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        >
+                          {item.page}
+                        </button>
+                      );
+                    })}
+                </div>
+
+                <button
+                  type="button"
+                  className="ord-page-btn"
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  disabled={safeCurrentPage === totalPages}
+                  title="Next page"
+                >
+                  <span>Next</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
 
