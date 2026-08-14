@@ -320,25 +320,41 @@ export const PrinterProvider = ({ children }) => {
 
   const handleWebUSBConnect = async () => {
     if (!navigator.usb) {
-      toast.error("WebUSB is not supported on this browser.");
+      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        toast.error("WebUSB requires HTTPS or localhost access. Please open site via localhost or enable WebUSB in chrome://flags/#enable-experimental-web-platform-features");
+      } else {
+        toast.error("WebUSB is not supported in this browser. Please use Google Chrome or Edge.");
+      }
       return;
     }
     try {
+      toast.loading("Opening USB Device Picker...", { id: 'webusb-pick' });
       const device = await navigator.usb.requestDevice({ filters: [] });
+      toast.dismiss('webusb-pick');
+
       await device.open();
-      await device.selectConfiguration(1);
-      await device.claimInterface(0);
+      if (device.configuration === null) {
+        await device.selectConfiguration(1);
+      }
+      const iface = device.configuration ? device.configuration.interfaces[0] : null;
+      if (iface) {
+        await device.claimInterface(iface.interfaceNumber || 0);
+        const endpoint = iface.alternate.endpoints.find(e => e.direction === 'out');
+        webUsbEndpointRef.current = endpoint || { endpointNumber: 1 };
+      }
 
-      const iface = device.configuration.interfaces[0];
-      const endpoint = iface.alternate.endpoints.find(e => e.direction === 'out');
-      webUsbEndpointRef.current = endpoint;
-
-      setWebUsbDevice(device.productName || 'USB POS Thermal Printer');
+      const devName = device.productName || device.manufacturerName || `USB Printer (VID:${device.vendorId})`;
+      setWebUsbDevice(devName);
       setWebUsbConnected(true);
-      toast.success(`WebUSB Printer connected: ${device.productName || 'Thermal Printer'}`);
+      toast.success(`Connected to ${devName}!`);
     } catch (err) {
-      console.error("WebUSB error:", err);
-      toast.error(`WebUSB connection failed: ${err.message || 'Error'}`);
+      toast.dismiss('webusb-pick');
+      if (err.name === 'NotFoundError') {
+        toast('No USB device selected.');
+      } else {
+        console.error("WebUSB error:", err);
+        toast.error(`WebUSB error: ${err.message || 'Failed'}`);
+      }
     }
   };
 
@@ -348,6 +364,36 @@ export const PrinterProvider = ({ children }) => {
     }
     const endpointNumber = webUsbEndpointRef.current.endpointNumber;
     await webUsbDevice.transferOut(endpointNumber, new Uint8Array(dataBytes));
+  };
+
+  // --- Web Serial API Support for Internal USB Serial POS Printers ---
+  const [webSerialConnected, setWebSerialConnected] = useState(false);
+  const [webSerialPort, setWebSerialPort] = useState(null);
+
+  const handleWebSerialConnect = async () => {
+    if (!navigator.serial) {
+      toast.error("Web Serial is not supported on this browser. Use Chrome or Edge.");
+      return;
+    }
+    try {
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 9600 });
+      setWebSerialPort(port);
+      setWebSerialConnected(true);
+      toast.success("USB Serial POS Printer connected!");
+    } catch (err) {
+      console.error("WebSerial error:", err);
+      toast.error(`USB Serial connection failed: ${err.message || 'Error'}`);
+    }
+  };
+
+  const printRawWebSerial = async (dataBytes) => {
+    if (!webSerialPort || !webSerialPort.writable) {
+      throw new Error("USB Serial printer is not connected.");
+    }
+    const writer = webSerialPort.writable.getWriter();
+    await writer.write(new Uint8Array(dataBytes));
+    writer.releaseLock();
   };
 
   const testInbuiltPOSPrint = async () => {
@@ -515,8 +561,10 @@ export const PrinterProvider = ({ children }) => {
         enablePOSMode,
         restartPOSSetup,
         printInbuiltPOS,
-        handleWebUSBConnect,
-        testInbuiltPOSPrint,
+        webSerialConnected,
+        webSerialPort,
+        handleWebSerialConnect,
+        printRawWebSerial,
         printRawBLE,
         printRawUSB,
         printRawWebUSB,

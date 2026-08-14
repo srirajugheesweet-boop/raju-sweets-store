@@ -35,6 +35,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     handleWebUSBConnect,
     webUsbConnected,
     webUsbDevice,
+    handleWebSerialConnect,
+    webSerialConnected,
     wifiConnected,
     wifiPrinterIp,
     showWifiModal,
@@ -64,12 +66,23 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
   const [inputWifiIp, setInputWifiIp] = React.useState(wifiPrinterIp || '');
   const [showLocalWifiModal, setShowLocalWifiModal] = React.useState(false);
+  const [showLocalPOSModal, setShowLocalPOSModal] = React.useState(false);
 
   React.useEffect(() => {
     if (wifiPrinterIp) {
       setInputWifiIp(wifiPrinterIp);
     }
   }, [wifiPrinterIp]);
+
+  const handleOpenPOSModal = () => {
+    setShowPOSModal(true);
+    setShowLocalPOSModal(true);
+  };
+
+  const handleClosePOSModal = () => {
+    setShowPOSModal(false);
+    setShowLocalPOSModal(false);
+  };
 
   const handleOpenWifiModal = () => {
     setShowWifiModal(true);
@@ -132,15 +145,38 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
           {/* Global Printer Connection Widgets */}
           <div className="header-printer-status-bar">
-            {/* Inbuilt POS Thermal Printer Button */}
-            <button
-              className={`header-print-status-btn ${inbuiltPOSActive ? 'connected pos' : 'disconnected pos'}`}
-              title="Inbuilt POS Thermal Printer Setup & Controls (RK3568 / Scangle)"
-              onClick={() => setShowPOSModal(true)}
-            >
-              <PrinterIcon size={13} />
-              <span>POS: {inbuiltPOSActive ? 'Active' : 'Off'}</span>
-            </button>
+            {/* Inbuilt POS Thermal Printer Button & Settings */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <button
+                className={`header-print-status-btn ${inbuiltPOSActive ? 'connected pos' : 'disconnected pos'}`}
+                title={inbuiltPOSActive ? "Click to Turn OFF Inbuilt POS Printer" : "Click to Turn ON Inbuilt POS Printer"}
+                onClick={toggleInbuiltPOS}
+              >
+                <PrinterIcon size={13} />
+                <span>POS: {inbuiltPOSActive ? 'Active' : 'Off'}</span>
+              </button>
+              <button
+                className="header-icon-btn"
+                style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.12)', border: '1px solid rgba(255, 255, 255, 0.18)', color: '#ffffff', cursor: 'pointer' }}
+                title="POS Printer Settings & Setup"
+                onClick={handleOpenPOSModal}
+              >
+                <SettingsIcon size={12} />
+              </button>
+            </div>
+
+            {/* Direct WebUSB Printer Button */}
+            {webUsbConnected ? (
+              <button className="header-print-status-btn connected usb" title={`WebUSB: ${webUsbDevice}`} onClick={handleWebUSBConnect}>
+                <UsbIcon size={13} />
+                <span>WebUSB: {webUsbDevice ? (webUsbDevice.length > 8 ? `${webUsbDevice.substring(0, 8)}...` : webUsbDevice) : 'Connected'}</span>
+              </button>
+            ) : (
+              <button className="header-print-status-btn disconnected usb" title="Connect Direct WebUSB Printer" onClick={handleWebUSBConnect}>
+                <UsbIcon size={13} />
+                <span>WebUSB</span>
+              </button>
+            )}
 
             {/* Wi-Fi Network Thermal Printer Button */}
             {wifiConnected ? (
@@ -287,28 +323,53 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
               </div>
               <h3 className="modal-title">Select USB Thermal Printer</h3>
 
-              <div style={{ margin: '15px 0', textAlign: 'left' }}>
-                <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Detected USB Printers</label>
-                <select
-                  value={selectedQZPrinter}
-                  onChange={(e) => confirmQZPrinter(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '40px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1.5px solid var(--border-color)',
-                    fontSize: '14px',
-                    background: '#f8fafc',
-                    outline: 'none'
-                  }}
-                >
-                  {qzPrinters.length > 0 ? (
-                    qzPrinters.map(p => <option key={p} value={p}>{p}</option>)
-                  ) : (
-                    <option value="">No USB printers found</option>
-                  )}
-                </select>
+              <div style={{ margin: '15px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    className="polaris-btn"
+                    style={{ flex: 1, fontSize: '11px', height: '34px', background: '#2563eb', color: '#fff', border: 'none' }}
+                    onClick={() => {
+                      setShowQZModal(false);
+                      handleWebUSBConnect();
+                    }}
+                  >
+                    <UsbIcon size={13} /> Pair WebUSB Printer
+                  </button>
+                  <button
+                    className="polaris-btn"
+                    style={{ flex: 1, fontSize: '11px', height: '34px', background: '#059669', color: '#fff', border: 'none' }}
+                    onClick={() => {
+                      setShowQZModal(false);
+                      handleWebSerialConnect();
+                    }}
+                  >
+                    <UsbIcon size={13} /> Pair USB Serial
+                  </button>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>QZ Tray / System USB Printers</label>
+                  <select
+                    value={selectedQZPrinter}
+                    onChange={(e) => confirmQZPrinter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 10px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-color)',
+                      fontSize: '13px',
+                      background: '#f8fafc',
+                      outline: 'none'
+                    }}
+                  >
+                    {qzPrinters.length > 0 ? (
+                      qzPrinters.map(p => <option key={p} value={p}>{p}</option>)
+                    ) : (
+                      <option value="">No USB printers found</option>
+                    )}
+                  </select>
+                </div>
               </div>
 
               <div className="modal-actions" style={{ marginTop: '20px' }}>
@@ -382,8 +443,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
       {/* Inbuilt POS Printer Setup & Diagnostics Modal */}
       <AnimatePresence>
-        {showPOSModal && createPortal(
-          <div className="modal-overlay" style={{ zIndex: 9000 }} onClick={() => setShowPOSModal(false)}>
+        {(showPOSModal || showLocalPOSModal) && createPortal(
+          <div className="modal-overlay" style={{ zIndex: 9999 }} onClick={handleClosePOSModal}>
             <motion.div
               className="custom-modal"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -401,25 +462,33 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                 <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '12px' }}>
                   <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Device Hardware Specs:</div>
                   <div>• Model: <strong>RK3568 (Android 11)</strong></div>
-                  <div>• Hardware Board: <strong>Inbuilt Thermal Printer V1.0.1</strong></div>
+                  <div>• Hardware Board: <strong>Inbuilt USB Thermal Printer V1.0.1</strong></div>
                   <div>• Active Mode: <strong style={{ color: inbuiltPOSActive ? '#16a34a' : '#dc2626' }}>{inbuiltPOSActive ? 'ENABLED' : 'DISABLED'}</strong></div>
                   {webUsbConnected && <div>• Direct WebUSB: <strong style={{ color: '#2563eb' }}>{webUsbDevice}</strong></div>}
+                  {webSerialConnected && <div>• USB Serial: <strong style={{ color: '#16a34a' }}>CONNECTED</strong></div>}
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   <button
                     className="polaris-btn"
-                    style={{ flex: 1, fontSize: '12px', height: '34px', background: '#2563eb', color: '#fff', border: 'none' }}
+                    style={{ flex: 1, minWidth: '130px', fontSize: '11px', height: '34px', background: '#2563eb', color: '#fff', border: 'none' }}
                     onClick={handleWebUSBConnect}
                   >
-                    <UsbIcon size={14} /> Pair WebUSB Printer
+                    <UsbIcon size={13} /> Pair WebUSB Printer
                   </button>
                   <button
                     className="polaris-btn"
-                    style={{ flex: 1, fontSize: '12px', height: '34px' }}
+                    style={{ flex: 1, minWidth: '130px', fontSize: '11px', height: '34px', background: '#059669', color: '#fff', border: 'none' }}
+                    onClick={handleWebSerialConnect}
+                  >
+                    <UsbIcon size={13} /> Pair USB Serial
+                  </button>
+                  <button
+                    className="polaris-btn"
+                    style={{ fontSize: '11px', height: '34px', padding: '0 10px' }}
                     onClick={testInbuiltPOSPrint}
                   >
-                    <PrinterIcon size={14} /> Send Test Print
+                    <PrinterIcon size={13} /> Test Print
                   </button>
                 </div>
 
@@ -447,7 +516,10 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                     <button
                       className="modal-btn"
                       style={{ fontSize: '11px', color: '#dc2626', background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '0 10px', height: '32px', borderRadius: '6px' }}
-                      onClick={cancelPOSMode}
+                      onClick={() => {
+                        cancelPOSMode();
+                        handleClosePOSModal();
+                      }}
                     >
                       Cancel POS Mode
                     </button>
@@ -455,12 +527,15 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                     <button
                       className="modal-btn"
                       style={{ fontSize: '11px', color: '#16a34a', background: 'rgba(22, 163, 74, 0.08)', border: '1px solid rgba(22, 163, 74, 0.2)', padding: '0 10px', height: '32px', borderRadius: '6px' }}
-                      onClick={enablePOSMode}
+                      onClick={() => {
+                        enablePOSMode();
+                        handleClosePOSModal();
+                      }}
                     >
                       Enable POS Mode
                     </button>
                   )}
-                  <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={() => setShowPOSModal(false)}>Close</button>
+                  <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={handleClosePOSModal}>Close</button>
                 </div>
               </div>
             </motion.div>
