@@ -15,6 +15,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { db } from '../../config/firebase';
+import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import logo from '../../assets/logo.png';
 import { usePrinter } from '../../context/PrinterContext';
