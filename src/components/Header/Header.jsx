@@ -61,7 +61,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     disconnectPrinter,
     connectQZTray,
     confirmQZPrinter,
-    disconnectQZTray
+    disconnectQZTray,
+    disconnectWebUSB
   } = usePrinter();
 
   const [inputWifiIp, setInputWifiIp] = React.useState(wifiPrinterIp || '');
@@ -167,7 +168,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
             {/* Direct WebUSB Printer Button */}
             {webUsbConnected ? (
-              <button className="header-print-status-btn connected usb" title={`WebUSB: ${webUsbDevice}`} onClick={handleWebUSBConnect}>
+              <button className="header-print-status-btn connected usb" title={`WebUSB: ${webUsbDevice} (Click to disconnect)`} onClick={disconnectWebUSB}>
                 <UsbIcon size={13} />
                 <span>WebUSB: {webUsbDevice ? (webUsbDevice.length > 8 ? `${webUsbDevice.substring(0, 8)}...` : webUsbDevice) : 'Connected'}</span>
               </button>

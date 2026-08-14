@@ -294,13 +294,17 @@ export const PrinterProvider = ({ children }) => {
   // Helper to safely configure WebUSB device and locate bulk OUT endpoint
   const setupWebUsbPrinterDevice = async (device) => {
     if (!device) throw new Error("USB device is not provided.");
+    
     if (!device.opened) {
       await device.open();
     }
-    if (device.configuration === null) {
+
+    if (device.configuration === null && device.configurations && device.configurations.length > 0) {
       try {
-        await device.selectConfiguration(1);
-      } catch (_) {}
+        await device.selectConfiguration(device.configurations[0].configurationValue);
+      } catch (configErr) {
+        console.warn("selectConfiguration warning:", configErr);
+      }
     }
 
     let selectedIface = null;
@@ -323,11 +327,29 @@ export const PrinterProvider = ({ children }) => {
       }
     }
 
-    if (selectedIface) {
+    // Fallback: search for any available endpoint if specific out direction was not tagged
+    if (!outEndpoint && device.configuration && Array.isArray(device.configuration.interfaces)) {
+      for (const iface of device.configuration.interfaces) {
+        const alternates = iface.alternates || (iface.alternate ? [iface.alternate] : []);
+        for (const alt of alternates) {
+          if (alt && alt.endpoints && alt.endpoints.length > 0) {
+            selectedIface = iface;
+            outEndpoint = alt.endpoints[0];
+            break;
+          }
+        }
+        if (outEndpoint) break;
+      }
+    }
+
+    if (selectedIface && !selectedIface.claimed) {
       try {
         await device.claimInterface(selectedIface.interfaceNumber);
       } catch (claimErr) {
-        console.warn("claimInterface note:", claimErr);
+        console.warn("claimInterface note (might be in use by OS):", claimErr);
+        if (claimErr.name === 'SecurityError' || claimErr.message?.includes('claim') || claimErr.message?.includes('access')) {
+          throw new Error("This USB printer is locked by the OS printer driver. Please use 'QZ Tray' or the system print dialog to print to this printer.");
+        }
       }
     }
 
@@ -372,10 +394,7 @@ export const PrinterProvider = ({ children }) => {
   };
 
   const restartPOSSetup = () => {
-    setWebUsbConnected(false);
-    setWebUsbDevice(null);
-    webUsbDeviceRef.current = null;
-    webUsbEndpointRef.current = null;
+    disconnectWebUSB();
     localStorage.removeItem('inbuiltPOSActive');
     setInbuiltPOSActive(true);
     toast.success("POS Printer setup reset. Ready to re-configure!");
@@ -418,6 +437,22 @@ export const PrinterProvider = ({ children }) => {
         toast.error(`WebUSB error: ${err.message || 'Failed'}`);
       }
     }
+  };
+
+  const disconnectWebUSB = async () => {
+    try {
+      if (webUsbDeviceRef.current && webUsbDeviceRef.current.opened) {
+        if (webUsbIfaceNumRef.current !== null) {
+          try { await webUsbDeviceRef.current.releaseInterface(webUsbIfaceNumRef.current); } catch (_) {}
+        }
+        await webUsbDeviceRef.current.close();
+      }
+    } catch (_) {}
+    setWebUsbConnected(false);
+    setWebUsbDevice(null);
+    webUsbDeviceRef.current = null;
+    webUsbEndpointRef.current = null;
+    toast.success("Disconnected WebUSB printer.");
   };
 
   const printRawWebUSB = async (dataBytes) => {
@@ -718,6 +753,7 @@ export const PrinterProvider = ({ children }) => {
         restartPOSSetup,
         printInbuiltPOS,
         handleWebUSBConnect,
+        disconnectWebUSB,
         webUsbConnected,
         webUsbDevice,
         testInbuiltPOSPrint,
