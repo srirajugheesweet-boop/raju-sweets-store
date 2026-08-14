@@ -172,7 +172,32 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                 <span>WebUSB: {webUsbDevice ? (webUsbDevice.length > 8 ? `${webUsbDevice.substring(0, 8)}...` : webUsbDevice) : 'Connected'}</span>
               </button>
             ) : (
-              <button className="header-print-status-btn disconnected usb" title="Connect Direct WebUSB Printer" onClick={handleWebUSBConnect}>
+              <button
+                className="header-print-status-btn disconnected usb"
+                title="Connect Direct WebUSB Printer"
+                onClick={() => {
+                  if (!navigator.usb) {
+                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    const isHttps = window.location.protocol === 'https:';
+                    if (!isLocalhost && !isHttps) {
+                      alert(
+                        '⚠️ WebUSB not available!\n\n' +
+                        'You are accessing the app via IP address: ' + window.location.host + '\n\n' +
+                        'WebUSB only works on:\n' +
+                        '  • http://localhost:5173  ← Open this on the POS machine\n' +
+                        '  • OR via HTTPS\n\n' +
+                        'On the POS machine, open Chrome and go to:\n' +
+                        'http://localhost:5173\n\n' +
+                        'Then click WebUSB again to pair your internal USB printer.'
+                      );
+                    } else {
+                      alert('⚠️ WebUSB not supported in this browser.\nPlease use Google Chrome or Microsoft Edge.');
+                    }
+                    return;
+                  }
+                  handleWebUSBConnect();
+                }}
+              >
                 <UsbIcon size={13} />
                 <span>WebUSB</span>
               </button>
