@@ -82,26 +82,39 @@ export const PrinterProvider = ({ children }) => {
       return;
     }
 
+    const ALL_BT_SERVICES = [
+      '000018f0-0000-1000-8000-00805f9b34fb',
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+      '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+      '0000fff0-0000-1000-8000-00805f9b34fb',
+      '0000ff00-0000-1000-8000-00805f9b34fb',
+      '0000e025-0000-1000-8000-00805f9b34fb',
+      '0000ae00-0000-1000-8000-00805f9b34fb',
+      '0000ae30-0000-1000-8000-00805f9b34fb',
+      '0000fee7-0000-1000-8000-00805f9b34fb',
+      '00001101-0000-1000-8000-00805f9b34fb',
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+      'bef8d6c0-9c21-11e2-9e96-0800200c9a66',
+      '00001800-0000-1000-8000-00805f9b34fb',
+      '00001801-0000-1000-8000-00805f9b34fb',
+      '0000180a-0000-1000-8000-00805f9b34fb'
+    ];
+
     try {
-      // 1. MUST trigger navigator.bluetooth.requestDevice IMMEDIATELY to preserve the user gesture token
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          '00001101-0000-1000-8000-00805f9b34fb',
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-          '0000e025-0000-1000-8000-00805f9b34fb',
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '00001800-0000-1000-8000-00805f9b34fb',
-          '00001801-0000-1000-8000-00805f9b34fb',
-          '0000180a-0000-1000-8000-00805f9b34fb'
-        ]
+        optionalServices: ALL_BT_SERVICES
       });
 
       toast.loading(`Connecting to ${device.name || 'Bluetooth Printer'}...`, { id: 'bt-pair' });
       const server = await device.gatt.connect();
 
+      // Allow 400ms for peripheral GATT connection to stabilize
+      await new Promise(r => setTimeout(r, 400));
+
       let characteristic = null;
+
+      // 1. Broad service scan
       try {
         const services = await server.getPrimaryServices();
         for (const service of services) {
@@ -114,20 +127,17 @@ export const PrinterProvider = ({ children }) => {
               }
             }
           } catch (e) {
-            console.warn("Error inspecting service characteristics:", e);
+            console.warn("Error scanning characteristics on service:", service.uuid, e);
           }
           if (characteristic) break;
         }
-      } catch (srvErr) {
-        console.warn("getPrimaryServices broad scan failed, trying fallback service UUIDs:", srvErr);
-        const knownServices = [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '0000e025-0000-1000-8000-00805f9b34fb',
-          '00001101-0000-1000-8000-00805f9b34fb'
-        ];
-        for (const uuid of knownServices) {
+      } catch (broadErr) {
+        console.warn("Broad getPrimaryServices failed, scanning known service UUIDs:", broadErr);
+      }
+
+      // 2. Fallback to individual known printer UUIDs
+      if (!characteristic) {
+        for (const uuid of ALL_BT_SERVICES) {
           try {
             const service = await server.getPrimaryService(uuid);
             const chs = await service.getCharacteristics();
@@ -143,7 +153,7 @@ export const PrinterProvider = ({ children }) => {
       }
 
       if (!characteristic) {
-        throw new Error("Could not find writable GATT characteristic on this Bluetooth device.");
+        throw new Error("Could not find writable GATT characteristic on this Bluetooth device. Make sure the printer is turned on and not paired to another device.");
       }
 
       printerCharacteristicRef.current = characteristic;
@@ -255,15 +265,22 @@ export const PrinterProvider = ({ children }) => {
 
   // --- Global Print Output Triggers (Hardware writers) ---
   const printRawBLE = async (dataBytes) => {
-    if (!printerCharacteristicRef.current) {
+    const ch = printerCharacteristicRef.current;
+    if (!ch) {
       throw new Error("Bluetooth printer is not connected.");
     }
     const dataArray = new Uint8Array(dataBytes);
     const CHUNK_SIZE = 20;
+    const canWriteWithoutResponse = ch.properties && ch.properties.writeWithoutResponse;
+
     for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
       const chunk = dataArray.slice(i, i + CHUNK_SIZE);
-      await printerCharacteristicRef.current.writeValue(chunk);
-      await new Promise(resolve => setTimeout(resolve, 30));
+      if (canWriteWithoutResponse && typeof ch.writeValueWithoutResponse === 'function') {
+        await ch.writeValueWithoutResponse(chunk);
+      } else {
+        await ch.writeValue(chunk);
+      }
+      await new Promise(resolve => setTimeout(resolve, 25));
     }
   };
 
@@ -272,6 +289,51 @@ export const PrinterProvider = ({ children }) => {
       throw new Error("No USB printer selected.");
     }
     await printRawToQZ(selectedQZPrinter, dataBytes);
+  };
+
+  // Helper to safely configure WebUSB device and locate bulk OUT endpoint
+  const setupWebUsbPrinterDevice = async (device) => {
+    if (!device) throw new Error("USB device is not provided.");
+    if (!device.opened) {
+      await device.open();
+    }
+    if (device.configuration === null) {
+      try {
+        await device.selectConfiguration(1);
+      } catch (_) {}
+    }
+
+    let selectedIface = null;
+    let outEndpoint = null;
+
+    if (device.configuration && Array.isArray(device.configuration.interfaces)) {
+      for (const iface of device.configuration.interfaces) {
+        const alternates = iface.alternates || (iface.alternate ? [iface.alternate] : []);
+        for (const alt of alternates) {
+          if (alt && alt.endpoints && Array.isArray(alt.endpoints)) {
+            const ep = alt.endpoints.find(e => e.direction === 'out');
+            if (ep) {
+              selectedIface = iface;
+              outEndpoint = ep;
+              break;
+            }
+          }
+        }
+        if (outEndpoint) break;
+      }
+    }
+
+    if (selectedIface) {
+      try {
+        await device.claimInterface(selectedIface.interfaceNumber);
+      } catch (claimErr) {
+        console.warn("claimInterface note:", claimErr);
+      }
+    }
+
+    const epNumber = outEndpoint ? outEndpoint.endpointNumber : 1;
+    const ifaceNumber = selectedIface ? selectedIface.interfaceNumber : 0;
+    return { epNumber, ifaceNumber, outEndpoint };
   };
 
   // --- Inbuilt Android POS & WebUSB Printer Operations ---
@@ -283,6 +345,9 @@ export const PrinterProvider = ({ children }) => {
   const [webUsbConnected, setWebUsbConnected] = useState(false);
   const [webUsbDevice, setWebUsbDevice] = useState(null);
   const webUsbEndpointRef = useRef(null);
+  const webUsbDeviceRef = useRef(null);
+  const webUsbEndpointNumRef = useRef(1);
+  const webUsbIfaceNumRef = useRef(0);
 
   const toggleInbuiltPOS = () => {
     setInbuiltPOSActive(prev => {
@@ -309,6 +374,7 @@ export const PrinterProvider = ({ children }) => {
   const restartPOSSetup = () => {
     setWebUsbConnected(false);
     setWebUsbDevice(null);
+    webUsbDeviceRef.current = null;
     webUsbEndpointRef.current = null;
     localStorage.removeItem('inbuiltPOSActive');
     setInbuiltPOSActive(true);
@@ -333,21 +399,14 @@ export const PrinterProvider = ({ children }) => {
       const device = await navigator.usb.requestDevice({ filters: [] });
       toast.dismiss('webusb-pick');
 
-      await device.open();
-      if (device.configuration === null) {
-        await device.selectConfiguration(1);
-      }
-      const iface = device.configuration ? device.configuration.interfaces[0] : null;
-      if (iface) {
-        try { await device.claimInterface(iface.interfaceNumber || 0); } catch (_) {}
-        const endpoint = iface.alternate.endpoints.find(e => e.direction === 'out');
-        webUsbEndpointNumRef.current = endpoint ? endpoint.endpointNumber : 1;
-        webUsbEndpointRef.current = endpoint || { endpointNumber: 1 };
-      }
+      const { epNumber, ifaceNumber, outEndpoint } = await setupWebUsbPrinterDevice(device);
+      webUsbEndpointNumRef.current = epNumber;
+      webUsbIfaceNumRef.current = ifaceNumber;
+      webUsbEndpointRef.current = outEndpoint || { endpointNumber: epNumber };
+      webUsbDeviceRef.current = device;
 
       const devName = device.productName || device.manufacturerName || `USB Printer (VID:${device.vendorId})`;
       setWebUsbDevice(devName);
-      webUsbDeviceRef.current = device; // store actual USBDevice for smartPrint
       setWebUsbConnected(true);
       toast.success(`Connected to ${devName}! Now printing goes directly to USB 🖨️`);
     } catch (err) {
@@ -362,11 +421,16 @@ export const PrinterProvider = ({ children }) => {
   };
 
   const printRawWebUSB = async (dataBytes) => {
-    if (!webUsbDevice || !webUsbEndpointRef.current) {
+    const device = webUsbDeviceRef.current;
+    if (!device) {
       throw new Error("WebUSB printer is not connected.");
     }
-    const endpointNumber = webUsbEndpointRef.current.endpointNumber;
-    await webUsbDevice.transferOut(endpointNumber, new Uint8Array(dataBytes));
+    const { epNumber } = await setupWebUsbPrinterDevice(device);
+    const dataArray = new Uint8Array(dataBytes);
+    const CHUNK = 512;
+    for (let i = 0; i < dataArray.length; i += CHUNK) {
+      await device.transferOut(epNumber, dataArray.slice(i, i + CHUNK));
+    }
   };
 
   // --- Web Serial API Support for Internal USB Serial POS Printers ---
@@ -523,9 +587,6 @@ export const PrinterProvider = ({ children }) => {
   };
 
   // --- Smart Print: auto-routes to BLE / WebUSB / WebSerial / browser dialog ---
-  const webUsbDeviceRef = useRef(null); // stores the actual USBDevice object
-  const webUsbEndpointNumRef = useRef(1); // stores endpoint number separately
-
   const smartPrint = async (htmlContent, billData = null) => {
     // Determine ESC/POS bytes based on whether data is an order or a POS bill
     const getEscBytes = () => {
@@ -540,15 +601,10 @@ export const PrinterProvider = ({ children }) => {
     if (printerCharacteristicRef.current || bluetoothConnected) {
       if (printerCharacteristicRef.current) {
         const escBytes = getEscBytes();
-        if (!escBytes) return printHTMLContent(htmlContent);
+        if (!escBytes) return printHTMLContent(htmlContent, billData);
         try {
           toast.loading('Printing via Bluetooth...', { id: 'smart-print' });
-          const CHUNK_SIZE = 20;
-          for (let i = 0; i < escBytes.length; i += CHUNK_SIZE) {
-            const chunk = escBytes.slice(i, i + CHUNK_SIZE);
-            await printerCharacteristicRef.current.writeValue(chunk);
-            await new Promise(r => setTimeout(r, 30));
-          }
+          await printRawBLE(escBytes);
           toast.dismiss('smart-print');
           toast.success('Receipt printed via Bluetooth!');
           return true;
@@ -558,29 +614,17 @@ export const PrinterProvider = ({ children }) => {
           toast.error('Bluetooth print failed — opening print dialog');
         }
       } else {
-        return printHTMLContent(htmlContent);
+        return printHTMLContent(htmlContent, billData);
       }
     }
 
     // 2. WebUSB connected → send ESC/POS bytes directly via USB bulk-out
-    if (webUsbDeviceRef.current) {
+    if (webUsbConnected && webUsbDeviceRef.current) {
       const escBytes = getEscBytes();
-      if (!escBytes) return printHTMLContent(htmlContent);
+      if (!escBytes) return printHTMLContent(htmlContent, billData);
       try {
         toast.loading('Printing via WebUSB...', { id: 'smart-print' });
-        const device = webUsbDeviceRef.current;
-        if (!device.opened) {
-          await device.open();
-          if (device.configuration === null) await device.selectConfiguration(1);
-          const iface = device.configuration.interfaces[0];
-          try { await device.claimInterface(iface.interfaceNumber || 0); } catch (_) {}
-          const ep = iface.alternate.endpoints.find(e => e.direction === 'out');
-          webUsbEndpointNumRef.current = ep ? ep.endpointNumber : 1;
-        }
-        const CHUNK = 512;
-        for (let i = 0; i < escBytes.length; i += CHUNK) {
-          await device.transferOut(webUsbEndpointNumRef.current, escBytes.slice(i, i + CHUNK));
-        }
+        await printRawWebUSB(escBytes);
         toast.dismiss('smart-print');
         toast.success('Receipt printed via WebUSB!');
         return true;
