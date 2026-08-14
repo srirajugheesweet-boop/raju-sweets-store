@@ -119,11 +119,21 @@ const WalkInSales = () => {
     .filter(b => b.date === todayStr)
     .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
 
-  const { printHTMLContent } = usePrinter();
+  const {
+    printHTMLContent,
+    bluetoothConnected,
+    qzConnected,
+    selectedQZPrinter,
+    printRawBLE,
+    printRawUSB,
+    webUsbConnected,
+    webSerialConnected,
+  } = usePrinter();
 
-  const handlePrintReceipt = (bill) => {
+  const handlePrintReceipt = async (bill) => {
     const printContent = generateReceiptHTML(bill);
-    printHTMLContent(printContent);
+    // smartPrint inside printHTMLContent already handles BLE → WebUSB → WebSerial → dialog routing
+    await printHTMLContent(printContent);
   };
 
 

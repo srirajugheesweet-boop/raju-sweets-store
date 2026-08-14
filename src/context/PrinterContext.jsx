@@ -526,27 +526,31 @@ export const PrinterProvider = ({ children }) => {
   const webUsbEndpointNumRef = useRef(1); // stores endpoint number separately
 
   const smartPrint = async (htmlContent) => {
-    const escBytes = htmlToESCPOS(htmlContent);
-
     // 1. BLE Bluetooth connected → send ESC/POS bytes via GATT characteristic
-    if (printerCharacteristicRef.current) {
-      try {
-        toast.loading('Printing via Bluetooth...', { id: 'smart-print' });
-        const dataArray = new Uint8Array(escBytes);
-        const CHUNK_SIZE = 20;
-        for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
-          const chunk = dataArray.slice(i, i + CHUNK_SIZE);
-          await printerCharacteristicRef.current.writeValue(chunk);
-          await new Promise(r => setTimeout(r, 30));
+    if (printerCharacteristicRef.current || bluetoothConnected) {
+      if (printerCharacteristicRef.current) {
+        try {
+          toast.loading('Printing via Bluetooth...', { id: 'smart-print' });
+          const escBytes = htmlToESCPOS(htmlContent);
+          const dataArray = new Uint8Array(escBytes);
+          const CHUNK_SIZE = 20;
+          for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+            const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+            await printerCharacteristicRef.current.writeValue(chunk);
+            await new Promise(r => setTimeout(r, 30));
+          }
+          toast.dismiss('smart-print');
+          toast.success('Receipt printed via Bluetooth!');
+          return true;
+        } catch (err) {
+          toast.dismiss('smart-print');
+          console.error('BLE print error:', err);
+          toast.error('Bluetooth print failed — trying system dialog');
+          // fall through
         }
-        toast.dismiss('smart-print');
-        toast.success('Receipt printed via Bluetooth!');
-        return true;
-      } catch (err) {
-        toast.dismiss('smart-print');
-        console.error('BLE print error:', err);
-        toast.error('Bluetooth print failed — opening dialog instead');
-        // fall through
+      } else {
+        // bluetoothConnected=true but no GATT char (simulated/paired via system) → use system print
+        return printHTMLContent(htmlContent);
       }
     }
 
@@ -554,13 +558,14 @@ export const PrinterProvider = ({ children }) => {
     if (webUsbDeviceRef.current) {
       try {
         toast.loading('Printing via WebUSB...', { id: 'smart-print' });
+        const escBytes = htmlToESCPOS(htmlContent);
         const device = webUsbDeviceRef.current;
-        // Re-open if needed
-        if (device.opened === false) {
+        // Re-open device if it was closed
+        if (!device.opened) {
           await device.open();
           if (device.configuration === null) await device.selectConfiguration(1);
           const iface = device.configuration.interfaces[0];
-          await device.claimInterface(iface.interfaceNumber || 0);
+          try { await device.claimInterface(iface.interfaceNumber || 0); } catch (_) {}
           const ep = iface.alternate.endpoints.find(e => e.direction === 'out');
           webUsbEndpointNumRef.current = ep ? ep.endpointNumber : 1;
         }
@@ -580,6 +585,7 @@ export const PrinterProvider = ({ children }) => {
     if (webSerialPort && webSerialPort.writable) {
       try {
         toast.loading('Printing via USB Serial...', { id: 'smart-print' });
+        const escBytes = htmlToESCPOS(htmlContent);
         const writer = webSerialPort.writable.getWriter();
         await writer.write(new Uint8Array(escBytes));
         writer.releaseLock();
@@ -589,12 +595,28 @@ export const PrinterProvider = ({ children }) => {
       } catch (err) {
         toast.dismiss('smart-print');
         console.error('WebSerial print error:', err);
-        toast.error('USB Serial print failed — opening dialog instead');
+        toast.error('USB Serial print failed — opening dialog');
         // fall through
       }
     }
 
-    // 4. Fallback: browser print dialog (iframe)
+    // 4. QZ Tray USB printer connected → use QZ
+    if (qzConnected && selectedQZPrinter) {
+      try {
+        toast.loading('Printing via QZ Tray USB...', { id: 'smart-print' });
+        const escBytes = htmlToESCPOS(htmlContent);
+        await printRawToQZ(selectedQZPrinter, escBytes);
+        toast.dismiss('smart-print');
+        toast.success('Receipt printed via USB!');
+        return true;
+      } catch (err) {
+        toast.dismiss('smart-print');
+        console.error('QZ print error:', err);
+        // fall through
+      }
+    }
+
+    // 5. Fallback: browser print dialog (iframe)
     return printHTMLContent(htmlContent);
   };
 
