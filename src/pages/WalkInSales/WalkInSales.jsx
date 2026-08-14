@@ -264,7 +264,15 @@ const WalkInSales = () => {
                       <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
                         {bill.billId}
                       </td>
-                      <td style={{ fontWeight: '600' }}>{bill.storeName || 'Outlet Store'}</td>
+                      <td style={{ fontWeight: '600' }}>
+                        <div>{bill.storeName || 'Outlet Store'}</div>
+                        {bill.tradeName && bill.tradeName !== bill.storeName && (
+                          <div style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700' }}>{bill.tradeName}</div>
+                        )}
+                        {bill.storeGstNumber && (
+                          <div style={{ fontSize: '10px', color: '#1e3a8a', fontWeight: '700' }}>GST: {bill.storeGstNumber}</div>
+                        )}
+                      </td>
                       <td>{bill.customerName || 'Walk-in Customer'}</td>
                       <td style={{ color: '#4b5563' }}>{bill.customerPhone || '—'}</td>
                       <td style={{ fontWeight: '700', fontSize: '14px' }}>₹{Number(bill.totalAmount || 0).toFixed(2)}</td>
@@ -322,7 +330,9 @@ const WalkInSales = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700' }}>Bill #{previewBill.billId}</h3>
-                <span style={{ fontSize: '12px', color: '#6b7280' }}>{previewBill.storeName} • {previewBill.date}</span>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {previewBill.tradeName || previewBill.storeName} {previewBill.storeName && previewBill.tradeName !== previewBill.storeName ? `(${previewBill.storeName})` : ''} • {previewBill.date}
+                </span>
               </div>
               <button 
                 onClick={() => setPreviewBill(null)}
@@ -333,7 +343,14 @@ const WalkInSales = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', marginBottom: '16px' }}>
-              <div><b>Customer Name:</b> {previewBill.customerName || 'Walk-in Customer'}</div>
+              {previewBill.tradeName && <div><b>Store Trade Name:</b> {previewBill.tradeName}</div>}
+              {previewBill.storeGstNumber && (
+                <div style={{ color: '#047857', fontWeight: '700' }}>
+                  <b>Store GSTIN:</b> {previewBill.storeGstNumber}
+                </div>
+              )}
+              {previewBill.storeAddress && <div><b>Store Address:</b> {previewBill.storeAddress}</div>}
+              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '6px', marginTop: '2px' }}><b>Customer Name:</b> {previewBill.customerName || 'Walk-in Customer'}</div>
               <div><b>Customer Phone:</b> {previewBill.customerPhone || '—'}</div>
               {previewBill.companyName && <div><b>B2B Company:</b> {previewBill.companyName}</div>}
               {(previewBill.customerGst || previewBill.gstNumber) && (

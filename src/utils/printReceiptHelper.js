@@ -91,15 +91,18 @@ export const generateReceiptHTML = (bill = {}) => {
       </head>
       <body>
         <div class="right" style="font-size: 10px;">Customer Copy</div>
-        <div class="center bold" style="font-size: 16px; margin-top: 2px;">SRI RAJU SWEETS</div>
+        <div class="center bold" style="font-size: 16px; margin-top: 2px;">
+          ${bill.tradeName || 'SRI RAJU SWEETS'}
+        </div>
+        ${bill.storeName && bill.storeName !== bill.tradeName ? `<div class="center bold" style="font-size: 12px; margin-top: 1px;">${bill.storeName}</div>` : ''}
         <div class="center" style="font-size: 10px; margin-top: 2px; line-height: 1.2;">
-          ${bill.storeAddress || '56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA, AP 520010'}
+          ${bill.storeAddress || (bill.storeCity ? `${bill.storeCity}, ${bill.storeState || ''}` : '56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA, AP 520010')}
         </div>
         <div class="center bold" style="font-size: 10px; margin-top: 2px;">
           PHONE: ${bill.storePhone || '9244757677'}
         </div>
         <div class="center bold" style="font-size: 10px;">
-          GSTIN: ${bill.storeGst || '37DFJPK6083N1ZO'}
+          GSTIN: ${bill.storeGstNumber || bill.storeGst || '37DFJPK6083N1ZO'}
         </div>
         <div class="divider"></div>
 
@@ -276,15 +279,17 @@ export const generateOrderReceiptHTML = (order = {}) => {
       </head>
       <body>
         <div class="right" style="font-size: 10px;">Order Copy</div>
-        <div class="center bold" style="font-size: 16px; margin-top: 2px;">SRI RAJU SWEETS</div>
-        <div class="center" style="font-size: 10px; margin-top: 2px; line-height: 1.2;">
+        <div class="center bold" style="font-size: 16px; margin-top: 2px;">
+          ${order.tradeName || 'SRI RAJU SWEETS'}
+        </div>
+        <div class="center bold" style="font-size: 12px; margin-top: 1px;">
           ${order.storeName || 'Store Outlet'}
         </div>
         <div class="center" style="font-size: 10px; line-height: 1.2;">
-          56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA
+          ${order.storeAddress || (order.storeCity ? `${order.storeCity}, ${order.storeState || ''}` : '56-11-20B, OPP JD TOWERS, PATAMATA MAIN ROAD, VIJAYAWADA')}
         </div>
         <div class="center bold" style="font-size: 10px; margin-top: 2px;">
-          PHONE: 9244757677 | GSTIN: 37DFJPK6083N1ZO
+          PHONE: ${order.storePhone || '9244757677'} | GSTIN: ${order.storeGstNumber || order.storeGst || '37DFJPK6083N1ZO'}
         </div>
         <div class="divider"></div>
 
@@ -408,13 +413,14 @@ export const buildReceiptESCPOS = (bill = {}) => {
 
   // --- Header ---
   push(INIT, CENTER, DBL);
-  push(txt('SRI RAJU SWEETS\n'));
+  push(txt((bill?.tradeName || 'SRI RAJU SWEETS') + '\n'));
   push(NORMAL);
-  push(txt('56-11-20B, OPP JD TOWERS\n'));
-  push(txt('PATAMATA MAIN ROAD, VIJAYAWADA\n'));
-  push(txt('ANDHRA PRADESH - 520010\n'));
-  push(txt('Ph: 9244757677\n'));
-  push(txt('GSTIN: 37DFJPK6083N1ZO\n'));
+  if (bill?.storeName && bill?.storeName !== bill?.tradeName) {
+    push(txt(bill.storeName + '\n'));
+  }
+  push(txt((bill?.storeAddress || '56-11-20B, OPP JD TOWERS\nPATAMATA MAIN ROAD, VIJAYAWADA') + '\n'));
+  push(txt(`Ph: ${bill?.storePhone || '9244757677'}\n`));
+  push(txt(`GSTIN: ${bill?.storeGstNumber || bill?.storeGst || '37DFJPK6083N1ZO'}\n`));
   push(txt(DIV));
 
   // --- Customer Info ---
@@ -526,10 +532,13 @@ export const buildOrderESCPOS = (order = {}) => {
 
   // --- Header ---
   push(INIT, CENTER, DBL);
-  push(txt('SRI RAJU SWEETS\n'));
+  push(txt((order?.tradeName || 'SRI RAJU SWEETS') + '\n'));
   push(NORMAL);
-  push(txt(`${order.storeName || 'Vijayawada'}\n`));
-  push(txt('Quality Sweets & Savouries\n'));
+  push(txt(`${order?.storeName || 'Vijayawada'}\n`));
+  if (order?.storeAddress) {
+    push(txt(`${order.storeAddress}\n`));
+  }
+  push(txt(`Ph: ${order?.storePhone || '9244757677'} | GSTIN: ${order?.storeGstNumber || order?.storeGst || '37DFJPK6083N1ZO'}\n`));
   push(txt(DIV));
 
   // --- Order Info ---

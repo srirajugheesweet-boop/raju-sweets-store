@@ -338,12 +338,19 @@ const SuperAdminPOS = () => {
       const totalAmt = Math.max(0, cartTotal - discountVal);
 
 
+      const selectedStoreObj = stores.find(s => s.id === selectedStoreId);
       const billId = editingBillId ? (savedBillsList.find(b => b.id === editingBillId)?.billId || generateBillId()) : generateBillId();
 
       const billData = {
         billId,
         storeId: selectedStoreId,
-        storeName: selectedStoreName || 'Outlet Store',
+        storeName: selectedStoreName || selectedStoreObj?.name || 'Outlet Store',
+        tradeName: selectedStoreObj?.tradeName || selectedStoreObj?.name || 'Raju Ghee Sweets',
+        storeGstNumber: selectedStoreObj?.gstNumber || '',
+        storeAddress: selectedStoreObj?.address || '',
+        storePhone: selectedStoreObj?.phone || '',
+        storeCity: selectedStoreObj?.city || '',
+        storeState: selectedStoreObj?.state || '',
         customerId: selectedCustomerId,
         customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Walk-in Customer',
         customerPhone: selectedCustomerObj ? selectedCustomerObj.mobileNumber : '',
