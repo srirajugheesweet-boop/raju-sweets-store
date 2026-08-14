@@ -5,6 +5,7 @@ import {
   Bluetooth as BluetoothIcon,
   Usb as UsbIcon,
   Printer as PrinterIcon,
+  Settings as SettingsIcon,
   RefreshCw, RotateCw, AlertCircle,
   Search, Eye, Bell
 } from 'lucide-react';
@@ -24,6 +25,9 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     selectedQZPrinter,
     inbuiltPOSActive,
     toggleInbuiltPOS,
+    cancelPOSMode,
+    enablePOSMode,
+    restartPOSSetup,
     showPOSModal,
     setShowPOSModal,
     testInbuiltPOSPrint,
@@ -104,7 +108,7 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
             {/* Inbuilt POS Thermal Printer Button */}
             <button
               className={`header-print-status-btn ${inbuiltPOSActive ? 'connected pos' : 'disconnected pos'}`}
-              title="Inbuilt POS Thermal Printer Setup (RK3568 / Scangle)"
+              title="Inbuilt POS Thermal Printer Setup & Controls (RK3568 / Scangle)"
               onClick={() => setShowPOSModal(true)}
             >
               <PrinterIcon size={13} />
@@ -389,15 +393,35 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                 </div>
               </div>
 
-              <div className="modal-actions" style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="modal-actions" style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <button
-                  className="modal-btn"
-                  style={{ fontSize: '12px', color: inbuiltPOSActive ? '#dc2626' : '#16a34a' }}
-                  onClick={toggleInbuiltPOS}
+                  className="polaris-btn"
+                  style={{ fontSize: '11px', height: '32px', background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1' }}
+                  onClick={restartPOSSetup}
+                  title="Reset POS Printer setup and re-configure"
                 >
-                  {inbuiltPOSActive ? 'Disable Inbuilt POS' : 'Enable Inbuilt POS'}
+                  <RotateCw size={12} /> Restart Setup
                 </button>
-                <button className="modal-btn cancel" onClick={() => setShowPOSModal(false)}>Close</button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {inbuiltPOSActive ? (
+                    <button
+                      className="modal-btn"
+                      style={{ fontSize: '11px', color: '#dc2626', background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '0 10px', height: '32px', borderRadius: '6px' }}
+                      onClick={cancelPOSMode}
+                    >
+                      Cancel POS Mode
+                    </button>
+                  ) : (
+                    <button
+                      className="modal-btn"
+                      style={{ fontSize: '11px', color: '#16a34a', background: 'rgba(22, 163, 74, 0.08)', border: '1px solid rgba(22, 163, 74, 0.2)', padding: '0 10px', height: '32px', borderRadius: '6px' }}
+                      onClick={enablePOSMode}
+                    >
+                      Enable POS Mode
+                    </button>
+                  )}
+                  <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={() => setShowPOSModal(false)}>Close</button>
+                </div>
               </div>
             </motion.div>
           </div>,

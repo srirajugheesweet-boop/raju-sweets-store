@@ -287,9 +287,31 @@ export const PrinterProvider = ({ children }) => {
     setInbuiltPOSActive(prev => {
       const next = !prev;
       localStorage.setItem('inbuiltPOSActive', next.toString());
-      toast.success(next ? "Inbuilt POS Printer Enabled" : "Inbuilt POS Printer Disabled");
+      toast.success(next ? "Inbuilt POS Printer Turned ON" : "Inbuilt POS Printer Turned OFF");
       return next;
     });
+  };
+
+  const cancelPOSMode = () => {
+    setInbuiltPOSActive(false);
+    localStorage.setItem('inbuiltPOSActive', 'false');
+    setShowPOSModal(false);
+    toast.success("Inbuilt POS Printer turned OFF");
+  };
+
+  const enablePOSMode = () => {
+    setInbuiltPOSActive(true);
+    localStorage.setItem('inbuiltPOSActive', 'true');
+    toast.success("Inbuilt POS Printer turned ON");
+  };
+
+  const restartPOSSetup = () => {
+    setWebUsbConnected(false);
+    setWebUsbDevice(null);
+    webUsbEndpointRef.current = null;
+    localStorage.removeItem('inbuiltPOSActive');
+    setInbuiltPOSActive(true);
+    toast.success("POS Printer setup reset. Ready to re-configure!");
   };
 
   const printInbuiltPOS = async (htmlContent) => {
@@ -391,9 +413,10 @@ export const PrinterProvider = ({ children }) => {
         connectBtDevice,
         disconnectPrinter,
         connectQZTray,
-        confirmQZPrinter,
-        disconnectQZTray,
         toggleInbuiltPOS,
+        cancelPOSMode,
+        enablePOSMode,
+        restartPOSSetup,
         printInbuiltPOS,
         handleWebUSBConnect,
         testInbuiltPOSPrint,
