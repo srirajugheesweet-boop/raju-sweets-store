@@ -5,6 +5,7 @@ import {
   Bluetooth as BluetoothIcon,
   Usb as UsbIcon,
   Printer as PrinterIcon,
+  Wifi as WifiIcon,
   Settings as SettingsIcon,
   RefreshCw, RotateCw, AlertCircle,
   Search, Eye, Bell
@@ -34,6 +35,13 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     handleWebUSBConnect,
     webUsbConnected,
     webUsbDevice,
+    wifiConnected,
+    wifiPrinterIp,
+    showWifiModal,
+    setShowWifiModal,
+    connectWifiPrinter,
+    disconnectWifiPrinter,
+    testWifiPrint,
     isScanningBt,
     btDevices,
     connectingBtDevice,
@@ -53,6 +61,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     confirmQZPrinter,
     disconnectQZTray
   } = usePrinter();
+
+  const [inputWifiIp, setInputWifiIp] = React.useState(wifiPrinterIp || '');
 
   return (
     <>
@@ -114,6 +124,19 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
               <PrinterIcon size={13} />
               <span>POS: {inbuiltPOSActive ? 'Active' : 'Off'}</span>
             </button>
+
+            {/* Wi-Fi Network Thermal Printer Button */}
+            {wifiConnected ? (
+              <button className="header-print-status-btn connected wifi" title={`Wi-Fi Printer: ${wifiPrinterIp}`} onClick={() => { setInputWifiIp(wifiPrinterIp); setShowWifiModal(true); }}>
+                <WifiIcon size={13} />
+                <span>WiFi: {wifiPrinterIp ? (wifiPrinterIp.length > 8 ? `${wifiPrinterIp.substring(0, 8)}...` : wifiPrinterIp) : 'Connected'}</span>
+              </button>
+            ) : (
+              <button className="header-print-status-btn disconnected wifi" title="Connect Wi-Fi Network Printer" onClick={() => { setInputWifiIp(wifiPrinterIp); setShowWifiModal(true); }}>
+                <WifiIcon size={13} />
+                <span>WiFi</span>
+              </button>
+            )}
 
             {bluetoothConnected ? (
               <button className="header-print-status-btn connected ble" title={`BLE: ${connectedDevice}`} onClick={disconnectPrinter}>
@@ -422,6 +445,83 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                   )}
                   <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={() => setShowPOSModal(false)}>Close</button>
                 </div>
+              </div>
+            </motion.div>
+          </div>,
+          document.body
+        )}
+      </AnimatePresence>
+
+      {/* Wi-Fi / Network Thermal Printer Setup Modal */}
+      <AnimatePresence>
+        {showWifiModal && createPortal(
+          <div className="modal-overlay" style={{ zIndex: 9000 }} onClick={() => setShowWifiModal(false)}>
+            <motion.div
+              className="custom-modal"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              style={{ maxWidth: '440px', width: '95%' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-icon-box" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}>
+                <WifiIcon size={28} />
+              </div>
+              <h3 className="modal-title">Connect Wi-Fi / Network Printer</h3>
+
+              <div style={{ margin: '15px 0', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Enter the local Wi-Fi or Ethernet IP address of your thermal printer (e.g., <code>192.168.1.100</code>).
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>Printer Wi-Fi IP Address:</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 192.168.1.100 or 192.168.29.87"
+                    value={inputWifiIp}
+                    onChange={(e) => setInputWifiIp(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {wifiConnected && wifiPrinterIp && (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '8px 12px', borderRadius: '6px', fontSize: '11px', color: '#166534' }}>
+                    Currently Connected to: <strong>{wifiPrinterIp}</strong>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="polaris-btn"
+                    style={{ flex: 1, fontSize: '12px', height: '34px', background: '#0ea5e9', color: '#fff', border: 'none' }}
+                    onClick={() => connectWifiPrinter(inputWifiIp)}
+                  >
+                    Save & Connect Wi-Fi
+                  </button>
+                  <button
+                    className="polaris-btn"
+                    style={{ fontSize: '12px', height: '34px' }}
+                    onClick={() => testWifiPrint(inputWifiIp)}
+                  >
+                    <PrinterIcon size={14} /> Send Test Print
+                  </button>
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {wifiConnected ? (
+                  <button className="modal-btn" style={{ fontSize: '11px', color: '#dc2626' }} onClick={disconnectWifiPrinter}>
+                    Disconnect Wi-Fi
+                  </button>
+                ) : <div />}
+                <button className="modal-btn cancel" style={{ height: '32px', fontSize: '11px' }} onClick={() => setShowWifiModal(false)}>Close</button>
               </div>
             </motion.div>
           </div>,

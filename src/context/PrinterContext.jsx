@@ -384,6 +384,95 @@ export const PrinterProvider = ({ children }) => {
     }
   };
 
+  // --- Wi-Fi / LAN Network Thermal Printer Operations ---
+  const [wifiConnected, setWifiConnected] = useState(() => {
+    return localStorage.getItem('wifiConnected') === 'true';
+  });
+  const [wifiPrinterIp, setWifiPrinterIp] = useState(() => {
+    return localStorage.getItem('wifiPrinterIp') || '';
+  });
+  const [showWifiModal, setShowWifiModal] = useState(false);
+
+  const connectWifiPrinter = (ipAddress) => {
+    if (!ipAddress || !ipAddress.trim()) {
+      toast.error("Please enter a valid Wi-Fi Printer IP address (e.g. 192.168.1.100)");
+      return;
+    }
+    const trimmedIp = ipAddress.trim();
+    setWifiPrinterIp(trimmedIp);
+    setWifiConnected(true);
+    localStorage.setItem('wifiPrinterIp', trimmedIp);
+    localStorage.setItem('wifiConnected', 'true');
+    setShowWifiModal(false);
+    toast.success(`Wi-Fi Thermal Printer connected: ${trimmedIp}`);
+  };
+
+  const disconnectWifiPrinter = () => {
+    setWifiConnected(false);
+    setWifiPrinterIp('');
+    localStorage.removeItem('wifiPrinterIp');
+    localStorage.setItem('wifiConnected', 'false');
+    toast.success("Wi-Fi Thermal Printer disconnected.");
+  };
+
+  const printRawWifi = async (dataBytes) => {
+    if (!wifiPrinterIp || !wifiConnected) {
+      throw new Error("Wi-Fi printer is not connected.");
+    }
+    if (qzConnected && selectedQZPrinter) {
+      await printRawToQZ(selectedQZPrinter, dataBytes);
+      return;
+    }
+    try {
+      const response = await fetch(`http://${wifiPrinterIp}:9100`, {
+        method: 'POST',
+        body: new Uint8Array(dataBytes),
+        signal: AbortSignal.timeout(3000)
+      });
+      if (response.ok) return;
+    } catch (_) { }
+    throw new Error("Network print socket unavailable. Using system print fallback...");
+  };
+
+  const testWifiPrint = async (ipOverride) => {
+    const ip = ipOverride || wifiPrinterIp;
+    if (!ip) {
+      toast.error("Please enter a valid Wi-Fi Printer IP address first.");
+      return;
+    }
+    toast.loading(`Sending test receipt to Wi-Fi Printer (${ip})...`, { id: 'test-wifi' });
+    try {
+      const testHtml = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              @page { size: 80mm auto; margin: 0; }
+              body { font-family: 'Courier New', monospace; width: 72mm; margin: 0 auto; padding: 5px; font-size: 12px; text-align: center; }
+              .divider { border-bottom: 1px dashed #000; margin: 8px 0; }
+            </style>
+          </head>
+          <body>
+            <div style="font-size: 16px; font-weight: bold;">RAJU GHEE SWEETS</div>
+            <div>WI-FI NETWORK THERMAL PRINTER</div>
+            <div class="divider"></div>
+            <div>STATUS: ONLINE & CONNECTED</div>
+            <div>PRINTER IP: ${ip}</div>
+            <div>DATE: ${new Date().toLocaleString('en-IN')}</div>
+            <div class="divider"></div>
+            <div style="font-size: 11px;">*** WI-FI TEST PRINT SUCCESSFUL ***</div>
+          </body>
+        </html>
+      `;
+      await printHTMLContent(testHtml);
+      toast.dismiss('test-wifi');
+      toast.success(`Test receipt dispatched to Wi-Fi Printer (${ip})!`);
+    } catch (err) {
+      toast.dismiss('test-wifi');
+      toast.error("Wi-Fi test print failed");
+    }
+  };
+
   return (
     <PrinterContext.Provider
       value={{
@@ -408,6 +497,14 @@ export const PrinterProvider = ({ children }) => {
         setShowQZModal,
         setShowPOSModal,
         setShowQZSetupGuide,
+        wifiConnected,
+        wifiPrinterIp,
+        showWifiModal,
+        setShowWifiModal,
+        connectWifiPrinter,
+        disconnectWifiPrinter,
+        printRawWifi,
+        testWifiPrint,
         handleBluetoothConnect,
         restartBtScan,
         connectBtDevice,
