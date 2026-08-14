@@ -4,6 +4,7 @@ import {
   Star, Menu, X,
   Bluetooth as BluetoothIcon,
   Usb as UsbIcon,
+  Printer as PrinterIcon,
   RefreshCw, RotateCw, AlertCircle,
   Search, Eye, Bell
 } from 'lucide-react';
@@ -21,6 +22,8 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
     qzConnected,
     qzPrinters,
     selectedQZPrinter,
+    inbuiltPOSActive,
+    toggleInbuiltPOS,
     isScanningBt,
     btDevices,
     connectingBtDevice,
@@ -92,6 +95,16 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
           {/* Global Printer Connection Widgets */}
           <div className="header-printer-status-bar">
+            {/* Inbuilt POS Thermal Printer Button */}
+            <button
+              className={`header-print-status-btn ${inbuiltPOSActive ? 'connected pos' : 'disconnected pos'}`}
+              title={inbuiltPOSActive ? "Inbuilt POS Thermal Printer: Active (Scangle / Android POS)" : "Enable Inbuilt POS Printer"}
+              onClick={toggleInbuiltPOS}
+            >
+              <PrinterIcon size={13} />
+              <span>POS: {inbuiltPOSActive ? 'Active' : 'Off'}</span>
+            </button>
+
             {bluetoothConnected ? (
               <button className="header-print-status-btn connected ble" title={`BLE: ${connectedDevice}`} onClick={disconnectPrinter}>
                 <BluetoothIcon size={13} />

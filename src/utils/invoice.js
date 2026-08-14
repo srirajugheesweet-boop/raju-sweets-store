@@ -1,4 +1,5 @@
 import logo from '../assets/logo.png';
+import { printHTMLContent } from '../context/PrinterContext';
 
 /**
  * Converts a number to its Indian Rupee word representation.
@@ -501,14 +502,5 @@ export function getInvoiceHtml(order) {
 
 export function generateGSTInvoice(order) {
   const printContent = getInvoiceHtml(order);
-  const printWindow = window.open('', '_blank', 'width=900,height=800');
-  if (printWindow) {
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.onload = function() {
-      printWindow.focus();
-      printWindow.print();
-    };
-  }
+  printHTMLContent(printContent);
 }

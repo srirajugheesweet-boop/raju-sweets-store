@@ -834,6 +834,7 @@ const StorePortal = () => {
     disconnectQZTray,
     printRawBLE,
     printRawUSB,
+    printHTMLContent,
     showQZSetupGuide,
     setShowQZSetupGuide,
     qzConnectTimer
@@ -2138,14 +2139,7 @@ const StorePortal = () => {
         </body>
       </html>
     `;
-    const printWindow = window.open('', '_blank', 'width=420,height=700');
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 400);
+    printHTMLContent(printContent);
   };
 
   const printOrderDirectToBluetooth = async (order) => {
@@ -2430,15 +2424,7 @@ const StorePortal = () => {
 
   const handlePrintReceipt = (bill) => {
     const printContent = generateReceiptHTML(bill);
-    const printWindow = window.open('', '_blank', 'width=420,height=700');
-    if (!printWindow) return toast.error("Please allow popups to print receipt.");
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+    printHTMLContent(printContent);
   };
 
 

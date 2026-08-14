@@ -273,6 +273,60 @@ export const PrinterProvider = ({ children }) => {
     await printRawToQZ(selectedQZPrinter, dataBytes);
   };
 
+  // --- Inbuilt Android POS & WebUSB Printer Operations ---
+  const [inbuiltPOSActive, setInbuiltPOSActive] = useState(() => {
+    const saved = localStorage.getItem('inbuiltPOSActive');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [webUsbConnected, setWebUsbConnected] = useState(false);
+  const [webUsbDevice, setWebUsbDevice] = useState(null);
+  const webUsbEndpointRef = useRef(null);
+
+  const toggleInbuiltPOS = () => {
+    setInbuiltPOSActive(prev => {
+      const next = !prev;
+      localStorage.setItem('inbuiltPOSActive', next.toString());
+      toast.success(next ? "Inbuilt POS Printer Enabled" : "Inbuilt POS Printer Disabled");
+      return next;
+    });
+  };
+
+  const printInbuiltPOS = async (htmlContent) => {
+    return await printHTMLContent(htmlContent);
+  };
+
+  const handleWebUSBConnect = async () => {
+    if (!navigator.usb) {
+      toast.error("WebUSB is not supported on this browser.");
+      return;
+    }
+    try {
+      const device = await navigator.usb.requestDevice({ filters: [] });
+      await device.open();
+      await device.selectConfiguration(1);
+      await device.claimInterface(0);
+
+      const iface = device.configuration.interfaces[0];
+      const endpoint = iface.alternate.endpoints.find(e => e.direction === 'out');
+      webUsbEndpointRef.current = endpoint;
+
+      setWebUsbDevice(device.productName || 'USB POS Thermal Printer');
+      setWebUsbConnected(true);
+      toast.success(`WebUSB Printer connected: ${device.productName || 'Thermal Printer'}`);
+    } catch (err) {
+      console.error("WebUSB error:", err);
+      toast.error(`WebUSB connection failed: ${err.message || 'Error'}`);
+    }
+  };
+
+  const printRawWebUSB = async (dataBytes) => {
+    if (!webUsbDevice || !webUsbEndpointRef.current) {
+      throw new Error("WebUSB printer is not connected.");
+    }
+    const endpointNumber = webUsbEndpointRef.current.endpointNumber;
+    await webUsbDevice.transferOut(endpointNumber, new Uint8Array(dataBytes));
+  };
+
   return (
     <PrinterContext.Provider
       value={{
@@ -281,6 +335,9 @@ export const PrinterProvider = ({ children }) => {
         qzConnected,
         qzPrinters,
         selectedQZPrinter,
+        inbuiltPOSActive,
+        webUsbConnected,
+        webUsbDevice,
         isScanningBt,
         btDevices,
         connectingBtDevice,
@@ -299,13 +356,67 @@ export const PrinterProvider = ({ children }) => {
         connectQZTray,
         confirmQZPrinter,
         disconnectQZTray,
+        toggleInbuiltPOS,
+        printInbuiltPOS,
+        handleWebUSBConnect,
         printRawBLE,
-        printRawUSB
+        printRawUSB,
+        printRawWebUSB,
+        printHTMLContent
       }}
     >
       {children}
     </PrinterContext.Provider>
   );
+};
+
+export const printHTMLContent = (htmlContent) => {
+  return new Promise((resolve) => {
+    try {
+      let iframe = document.getElementById('pos-print-iframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'pos-print-iframe';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0px';
+        iframe.style.height = '0px';
+        iframe.style.border = 'none';
+        iframe.style.opacity = '0';
+        iframe.style.pointerEvents = 'none';
+        document.body.appendChild(iframe);
+      }
+
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+          resolve(true);
+        } catch (e) {
+          console.error("Iframe print error, attempting popup fallback:", e);
+          const win = window.open('', '_blank', 'width=420,height=700');
+          if (win) {
+            win.document.write(htmlContent);
+            win.document.close();
+            win.focus();
+            setTimeout(() => { win.print(); win.close(); resolve(true); }, 400);
+          } else {
+            toast.error("Print blocked. Please allow popups or use iframe print.");
+            resolve(false);
+          }
+        }
+      }, 300);
+    } catch (err) {
+      console.error("Error executing printHTMLContent:", err);
+      resolve(false);
+    }
+  });
 };
 
 export const usePrinter = () => {

@@ -15,12 +15,9 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { db } from '../../config/firebase';
-import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
-import toast from 'react-hot-toast';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import logo from '../../assets/logo.png';
-
-
+import { usePrinter } from '../../context/PrinterContext';
 import './WalkInSales.css';
 
 const DEFAULT_ITEM_IMAGE = logo;
@@ -121,17 +118,11 @@ const WalkInSales = () => {
     .filter(b => b.date === todayStr)
     .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
 
+  const { printHTMLContent } = usePrinter();
+
   const handlePrintReceipt = (bill) => {
     const printContent = generateReceiptHTML(bill);
-    const printWindow = window.open('', '_blank', 'width=420,height=700');
-    if (!printWindow) return toast.error("Please allow popups to print receipt.");
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+    printHTMLContent(printContent);
   };
 
 

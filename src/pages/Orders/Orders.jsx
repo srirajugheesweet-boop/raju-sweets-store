@@ -673,7 +673,8 @@ const Orders = () => {
     qzConnected,
     selectedQZPrinter,
     printRawBLE,
-    printRawUSB
+    printRawUSB,
+    printHTMLContent
   } = usePrinter();
 
   // Create Customer Modal State
@@ -1282,12 +1283,7 @@ const Orders = () => {
         </body>
       </html>
     `;
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    printHTMLContent(printContent);
   };
 
   const printOrderDirectToBluetooth = async (order) => {

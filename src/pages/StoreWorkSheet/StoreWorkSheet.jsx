@@ -63,7 +63,8 @@ const StoreWorkSheet = () => {
     qzConnected,
     selectedQZPrinter,
     printRawBLE,
-    printRawUSB
+    printRawUSB,
+    printHTMLContent
   } = usePrinter();
 
   // Fetch Items & Stores on Load
@@ -372,18 +373,10 @@ const StoreWorkSheet = () => {
   };
 
   const printHTMLFallback = (worksheet, printType = 'store') => {
-    const printWindow = window.open('', '_blank', 'width=350,height=600');
-    if (!printWindow) {
-      toast.error("Popup blocked! Please allow popups for thermal printing.");
-      return;
-    }
-
     const wsQuantities = worksheet.quantities || {};
-
     let bodyContentHtml = '';
 
     if (printType === 'store') {
-      // 1. Build Store-Wise Allocations Section
       let storeWiseHtml = '';
       stores.forEach(store => {
         let storeItems = [];
@@ -409,16 +402,10 @@ const StoreWorkSheet = () => {
         }
       });
 
-      if (!storeWiseHtml) {
-        storeWiseHtml = '<div class="text-center">No allocations recorded.</div>';
-      }
-
       bodyContentHtml = `
         <div class="bold section-title">I. STORE-WISE ITEMS</div>
         ${storeWiseHtml}
-        
         <div class="divider"></div>
-        
         <div class="bold section-title">II. HANDWRITTEN NOTES</div>
         <div class="note-line"></div>
         <div class="note-line"></div>
@@ -426,7 +413,6 @@ const StoreWorkSheet = () => {
     }
 
     if (printType === 'item') {
-      // 2. Build Globally Consolidated Items Section
       let itemWiseHtml = '';
       let overallSumWeight = 0;
       let overallSumPieces = 0;
@@ -447,144 +433,74 @@ const StoreWorkSheet = () => {
             overallSumPieces += total;
           }
 
-          itemWiseHtml += `<div class="bold item-name-title">${item.name.toUpperCase()} (${unitLabel})</div>`;
+          itemWiseHtml += `
+            <div class="item-row">
+              <span class="bold">${item.name}</span>
+              <span class="bold grand-val">${total} ${unitLabel}</span>
+            </div>
+          `;
+
           activeAllocations.forEach(([storeId, qty]) => {
-            const storeName = stores.find(s => s.id === storeId)?.name || 'Unknown Store';
+            const st = stores.find(s => s.id === storeId);
+            const stName = st ? st.name : storeId;
             itemWiseHtml += `
-              <div class="item-row indent">
-                <span>- ${storeName}</span>
+              <div class="sub-store-row">
+                <span>↳ ${stName}:</span>
                 <span>${qty} ${unitLabel}</span>
               </div>
             `;
           });
 
-          // Add visual divider note line before writing the sum
-          itemWiseHtml += `
-            <div class="mini-divider-dashed"></div>
-            <div class="item-row indent bold sum-row">
-              <span>SUM:</span>
-              <span>${total.toFixed(item.unit === 'Weight' ? 2 : 0)} ${unitLabel}</span>
-            </div>
-            <div class="mini-divider"></div>
-          `;
+          itemWiseHtml += `<div class="mini-divider"></div>`;
         }
       });
 
-      if (!itemWiseHtml) {
-        itemWiseHtml = '<div class="text-center">No allocations recorded.</div>';
-      }
-
       bodyContentHtml = `
-        <div class="bold section-title">I. GLOBALLY CONSOLIDATED</div>
+        <div class="bold section-title">CONSOLIDATED DISPATCH TOTALS</div>
+        <div class="summary-box">
+          <div>ITEMS COUNT: <b>${totalActiveItems} items</b></div>
+          <div>TOTAL WEIGHT: <b>${overallSumWeight.toFixed(2)} KG</b></div>
+          <div>TOTAL PIECES: <b>${overallSumPieces} Pcs</b></div>
+        </div>
+        <div class="divider"></div>
         ${itemWiseHtml}
-        
-        <div class="divider"></div>
-        
-        <div class="bold section-title">II. HANDWRITTEN NOTES</div>
-        <div class="note-line"></div>
-        <div class="note-line"></div>
-        
-        <div class="divider"></div>
-        
-        <div class="bold section-title">III. CUMULATIVE SUMS</div>
-        <div class="item-row">
-          <span>Allocated Items:</span>
-          <span class="bold">${totalActiveItems} Products</span>
-        </div>
-        <div class="item-row">
-          <span>Total Ghee Weight:</span>
-          <span class="bold">${overallSumWeight.toFixed(2)} KG</span>
-        </div>
-        <div class="item-row">
-          <span>Total Piece Count:</span>
-          <span class="bold">${overallSumPieces} Pcs</span>
-        </div>
       `;
     }
 
     const receiptContent = `
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>Worksheet Print - ${worksheet.date}</title>
+          <meta charset="utf-8" />
+          <title>Worksheet Ticket - ${worksheet.date}</title>
           <style>
-            @page {
-              margin: 0;
-            }
+            @page { size: 80mm auto; margin: 2mm; }
             body {
               font-family: 'Courier New', Courier, monospace;
-              width: 80mm;
-              padding: 6mm 4mm;
-              margin: 0;
-              font-size: 13px;
+              width: 72mm;
+              margin: 0 auto;
+              padding: 4px;
+              font-size: 11px;
+              line-height: 1.2;
               color: #000;
-              background: #ffffff;
-              line-height: 1.4;
-              box-sizing: border-box;
+              background: #fff;
             }
             .text-center { text-align: center; }
+            .text-right { text-align: right; }
             .bold { font-weight: bold; }
-            .header {
-              font-size: 16px;
-              font-weight: bold;
-              margin-bottom: 2px;
-              text-transform: uppercase;
-            }
-            .subheader {
-              font-size: 11px;
-              margin-bottom: 6px;
-              letter-spacing: 1px;
-              text-transform: uppercase;
-            }
-            .divider {
-              border-top: 1.5px dashed #000;
-              margin: 8px 0;
-            }
-            .mini-divider {
-              border-top: 1px dotted #888;
-              margin: 5px 0;
-            }
-            .mini-divider-dashed {
-              border-top: 1px dashed #666;
-              margin: 4px 0;
-            }
-            .section-title {
-              font-size: 13px;
-              margin: 14px 0 6px 0;
-              text-transform: uppercase;
-              border-bottom: 1.5px solid #000;
-              padding-bottom: 2px;
-            }
-            .store-name-title {
-              font-size: 12px;
-              margin-top: 8px;
-              margin-bottom: 4px;
-            }
-            .item-name-title {
-              font-size: 12px;
-              margin-top: 8px;
-              margin-bottom: 4px;
-            }
-            .item-row {
-              display: flex;
-              justify-content: space-between;
-              margin: 2px 0;
-            }
-            .indent {
-              padding-left: 10px;
-            }
-            .sum-row {
-              margin-top: 2px;
-            }
-            .note-line {
-              border-bottom: 1px dotted #333;
-              height: 25px;
-              margin-bottom: 5px;
-            }
-            .footer {
-              margin-top: 30px;
-              font-size: 10px;
-              letter-spacing: 1px;
-            }
+            .header { font-size: 15px; }
+            .subheader { font-size: 12px; margin-top: 2px; }
+            .divider { border-bottom: 1px dashed #000; margin: 6px 0; }
+            .mini-divider { border-bottom: 1px dotted #aaa; margin: 3px 0; }
+            .section-title { font-size: 12px; text-decoration: underline; margin-bottom: 6px; text-align: center; }
+            .store-name-title { font-size: 11px; margin-top: 4px; background: #eee; padding: 2px; }
+            .item-row { display: flex; justify-content: space-between; margin: 2px 0; }
+            .indent { padding-left: 6px; }
+            .sub-store-row { display: flex; justify-content: space-between; padding-left: 10px; font-size: 10px; color: #333; }
+            .grand-val { font-size: 12px; }
+            .summary-box { background: #f9f9f9; border: 1px solid #ccc; padding: 4px; font-size: 10px; margin-bottom: 6px; }
+            .note-line { border-bottom: 1px dotted #333; height: 25px; margin-bottom: 5px; }
+            .footer { margin-top: 20px; font-size: 10px; letter-spacing: 1px; }
           </style>
         </head>
         <body>
@@ -599,18 +515,11 @@ const StoreWorkSheet = () => {
           
           <div class="divider"></div>
           <div class="text-center footer">*** THERMAL TICKET PRINT ***</div>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
         </body>
       </html>
     `;
 
-    printWindow.document.write(receiptContent);
-    printWindow.document.close();
+    printHTMLContent(receiptContent);
   };
 
   const handlePrint = async (worksheet, printType = 'store') => {

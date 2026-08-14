@@ -51,6 +51,7 @@ const PUnitPortal = () => {
     selectedQZPrinter,
     printRawBLE,
     printRawUSB,
+    printHTMLContent,
     handleBluetoothConnect,
     disconnectPrinter,
     connectQZTray,
@@ -724,14 +725,7 @@ const PUnitPortal = () => {
         </html>
       `;
 
-      const printWindow = window.open('', '_blank', 'width=600,height=800');
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
+      printHTMLContent(printContent);
     });
   };
 

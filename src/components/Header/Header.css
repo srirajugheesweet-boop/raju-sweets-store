@@ -232,6 +232,12 @@
   color: #FFFFFF;
 }
 
+.header-print-status-btn.connected.pos {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #F59E0B;
+  color: #FBBF24;
+}
+
 .header-print-status-btn.connected.ble {
   background: rgba(16, 185, 129, 0.2);
   border-color: #10B981;
