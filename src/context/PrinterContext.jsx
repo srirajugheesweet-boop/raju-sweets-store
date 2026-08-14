@@ -345,8 +345,9 @@ export const PrinterProvider = ({ children }) => {
 
       const devName = device.productName || device.manufacturerName || `USB Printer (VID:${device.vendorId})`;
       setWebUsbDevice(devName);
+      webUsbDeviceRef.current = device; // store actual USBDevice object for direct transferOut
       setWebUsbConnected(true);
-      toast.success(`Connected to ${devName}!`);
+      toast.success(`Connected to ${devName}! Ready to print directly.`);
     } catch (err) {
       toast.dismiss('webusb-pick');
       if (err.name === 'NotFoundError') {
@@ -519,6 +520,140 @@ export const PrinterProvider = ({ children }) => {
     }
   };
 
+  // --- Smart Print: auto-routes to WebUSB / WebSerial / browser dialog ---
+  // Converts bill data (passed as billObj) or raw HTML to ESC/POS if a direct USB printer is connected
+  const webUsbDeviceRef = useRef(null); // keep the actual USBDevice object
+  const webUsbEndpointNumRef = useRef(1);
+
+  // Override setWebUsbDevice to also store the actual device object
+  const [_webUsbDevice, _setWebUsbDevice] = useState(null);
+
+  const smartPrint = async (htmlContent, billObj = null) => {
+    // 1. WebUSB connected → send ESC/POS binary directly
+    if (webUsbDeviceRef.current && webUsbEndpointRef.current) {
+      try {
+        toast.loading('Printing via WebUSB...', { id: 'smart-print' });
+        const escBytes = htmlToESCPOS(htmlContent);
+        await webUsbDeviceRef.current.transferOut(
+          webUsbEndpointRef.current.endpointNumber || 1,
+          new Uint8Array(escBytes)
+        );
+        toast.dismiss('smart-print');
+        toast.success('Receipt printed via WebUSB!');
+        return true;
+      } catch (err) {
+        toast.dismiss('smart-print');
+        console.error('WebUSB print error:', err);
+        toast.error('WebUSB print failed — opening dialog instead');
+        // fall through to browser print
+      }
+    }
+
+    // 2. WebSerial connected → send ESC/POS binary via serial port
+    if (webSerialPort && webSerialPort.writable) {
+      try {
+        toast.loading('Printing via USB Serial...', { id: 'smart-print' });
+        const escBytes = htmlToESCPOS(htmlContent);
+        const writer = webSerialPort.writable.getWriter();
+        await writer.write(new Uint8Array(escBytes));
+        writer.releaseLock();
+        toast.dismiss('smart-print');
+        toast.success('Receipt printed via USB Serial!');
+        return true;
+      } catch (err) {
+        toast.dismiss('smart-print');
+        console.error('WebSerial print error:', err);
+        toast.error('USB Serial print failed — opening dialog instead');
+        // fall through to browser print
+      }
+    }
+
+    // 3. Fallback: browser print dialog (iframe)
+    return printHTMLContent(htmlContent);
+  };
+
+  // Converts receipt HTML content to ESC/POS byte array for 80mm thermal paper
+  const htmlToESCPOS = (htmlContent) => {
+    const bytes = [];
+    // ESC @ — Initialize printer
+    bytes.push(0x1B, 0x40);
+    // ESC a 1 — Center align
+    bytes.push(0x1B, 0x61, 0x01);
+    // GS ! 0x11 — double-width+height for header
+    bytes.push(0x1D, 0x21, 0x11);
+    appendText(bytes, 'SRI RAJU SWEETS\n');
+    // Reset font size
+    bytes.push(0x1D, 0x21, 0x00);
+    appendText(bytes, '56-11-20B, Patamata Main Road\nVijayawada, AP - 520010\n');
+    appendText(bytes, 'Ph: 9244757677  GSTIN: 37DFJPK6083N1ZO\n');
+    appendDivider(bytes);
+
+    // Extract bill info from HTML using regex
+    const getText = (re) => { const m = htmlContent.match(re); return m ? m[1].trim() : ''; };
+    const billNo = getText(/Bill No\.\s*<[^>]+>(\d+)/i) || getText(/Bill No\.\s*(\d+)/i) || '';
+    const date = getText(/Date\s*<b>([^<]+)<\/b>/i) || '';
+    const customer = getText(/Customer:\s*([^<\n]+)/i) || 'Walk-in Customer';
+    const total = getText(/₹\s*([\d.,]+)<\/span>\s*<\/div>\s*<div class="solid-divider/i) ||
+                  getText(/Net Amount\s*:\s*[^₹]*₹\s*([\d.,]+)/i) || '';
+    const payment = getText(/CASH|CARD|UPI|CREDIT/i) || 'CASH';
+
+    // ESC a 0 — Left align
+    bytes.push(0x1B, 0x61, 0x00);
+    if (billNo) appendText(bytes, `Bill No: ${billNo}    Date: ${date}\n`);
+    appendText(bytes, `Customer: ${customer}\n`);
+    appendDivider(bytes);
+
+    // Items — extract from HTML table rows
+    const itemMatches = [...htmlContent.matchAll(/<td[^>]*>([A-Z][^<]{2,})<\/td>[\s\S]*?<td[^>]*>([\d.]+)<\/td>[\s\S]*?<td[^>]*>([\d.]+)<\/td>[\s\S]*?<td[^>]*><strong>([\d.]+)<\/strong><\/td>/gi)];
+    if (itemMatches.length === 0) {
+      // simpler fallback: just mention items section
+      appendText(bytes, '(See printed receipt for items)\n');
+    } else {
+      appendText(bytes, padLine('Item', 'Qty', 'Price', 'Amt'));
+      itemMatches.forEach(m => {
+        appendText(bytes, padLine(m[1].substring(0, 16), m[2], m[3], m[4]));
+      });
+    }
+    appendDivider(bytes);
+
+    // Total
+    bytes.push(0x1B, 0x61, 0x02); // right align
+    bytes.push(0x1B, 0x45, 0x01); // bold on
+    bytes.push(0x1D, 0x21, 0x01); // double height
+    if (total) appendText(bytes, `Total: Rs.${total}\n`);
+    bytes.push(0x1D, 0x21, 0x00);
+    bytes.push(0x1B, 0x45, 0x00); // bold off
+    bytes.push(0x1B, 0x61, 0x00); // left align
+    appendDivider(bytes);
+    appendText(bytes, `Payment: ${payment}\n`);
+    appendDivider(bytes);
+
+    // Footer
+    bytes.push(0x1B, 0x61, 0x01); // center
+    appendText(bytes, '*** Thank you & Visit Again ***\n\n\n');
+
+    // Feed and cut
+    bytes.push(0x1B, 0x64, 0x04); // feed 4 lines
+    bytes.push(0x1D, 0x56, 0x41, 0x10); // partial cut
+    return bytes;
+  };
+
+  const appendText = (bytes, text) => {
+    for (let i = 0; i < text.length; i++) {
+      bytes.push(text.charCodeAt(i) & 0xFF);
+    }
+  };
+  const appendDivider = (bytes) => {
+    appendText(bytes, '-'.repeat(42) + '\n');
+  };
+  const padLine = (a, b, c, d) => {
+    const col1 = (a + '                ').substring(0, 18);
+    const col2 = ('        ' + b).slice(-6);
+    const col3 = ('        ' + c).slice(-8);
+    const col4 = ('        ' + d).slice(-8);
+    return col1 + col2 + col3 + col4 + '\n';
+  };
+
   return (
     <PrinterContext.Provider
       value={{
@@ -572,7 +707,7 @@ export const PrinterProvider = ({ children }) => {
         printRawBLE,
         printRawUSB,
         printRawWebUSB,
-        printHTMLContent
+        printHTMLContent: smartPrint
       }}
     >
       {children}
