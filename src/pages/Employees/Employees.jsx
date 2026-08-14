@@ -16,7 +16,8 @@ import {
   Eye,
   Edit2,
   UserCircle,
-  IndianRupee
+  IndianRupee,
+  AlertTriangle
 } from 'lucide-react';
 
 import { db } from '../../config/firebase';
@@ -174,7 +175,7 @@ const Employees = () => {
           <h1 className="polaris-page-title">Employees</h1>
         </div>
         <div className="polaris-header-actions">
-          <button className="polaris-btn polaris-btn-primary" onClick={() => setShowAddModal(true)}>
+          <button className="polaris-btn polaris-btn-primary" onClick={() => setIsFormOpen(true)}>
             <Plus size={16} /> Add employee
           </button>
         </div>
