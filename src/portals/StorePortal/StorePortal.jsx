@@ -9,37 +9,37 @@ import { usePrinter } from '../../context/PrinterContext';
 import logo from '../../assets/logo.png';
 import { uploadToImageKit } from '../../config/imagekit';
 import { db } from '../../config/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  doc, 
-  updateDoc, 
-  addDoc, 
-  serverTimestamp, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  doc,
+  updateDoc,
+  addDoc,
+  serverTimestamp,
   getDoc,
   getDocs,
-  deleteDoc 
+  deleteDoc
 } from 'firebase/firestore';
-import { 
-  ShoppingBag, 
-  Users, 
-  CreditCard, 
-  ChevronDown, 
-  ChevronUp, 
-  Printer, 
-  Search, 
-  Scale, 
-  Minus, 
-  Plus, 
-  X, 
-  Sparkles, 
-  Phone, 
-  MapPin, 
-  User, 
-  Check, 
+import {
+  ShoppingBag,
+  Users,
+  CreditCard,
+  ChevronDown,
+  ChevronUp,
+  Printer,
+  Search,
+  Scale,
+  Minus,
+  Plus,
+  X,
+  Sparkles,
+  Phone,
+  MapPin,
+  User,
+  Check,
   ArrowRight,
   TrendingUp,
   Receipt,
@@ -92,7 +92,7 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredOptions = options.filter(opt => 
+  const filteredOptions = options.filter(opt =>
     (opt.name || opt.firstName + ' ' + opt.lastName || '').toLowerCase().includes(search.toLowerCase()) ||
     (opt.mobileNumber || opt.phone || '').includes(search)
   );
@@ -102,16 +102,16 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
   return (
     <div className="ord-dropdown" ref={dropdownRef}>
       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>{label}</label>
-      <div 
-        className="ord-dropdown-trigger" 
+      <div
+        className="ord-dropdown-trigger"
         onClick={() => setIsOpen(!isOpen)}
         style={hasError ? { border: '1.5px solid #dc2626' } : {}}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Icon size={18} color="var(--primary-color)" />
           <span>
-            {selectedOption 
-              ? (selectedOption.name || selectedOption.firstName + ' ' + selectedOption.lastName) 
+            {selectedOption
+              ? (selectedOption.name || selectedOption.firstName + ' ' + selectedOption.lastName)
               : placeholder}
           </span>
         </div>
@@ -125,16 +125,16 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             className="ord-dropdown-popover"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="ord-dropdown-search">
-              <input 
-                type="text" 
-                placeholder="Search..." 
+              <input
+                type="text"
+                placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
@@ -143,8 +143,8 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
             <div className="ord-dropdown-list">
               {filteredOptions.length > 0 ? (
                 filteredOptions.map(opt => (
-                  <div 
-                    key={opt.id} 
+                  <div
+                    key={opt.id}
                     className="ord-dropdown-item"
                     onClick={() => {
                       onSelect(opt.id);
@@ -160,7 +160,7 @@ const CustomDropdown = ({ label, options, onSelect, selectedValue, placeholder, 
                 <div style={{ padding: '15px', textAlign: 'center' }}>
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>No results found</div>
                   {onCreateClick && (
-                    <button 
+                    <button
                       type="button"
                       className="ord-create-customer-dropdown-btn"
                       onClick={() => {
@@ -748,6 +748,7 @@ const StorePortal = () => {
 
   // Billing & POS State
   const [billingSubTab, setBillingSubTab] = useState('pos'); // 'pos' or 'bills'
+  const [posBillDate, setPosBillDate] = useState(new Date().toISOString().split('T')[0]); // defaults to today's date YYYY-MM-DD
   const [billsFilterDate, setBillsFilterDate] = useState(new Date().toISOString().split('T')[0]); // defaults to today's date YYYY-MM-DD
   const [storeItems, setStoreItems] = useState([]);
   const [bills, setBills] = useState([]);
@@ -773,7 +774,7 @@ const StorePortal = () => {
     const scannedCode = parts[0].trim();
     const multiplier = parts.length > 1 ? parseFloat(parts[1]) : null;
 
-    const foundItem = storeItems.find(i => 
+    const foundItem = storeItems.find(i =>
       (i.barcode || i.barcodeId || '').toLowerCase() === scannedCode.toLowerCase() ||
       i.id === scannedCode ||
       i.name.toLowerCase() === scannedCode.toLowerCase()
@@ -974,7 +975,7 @@ const StorePortal = () => {
       gainNode.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.45);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // Unified Scanner Payload Database Processor
@@ -1054,7 +1055,7 @@ const StorePortal = () => {
       });
 
       const allBoxesScanned = updatedBoxes.every(b => b.received === true || b.status === 'received_at_store');
-      
+
       let updatedItems = order.items;
       let overallStatus = order.status || 'new';
 
@@ -1151,23 +1152,23 @@ const StorePortal = () => {
     setCameraActive(true);
     setScanError(null);
     setScanSuccessBox(null);
-    
+
     // Dynamic import to support client-side bundling safely
     const { Html5Qrcode } = await import('html5-qrcode');
-    
+
     setTimeout(async () => {
       try {
         const html5QrCode = new Html5Qrcode("st-camera-reader");
         html5QrCodeRef.current = html5QrCode;
-        
-        const config = { 
-          fps: 10, 
+
+        const config = {
+          fps: 10,
           qrbox: (width, height) => {
             const size = Math.min(width, height) * 0.7;
             return { width: size, height: size };
-          } 
+          }
         };
-        
+
         await html5QrCode.start(
           { facingMode: "environment" },
           config,
@@ -1185,7 +1186,7 @@ const StorePortal = () => {
         setScanError("Failed to access camera. Make sure webcam/camera permissions are granted.");
         setCameraActive(false);
         playErrorSound();
-        
+
         // Focus the barcode gun input as fallback
         setTimeout(() => {
           if (scanInputRef.current) {
@@ -1208,7 +1209,7 @@ const StorePortal = () => {
       html5QrCodeRef.current = null;
     }
     setCameraActive(false);
-    
+
     // Focus the barcode gun input when the camera modal is closed/cancelled
     setTimeout(() => {
       if (scanInputRef.current) {
@@ -1245,12 +1246,12 @@ const StorePortal = () => {
   useEffect(() => {
     if (tab === 'worksheet' && wsDate) {
       const q = query(collection(db, 'store_worksheets'), where('date', '==', wsDate));
-      
+
       const unsubscribe = onSnapshot(q, (snap) => {
         if (!snap.empty) {
           const docData = snap.docs[0].data();
           setActiveWorksheet({ id: snap.docs[0].id, ...docData });
-          
+
           const globalQuantities = docData.quantities || {};
           const storeQuantities = {};
           Object.entries(globalQuantities).forEach(([itemId, storeQtyMap]) => {
@@ -1315,7 +1316,7 @@ const StorePortal = () => {
     try {
       const q = query(collection(db, 'store_worksheets'), where('date', '==', wsDate));
       const snap = await getDocs(q);
-      
+
       let mergedQuantities = {};
       let docId = null;
 
@@ -1326,7 +1327,7 @@ const StorePortal = () => {
 
       wsItems.forEach(item => {
         const qty = wsQuantities[item.id];
-        
+
         if (qty === '' || qty === 0 || isNaN(qty) || qty === undefined) {
           if (mergedQuantities[item.id]) {
             delete mergedQuantities[item.id][id];
@@ -1379,10 +1380,10 @@ const StorePortal = () => {
   // Helper function to match dates across local format variations securely
   const isSameDay = (billDateStr, selectedDateStr) => {
     if (!billDateStr || !selectedDateStr) return false;
-    
+
     // selectedDateStr is always YYYY-MM-DD
     const [selYear, selMonth, selDay] = selectedDateStr.split('-').map(Number);
-    
+
     try {
       // 1. Slash format (DD/MM/YYYY or MM/DD/YYYY)
       if (billDateStr.includes('/')) {
@@ -1403,7 +1404,7 @@ const StorePortal = () => {
           }
         }
       }
-      
+
       // 2. Dash format (YYYY-MM-DD)
       if (billDateStr.includes('-')) {
         const parts = billDateStr.split('-');
@@ -1420,9 +1421,9 @@ const StorePortal = () => {
       // 3. Fallback date parse
       const parsed = new Date(billDateStr);
       if (!isNaN(parsed.getTime())) {
-        return parsed.getFullYear() === selYear && 
-               parsed.getMonth() === (selMonth - 1) && 
-               parsed.getDate() === selDay;
+        return parsed.getFullYear() === selYear &&
+          parsed.getMonth() === (selMonth - 1) &&
+          parsed.getDate() === selDay;
       }
     } catch (e) {
       console.error("Error parsing bill date:", e);
@@ -1575,49 +1576,49 @@ const StorePortal = () => {
 
   const calculateOverallOrderStatus = (items) => {
     if (!items || items.length === 0) return 'new';
-    
+
     const getStatus = (item) => (item.status || 'preparation_started').toLowerCase().trim();
-    
+
     // Check if ALL items are delivered
     const allDelivered = items.every(item => getStatus(item) === 'delivered');
     if (allDelivered) return 'Delivered';
-    
+
     // Check if ALL items are at least received_at_store
     const allReceived = items.every(item => {
       const st = getStatus(item);
       return st === 'received_at_store' || st === 'delivered';
     });
     if (allReceived) return 'Ready for Delivery';
-    
+
     // Check if SOME items are at least received_at_store
     const someReceived = items.some(item => {
       const st = getStatus(item);
       return st === 'received_at_store' || st === 'delivered';
     });
     if (someReceived) return 'Partially Ready for Delivery';
-    
+
     // Check if ALL items are at least moved_to_store
     const allMoved = items.every(item => {
       const st = getStatus(item);
       return st === 'moved_to_store' || st === 'received_at_store' || st === 'delivered';
     });
     if (allMoved) return 'Moved to Store';
-    
+
     // Check if SOME items are at least moved_to_store
     const someMoved = items.some(item => {
       const st = getStatus(item);
       return st === 'moved_to_store' || st === 'received_at_store' || st === 'delivered';
     });
     if (someMoved) return 'Partially Moved to Store';
-    
+
     // Check if ANY item has progressed beyond preparation_started (or new/empty status)
     const hasProgressed = items.some(item => {
       const st = getStatus(item);
       return st !== 'preparation_started' && st !== 'new' && st !== '';
     });
-    
+
     if (hasProgressed) return 'In Progress';
-    
+
     return 'new';
   };
 
@@ -1631,17 +1632,17 @@ const StorePortal = () => {
       const orderRef = doc(db, 'orders', orderId);
       const order = orders.find(o => o.id === orderId);
       if (!order) return;
-      
+
       const newItems = order.items.map((item, idx) => {
         if (idx === itemIndex) {
           return { ...item, status: newStatus };
         }
         return { ...item };
       });
-      
+
       const overallStatus = calculateOverallOrderStatus(newItems);
-      
-      await updateDoc(orderRef, { 
+
+      await updateDoc(orderRef, {
         items: newItems,
         status: overallStatus
       });
@@ -1960,7 +1961,7 @@ const StorePortal = () => {
   const handleOpenCreateCustomer = (searchVal) => {
     let initialPhone = '';
     let initialFirstName = '';
-    
+
     if (/^\d+$/.test(searchVal)) {
       initialPhone = searchVal;
     } else {
@@ -1997,15 +1998,15 @@ const StorePortal = () => {
         ...customerFormData,
         createdAt: serverTimestamp()
       });
-      
+
       const newCust = {
         id: docRef.id,
         ...customerFormData
       };
-      
+
       setOrderCustomers(prev => [newCust, ...prev].sort((a, b) => a.firstName.localeCompare(b.firstName)));
       setSelectedCustomer(docRef.id);
-      
+
       toast.success("Customer created and selected!");
       setShowCreateCustomerModal(false);
     } catch (error) {
@@ -2088,13 +2089,13 @@ const StorePortal = () => {
         return c;
       }));
     } else {
-      setCart(prev => [...prev, { 
-        id: item.id, 
-        name: item.name, 
-        price: item.price, 
+      setCart(prev => [...prev, {
+        id: item.id,
+        name: item.name,
+        price: item.price,
         unit: item.unit,
-        quantity: item.unit === 'Weight' ? parseFloat(quantity).toFixed(3) : parseInt(quantity), 
-        total: parseFloat(amount) 
+        quantity: item.unit === 'Weight' ? parseFloat(quantity).toFixed(3) : parseInt(quantity),
+        total: parseFloat(amount)
       }]);
     }
     toast.success(`${item.name} updated in cart`);
@@ -2105,7 +2106,7 @@ const StorePortal = () => {
     setCart(prev => {
       const existing = prev.find(c => c.id === itemId);
       if (!existing) return prev;
-      
+
       if (delta === -1 && existing.quantity <= (isWeight ? 0.001 : 1)) {
         return prev.filter(c => c.id !== itemId);
       }
@@ -2156,6 +2157,12 @@ const StorePortal = () => {
       const totalAmt = Math.max(0, cartTotal - discountVal);
 
 
+      const selectedBillDate = posBillDate || new Date().toISOString().split('T')[0];
+      const dateParts = selectedBillDate.split('-');
+      const formattedDate = dateParts.length === 3
+        ? new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2])).toLocaleDateString('en-IN')
+        : new Date(selectedBillDate).toLocaleDateString('en-IN');
+
       const billData = {
         billId,
         storeId: id,
@@ -2178,18 +2185,20 @@ const StorePortal = () => {
         paymentMode,
         status: 'settled',
         createdAt: serverTimestamp(),
-        date: new Date().toLocaleDateString('en-IN')
+        date: formattedDate,
+        billDate: selectedBillDate
       };
-      
+
       const docRef = await addDoc(collection(db, 'bills'), billData);
-      await addDoc(collection(db, 'stores', id, 'bills'), { ...billData, id: docRef.id }).catch(() => {});
+      await addDoc(collection(db, 'stores', id, 'bills'), { ...billData, id: docRef.id }).catch(() => { });
       toast.success(`Bill settled successfully: ${billId}`);
-      
+
       setCart([]);
       setPosDiscount('');
       setSelectedCustomerId('');
+      setPosBillDate(new Date().toISOString().split('T')[0]);
       setSelectedReceiptBill(billData);
-      
+
       // Auto-print receipt via USB/Bluetooth thermal printer or system dialog
       handlePrintTrigger(billData);
 
@@ -2213,7 +2222,7 @@ const StorePortal = () => {
 
   // --- Filtering Methods ---
   const filteredOrders = orders.filter(ord => {
-    const matchesSearch = 
+    const matchesSearch =
       (ord.orderId || '').toLowerCase().includes(orderSearch.toLowerCase()) ||
       (ord.customerName || '').toLowerCase().includes(orderSearch.toLowerCase()) ||
       (ord.customerPhone || '').includes(orderSearch);
@@ -2226,7 +2235,7 @@ const StorePortal = () => {
     return matchesSearch && matchesDate && matchesStatus && matchesPaymentStatus && matchesStore;
   });
 
-  const filteredCustomers = customers.filter(cust => 
+  const filteredCustomers = customers.filter(cust =>
     `${cust.firstName} ${cust.lastName || ''}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
     (cust.mobileNumber || '').includes(customerSearch)
   );
@@ -2263,7 +2272,7 @@ const StorePortal = () => {
   return (
     <PortalLayout title="Store Portal" links={links}>
       <div className="polaris-page-container">
-        
+
         {/* --- ORDERS VIEW --- */}
         {tab === 'orders' && (
           <div className="st-orders-view animate-fade-in">
@@ -2469,7 +2478,7 @@ const StorePortal = () => {
                             </div>
                           </td>
                         </tr>
-                        
+
                         {expandedOrders.includes(order.id) && (
                           <tr className="ord-accordion-row">
                             <td colSpan="9" style={{ padding: 0 }}>
@@ -2568,14 +2577,14 @@ const StorePortal = () => {
                                           order.boxes.map((box, bIdx) => {
                                             const isReceived = box.received === true || box.status === 'received_at_store';
                                             return (
-                                              <div 
-                                                key={bIdx} 
-                                                className="ord-installment-card" 
-                                                style={{ 
-                                                  padding: '10px 12px', 
-                                                  background: isReceived ? '#f0fdf4' : '#faf5ff', 
-                                                  border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff', 
-                                                  display: 'block', 
+                                              <div
+                                                key={bIdx}
+                                                className="ord-installment-card"
+                                                style={{
+                                                  padding: '10px 12px',
+                                                  background: isReceived ? '#f0fdf4' : '#faf5ff',
+                                                  border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff',
+                                                  display: 'block',
                                                   textAlign: 'left',
                                                   borderRadius: '8px',
                                                   boxShadow: isReceived ? '0 0 10px rgba(16, 185, 129, 0.1)' : 'none',
@@ -2838,14 +2847,14 @@ const StorePortal = () => {
                                     order.boxes.map((box, bIdx) => {
                                       const isReceived = box.received === true || box.status === 'received_at_store';
                                       return (
-                                        <div 
-                                          key={bIdx} 
-                                          className="ord-installment-card" 
-                                          style={{ 
-                                            padding: '8px 10px', 
-                                            background: isReceived ? '#f0fdf4' : '#faf5ff', 
-                                            border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff', 
-                                            display: 'block', 
+                                        <div
+                                          key={bIdx}
+                                          className="ord-installment-card"
+                                          style={{
+                                            padding: '8px 10px',
+                                            background: isReceived ? '#f0fdf4' : '#faf5ff',
+                                            border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff',
+                                            display: 'block',
                                             textAlign: 'left',
                                             borderRadius: '8px',
                                             boxShadow: isReceived ? '0 0 8px rgba(16, 185, 129, 0.1)' : 'none',
@@ -2953,9 +2962,9 @@ const StorePortal = () => {
               </div>
               <div className="st-search-wrapper">
                 <Search size={18} className="st-search-icon" />
-                <input 
-                  type="text" 
-                  placeholder="Search customers..." 
+                <input
+                  type="text"
+                  placeholder="Search customers..."
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
                 />
@@ -3010,15 +3019,15 @@ const StorePortal = () => {
                   <h2>Store Work Sheet</h2>
                   <p className="st-view-desc">Submit sweet and savory stock requirements for your outlet</p>
                 </div>
-                
+
                 <div className="st-sub-tabs">
-                  <button 
+                  <button
                     className={`st-sub-tab-btn ${wsTab === 'active' ? 'active' : ''}`}
                     onClick={() => setWsTab('active')}
                   >
                     <ClipboardList size={16} /> Active Sheet
                   </button>
-                  <button 
+                  <button
                     className={`st-sub-tab-btn ${wsTab === 'history' ? 'active' : ''}`}
                     onClick={() => setWsTab('history')}
                   >
@@ -3032,19 +3041,19 @@ const StorePortal = () => {
                   <div className="st-filter-left">
                     <Calendar size={18} className="st-filter-cal-icon" />
                     <span className="st-filter-label">Allocation Date:</span>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       className="st-date-picker-input"
-                      value={wsDate} 
-                      onChange={(e) => setWsDate(e.target.value)} 
+                      value={wsDate}
+                      onChange={(e) => setWsDate(e.target.value)}
                     />
                   </div>
-                  
+
                   <div className="st-search-wrapper" style={{ width: '280px', margin: 0 }}>
                     <Search size={18} className="st-search-icon" />
-                    <input 
-                      type="text" 
-                      placeholder="Search items by name..." 
+                    <input
+                      type="text"
+                      placeholder="Search items by name..."
                       value={wsSearch}
                       onChange={(e) => setWsSearch(e.target.value)}
                     />
@@ -3081,12 +3090,12 @@ const StorePortal = () => {
                                 <td style={{ fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                   <span>{item.name}</span>
                                   {isAllocationCompleted && (
-                                    <span style={{ 
-                                      background: '#10b981', 
-                                      color: 'white', 
-                                      fontSize: '10px', 
-                                      fontWeight: '800', 
-                                      padding: '2px 8px', 
+                                    <span style={{
+                                      background: '#10b981',
+                                      color: 'white',
+                                      fontSize: '10px',
+                                      fontWeight: '800',
+                                      padding: '2px 8px',
                                       borderRadius: '20px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -3125,8 +3134,8 @@ const StorePortal = () => {
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                 <Search size={24} style={{ color: '#94a3b8' }} />
                                 <span style={{ fontWeight: 600 }}>No worksheet items match "{wsSearch}"</span>
-                                <button 
-                                  onClick={() => setWsSearch('')} 
+                                <button
+                                  onClick={() => setWsSearch('')}
                                   style={{
                                     background: 'none',
                                     border: 'none',
@@ -3148,9 +3157,9 @@ const StorePortal = () => {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '15px' }}>
-                    <button 
-                      onClick={handleSaveWorksheet} 
-                      className="st-print-invoice-btn" 
+                    <button
+                      onClick={handleSaveWorksheet}
+                      className="st-print-invoice-btn"
                       style={{ background: 'var(--accent-color)', color: 'black', height: '42px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}
                       disabled={wsSaving}
                     >
@@ -3173,11 +3182,11 @@ const StorePortal = () => {
                 <div className="st-history-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '20px' }}>
                   {wsHistory.map(sheet => {
                     const storeAllocatedCount = Object.entries(sheet.quantities || {}).filter(([_, storeQtyMap]) => storeQtyMap && storeQtyMap[id] > 0).length;
-                    
+
                     return (
-                      <div 
-                        key={sheet.id} 
-                        className="ws-history-card" 
+                      <div
+                        key={sheet.id}
+                        className="ws-history-card"
                         onClick={() => {
                           // Simple preview inside a modal
                           setWsPreviewSheet(sheet);
@@ -3211,7 +3220,7 @@ const StorePortal = () => {
         {/* --- BILLING & POS VIEW (WITH SUB TABS) --- */}
         {tab === 'billing' && (
           <div className="st-billing-view">
-            
+
             {/* View Header with Sub Navigation Tabs */}
             <div className="st-view-header" style={{ marginBottom: '20px' }}>
               <div>
@@ -3219,13 +3228,13 @@ const StorePortal = () => {
                 <p className="st-view-desc">Settle walk-in bills and view past store invoice records</p>
               </div>
               <div className="st-sub-tabs">
-                <button 
+                <button
                   className={`st-sub-tab-btn ${billingSubTab === 'pos' ? 'active' : ''}`}
                   onClick={() => setBillingSubTab('pos')}
                 >
                   <CreditCard size={16} /> POS Terminal
                 </button>
-                <button 
+                <button
                   className={`st-sub-tab-btn ${billingSubTab === 'bills' ? 'active' : ''}`}
                   onClick={() => setBillingSubTab('bills')}
                 >
@@ -3287,7 +3296,7 @@ const StorePortal = () => {
             {billingSubTab === 'pos' && (
               <>
                 {/* Fast USB Barcode Gun Scanner Input Bar */}
-                <form 
+                <form
                   onSubmit={handleStBarcodeSubmit}
                   style={{
                     background: '#ffffff',
@@ -3303,9 +3312,9 @@ const StorePortal = () => {
                 >
                   <Barcode size={22} color="var(--primary-color)" />
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '6px 12px' }}>
-                    <input 
+                    <input
                       ref={stBarcodeInputRef}
-                      type="text" 
+                      type="text"
                       placeholder="Scan Barcode / Enter BarcodeID*Qty (e.g. 890123456789*500)..."
                       value={stBarcodeInput}
                       onChange={(e) => setStBarcodeInput(e.target.value)}
@@ -3319,375 +3328,401 @@ const StorePortal = () => {
 
                 <div className="st-pos-layout">
 
-                {/* POS Catalogue Panel */}
-                <div className="st-pos-catalogue">
-                  <div className="st-catalogue-header">
-                    <h3>Product Catalogue</h3>
-                    <div className="st-pos-search">
-                      <Search size={16} />
-                      <input 
-                        type="text" 
-                        placeholder="Search products..." 
-                        value={billingSearch}
-                        onChange={(e) => setBillingSearch(e.target.value)}
-                      />
+                  {/* POS Catalogue Panel */}
+                  <div className="st-pos-catalogue">
+                    <div className="st-catalogue-header">
+                      <h3>Product Catalogue</h3>
+                      <div className="st-pos-search">
+                        <Search size={16} />
+                        <input
+                          type="text"
+                          placeholder="Search products..."
+                          value={billingSearch}
+                          onChange={(e) => setBillingSearch(e.target.value)}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="st-catalogue-grid">
-                    {storeItems
-                      .filter(i => (i.name || '').toLowerCase().includes(billingSearch.toLowerCase()))
-                      .map(item => {
-                        const inCart = cart.find(c => c.id === item.id);
-                        return (
-                          <div key={item.id} className="st-pos-item-card">
-                            <div className="st-pos-item-img" onClick={() => handleItemClick(item)}>
-                              <img 
-                                src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
-                                alt={item.name} 
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = DEFAULT_ITEM_IMAGE;
-                                }}
-                              />
-                              {inCart && (
-                                <div className="st-cart-badge">
-                                  {item.unit === 'Weight' ? `${inCart.quantity}kg` : inCart.quantity}
-                                </div>
-                              )}
-                            </div>
-                            <div className="st-pos-item-info">
-                              <h4>{item.name}</h4>
-                              <div className="st-pos-item-footer">
-                                <span className="price">₹{item.price} <small>/{item.unit === 'Weight' ? 'kg' : 'pc'}</small></span>
-                                {item.unit === 'Piece' ? (
-                                  <div className="st-pos-qty-controls">
-                                    <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }}><Minus size={12} /></button>
-                                    <span>{inCart ? inCart.quantity : 0}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); inCart ? updateQuantity(item.id, 1) : handleItemClick(item); }}><Plus size={12} /></button>
+                    <div className="st-catalogue-grid">
+                      {storeItems
+                        .filter(i => (i.name || '').toLowerCase().includes(billingSearch.toLowerCase()))
+                        .map(item => {
+                          const inCart = cart.find(c => c.id === item.id);
+                          return (
+                            <div key={item.id} className="st-pos-item-card">
+                              <div className="st-pos-item-img" onClick={() => handleItemClick(item)}>
+                                <img
+                                  src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image}
+                                  alt={item.name}
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = DEFAULT_ITEM_IMAGE;
+                                  }}
+                                />
+                                {inCart && (
+                                  <div className="st-cart-badge">
+                                    {item.unit === 'Weight' ? `${inCart.quantity}kg` : inCart.quantity}
                                   </div>
-                                ) : (
-                                  <button className="st-pos-weight-btn" onClick={() => handleItemClick(item)}>
-                                    <Scale size={12} /> Scale
-                                  </button>
                                 )}
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    {storeItems.length === 0 && (
-                      <div className="st-empty-catalog" style={{ gridColumn: '1 / -1' }}>
-                        <AlertCircle size={32} />
-                        <p>No store products configured.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* POS Summary Panel */}
-                <div className="st-pos-summary">
-                  <div className="st-summary-header" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h3>Current Shopping Cart</h3>
-                      
-                      {/* Printer Status Triggers */}
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <div className="st-compact-bluetooth" onClick={bluetoothConnected ? disconnectPrinter : handleBluetoothConnect} style={{ cursor: 'pointer' }}>
-                          <Bluetooth size={13} className={bluetoothConnected ? 'connected' : 'disconnected'} />
-                          <span style={{ fontSize: '10px', fontWeight: '700', color: bluetoothConnected ? '#10b981' : '#64748b' }}>
-                            {bluetoothConnected ? 'BT On' : 'BT'}
-                          </span>
-                        </div>
-                        <div className="st-compact-bluetooth"
-                          onClick={qzConnected ? () => setShowQZModal(true) : connectQZTray}
-                          style={{ cursor: qzConnecting ? 'wait' : 'pointer', background: qzConnected ? '#eff6ff' : undefined, border: qzConnected ? '1px solid #bfdbfe' : undefined }}>
-                          {qzConnecting ? <RefreshCw size={12} className="spin-icon" /> : <Usb size={12} style={{ color: qzConnected ? '#2563eb' : '#64748b' }} />}
-                          <span style={{ fontSize: '10px', fontWeight: '700', color: qzConnected ? '#2563eb' : '#64748b' }}>
-                            {qzConnecting ? '...' : qzConnected ? 'USB On' : 'USB'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Active Printer Banner */}
-                    {(bluetoothConnected || qzConnected) && (
-                      <div className="st-bluetooth-banner" style={{ background: bluetoothConnected ? '#f0fdf4' : '#eff6ff', borderColor: bluetoothConnected ? '#bbf7d0' : '#bfdbfe' }}>
-                        <div className="st-banner-left">
-                          {bluetoothConnected ? <Bluetooth size={12} color="#16a34a" /> : <Usb size={12} color="#2563eb" />}
-                          <span style={{ color: bluetoothConnected ? '#16a34a' : '#2563eb' }}>
-                            {bluetoothConnected ? `BT: ${connectedDevice}` : `USB: ${selectedQZPrinter || 'No printer'}`}
-                          </span>
-                        </div>
-                        <button
-                          onClick={bluetoothConnected ? disconnectPrinter : disconnectQZTray}
-                          className="st-banner-disconnect-btn">
-                          Disconnect
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Customer Auto-Suggest Selector (Optional) */}
-                  <div style={{ padding: '10px 15px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <UserCheck size={14} /> Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '10px' }}>(Optional)</span>
-                      </label>
-                    </div>
-
-                    {(() => {
-                      const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
-                      const filteredCusts = customers.filter(c => {
-                        const q = customerSearch.toLowerCase();
-                        return (c.firstName || '').toLowerCase().includes(q) ||
-                               (c.lastName || '').toLowerCase().includes(q) ||
-                               (c.mobileNumber || '').includes(q);
-                      });
-
-                      return (
-                        <div style={{ position: 'relative' }} ref={custDropdownRef}>
-                          {selectedCustomerObj ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#e6f4ea', border: '1px solid #a7f3d0', padding: '6px 10px', borderRadius: '6px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <UserCheck size={14} color="#065f46" />
-                                <div>
-                                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#065f46' }}>
-                                    {selectedCustomerObj.firstName} {selectedCustomerObj.lastName || ''}
-                                  </div>
-                                  <div style={{ fontSize: '10px', color: '#047857' }}>
-                                    📱 {selectedCustomerObj.mobileNumber}
-                                  </div>
-                                </div>
-                              </div>
-                              <button 
-                                type="button" 
-                                onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); }}
-                                style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}
-                                title="Clear selected customer"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div style={{ position: 'relative' }}>
-                              <input 
-                                type="text" 
-                                placeholder="Search customer by name or phone..."
-                                value={customerSearch}
-                                onFocus={() => setShowCustDropdown(true)}
-                                onChange={(e) => {
-                                  setCustomerSearch(e.target.value);
-                                  setShowCustDropdown(true);
-                                }}
-                                style={{ height: '32px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
-                              />
-
-                              {showCustDropdown && (
-                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '180px', overflowY: 'auto', marginTop: '4px' }}>
-                                  {filteredCusts.length > 0 ? (
-                                    filteredCusts.map(c => (
-                                      <div 
-                                        key={c.id}
-                                        onClick={() => {
-                                          setSelectedCustomerId(c.id);
-                                          setCustomerSearch(`${c.firstName} ${c.lastName || ''}`);
-                                          setShowCustDropdown(false);
-                                        }}
-                                        style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
-                                      >
-                                        <div>
-                                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
-                                            {c.firstName} {c.lastName || ''}
-                                          </div>
-                                          <div style={{ fontSize: '10px', color: '#64748b' }}>📱 {c.mobileNumber}</div>
-                                        </div>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div style={{ padding: '10px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
-                                      No customer matches "{customerSearch}"
+                              <div className="st-pos-item-info">
+                                <h4>{item.name}</h4>
+                                <div className="st-pos-item-footer">
+                                  <span className="price">₹{item.price} <small>/{item.unit === 'Weight' ? 'kg' : 'pc'}</small></span>
+                                  {item.unit === 'Piece' ? (
+                                    <div className="st-pos-qty-controls">
+                                      <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }}><Minus size={12} /></button>
+                                      <span>{inCart ? inCart.quantity : 0}</span>
+                                      <button onClick={(e) => { e.stopPropagation(); inCart ? updateQuantity(item.id, 1) : handleItemClick(item); }}><Plus size={12} /></button>
                                     </div>
+                                  ) : (
+                                    <button className="st-pos-weight-btn" onClick={() => handleItemClick(item)}>
+                                      <Scale size={12} /> Scale
+                                    </button>
                                   )}
                                 </div>
-                              )}
+                              </div>
                             </div>
-                          )}
+                          );
+                        })}
+                      {storeItems.length === 0 && (
+                        <div className="st-empty-catalog" style={{ gridColumn: '1 / -1' }}>
+                          <AlertCircle size={32} />
+                          <p>No store products configured.</p>
                         </div>
-                      );
-                    })()}
+                      )}
+                    </div>
                   </div>
 
-                  {/* Items Count Header Bar */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
-                      Total Items: <strong style={{ color: 'var(--primary-color)' }}>{cart.length}</strong>
-                    </span>
-                    <span style={{ fontSize: '10px', background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
-                      Units: {cart.reduce((sum, item) => sum + (item.unit === 'Weight' ? parseFloat(item.quantity) : parseInt(item.quantity)), 0).toFixed(cart.some(i => i.unit === 'Weight') ? 3 : 0)}
-                    </span>
-                  </div>
-
-                  <div className="st-summary-items">
-
-
-                    {cart.map((item, idx) => (
-                      <div key={idx} className="st-summary-row">
-                        <div className="st-summary-details">
-                          <span className="name">{item.name}</span>
-                          <span className="price-sub">₹{item.price} / {item.unit === 'Weight' ? 'kg' : 'pc'}</span>
-                        </div>
-                        <div className="st-summary-actions">
-                          {item.unit === 'Weight' ? (
-                            <div className="st-pos-qty-controls">
-                              <button onClick={() => handleItemClick(storeItems.find(si => si.id === item.id))} title="Edit Weight"><Scale size={12} /></button>
-                              <span>{item.quantity}kg</span>
-                            </div>
-                          ) : (
-                            <div className="st-pos-qty-controls">
-                              <button onClick={() => updateQuantity(item.id, -1)}><Minus size={12} /></button>
-                              <span>{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, 1)}><Plus size={12} /></button>
-                            </div>
-                          )}
-                          <span className="total">₹{item.total.toFixed(2)}</span>
-                          <button className="remove-btn" onClick={() => setCart(cart.filter((_, i) => i !== idx))}><X size={14} /></button>
-                        </div>
-                      </div>
-                    ))}
-                    {cart.length === 0 && (
-                      <div className="st-empty-cart">
-                        <ShoppingBag size={32} />
-                        <p>Your shopping cart is empty.</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="st-summary-settle">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
+                  {/* POS Summary Panel */}
+                  <div className="st-pos-summary">
+                    <div className="st-summary-header" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
-                          Discount ({discountType === 'percent' ? '%' : '₹'})
-                        </label>
-                        <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
-                          <button
-                            type="button"
-                            onClick={() => setDiscountType('percent')}
-                            style={{
-                              padding: '2px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              border: 'none',
-                              background: discountType === 'percent' ? 'var(--primary-color)' : '#f1f5f9',
-                              color: discountType === 'percent' ? '#ffffff' : '#475569',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            %
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDiscountType('amount')}
-                            style={{
-                              padding: '2px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              border: 'none',
-                              background: discountType === 'amount' ? 'var(--primary-color)' : '#f1f5f9',
-                              color: discountType === 'amount' ? '#ffffff' : '#475569',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            ₹
-                          </button>
+                        <h3>Current Shopping Cart</h3>
+
+                        {/* Printer Status Triggers */}
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <div className="st-compact-bluetooth" onClick={bluetoothConnected ? disconnectPrinter : handleBluetoothConnect} style={{ cursor: 'pointer' }}>
+                            <Bluetooth size={13} className={bluetoothConnected ? 'connected' : 'disconnected'} />
+                            <span style={{ fontSize: '10px', fontWeight: '700', color: bluetoothConnected ? '#10b981' : '#64748b' }}>
+                              {bluetoothConnected ? 'BT On' : 'BT'}
+                            </span>
+                          </div>
+                          <div className="st-compact-bluetooth"
+                            onClick={qzConnected ? () => setShowQZModal(true) : connectQZTray}
+                            style={{ cursor: qzConnecting ? 'wait' : 'pointer', background: qzConnected ? '#eff6ff' : undefined, border: qzConnected ? '1px solid #bfdbfe' : undefined }}>
+                            {qzConnecting ? <RefreshCw size={12} className="spin-icon" /> : <Usb size={12} style={{ color: qzConnected ? '#2563eb' : '#64748b' }} />}
+                            <span style={{ fontSize: '10px', fontWeight: '700', color: qzConnected ? '#2563eb' : '#64748b' }}>
+                              {qzConnecting ? '...' : qzConnected ? 'USB On' : 'USB'}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <input 
-                        type="number"
-                        placeholder={discountType === 'percent' ? 'e.g. 10%' : 'e.g. 50'}
-                        value={posDiscount}
-                        onChange={(e) => setPosDiscount(e.target.value)}
-                        style={{
-                          height: '38px',
-                          padding: '0 12px',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          fontSize: '14px',
-                          fontWeight: '700',
-                          width: '100%',
-                          boxSizing: 'border-box'
-                        }}
-                      />
+
+                      {/* Active Printer Banner */}
+                      {(bluetoothConnected || qzConnected) && (
+                        <div className="st-bluetooth-banner" style={{ background: bluetoothConnected ? '#f0fdf4' : '#eff6ff', borderColor: bluetoothConnected ? '#bbf7d0' : '#bfdbfe' }}>
+                          <div className="st-banner-left">
+                            {bluetoothConnected ? <Bluetooth size={12} color="#16a34a" /> : <Usb size={12} color="#2563eb" />}
+                            <span style={{ color: bluetoothConnected ? '#16a34a' : '#2563eb' }}>
+                              {bluetoothConnected ? `BT: ${connectedDevice}` : `USB: ${selectedQZPrinter || 'No printer'}`}
+                            </span>
+                          </div>
+                          <button
+                            onClick={bluetoothConnected ? disconnectPrinter : disconnectQZTray}
+                            className="st-banner-disconnect-btn">
+                            Disconnect
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    {(() => {
-                      const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
-                      const rawDiscount = parseFloat(posDiscount) || 0;
-                      const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
-                      const totalAmt = Math.max(0, cartTotal - discountVal);
-                      const posSubtotal = totalAmt / 1.05;
-                      const posGst = totalAmt - posSubtotal;
+                    {/* Billing Date Selector Card */}
+                    {/* <div style={{ padding: '10px 15px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Calendar size={14} color="var(--primary-color)" />
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)' }}>Bill Date:</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input
+                          type="date"
+                          value={posBillDate}
+                          onChange={(e) => setPosBillDate(e.target.value)}
+                          style={{ height: '28px', padding: '0 6px', borderRadius: '6px', border: '1.5px solid #cbd5e1', fontSize: '12px', fontWeight: '700', color: '#1e293b', outline: 'none' }}
+                        />
+                        {posBillDate !== new Date().toISOString().split('T')[0] && (
+                          <button
+                            type="button"
+                            onClick={() => setPosBillDate(new Date().toISOString().split('T')[0])}
+                            style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '10px', fontWeight: '700', padding: '3px 6px', cursor: 'pointer' }}
+                            title="Reset to today"
+                          >
+                            Today
+                          </button>
+                        )}
+                      </div>
+                    </div> */}
 
+                    {/* Customer Auto-Suggest Selector (Optional) */}
+                    <div style={{ padding: '10px 15px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <UserCheck size={14} /> Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '10px' }}>(Optional)</span>
+                        </label>
+                      </div>
 
-                      return (
-                        <>
-                          <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '10px' }}>
-                            {discountVal > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
-                                <span>Cart Total</span>
-                                <span>₹{cartTotal.toFixed(2)}</span>
+                      {(() => {
+                        const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
+                        const filteredCusts = customers.filter(c => {
+                          const q = customerSearch.toLowerCase();
+                          return (c.firstName || '').toLowerCase().includes(q) ||
+                            (c.lastName || '').toLowerCase().includes(q) ||
+                            (c.mobileNumber || '').includes(q);
+                        });
+
+                        return (
+                          <div style={{ position: 'relative' }} ref={custDropdownRef}>
+                            {selectedCustomerObj ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#e6f4ea', border: '1px solid #a7f3d0', padding: '6px 10px', borderRadius: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <UserCheck size={14} color="#065f46" />
+                                  <div>
+                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#065f46' }}>
+                                      {selectedCustomerObj.firstName} {selectedCustomerObj.lastName || ''}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: '#047857' }}>
+                                      📱 {selectedCustomerObj.mobileNumber}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); }}
+                                  style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}
+                                  title="Clear selected customer"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ position: 'relative' }}>
+                                <input
+                                  type="text"
+                                  placeholder="Search customer by name or phone..."
+                                  value={customerSearch}
+                                  onFocus={() => setShowCustDropdown(true)}
+                                  onChange={(e) => {
+                                    setCustomerSearch(e.target.value);
+                                    setShowCustDropdown(true);
+                                  }}
+                                  style={{ height: '32px', padding: '0 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
+                                />
+
+                                {showCustDropdown && (
+                                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '180px', overflowY: 'auto', marginTop: '4px' }}>
+                                    {filteredCusts.length > 0 ? (
+                                      filteredCusts.map(c => (
+                                        <div
+                                          key={c.id}
+                                          onClick={() => {
+                                            setSelectedCustomerId(c.id);
+                                            setCustomerSearch(`${c.firstName} ${c.lastName || ''}`);
+                                            setShowCustDropdown(false);
+                                          }}
+                                          style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                          onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+                                          onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
+                                        >
+                                          <div>
+                                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                                              {c.firstName} {c.lastName || ''}
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: '#64748b' }}>📱 {c.mobileNumber}</div>
+                                          </div>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div style={{ padding: '10px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
+                                        No customer matches "{customerSearch}"
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
-                            {discountVal > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#dc2626', fontWeight: '700' }}>
-                                <span>Discount</span>
-                                <span>-₹{discountVal.toFixed(2)}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Items Count Header Bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
+                        Total Items: <strong style={{ color: 'var(--primary-color)' }}>{cart.length}</strong>
+                      </span>
+                      <span style={{ fontSize: '10px', background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '12px', fontWeight: '800' }}>
+                        Units: {cart.reduce((sum, item) => sum + (item.unit === 'Weight' ? parseFloat(item.quantity) : parseInt(item.quantity)), 0).toFixed(cart.some(i => i.unit === 'Weight') ? 3 : 0)}
+                      </span>
+                    </div>
+
+                    <div className="st-summary-items">
+
+
+                      {cart.map((item, idx) => (
+                        <div key={idx} className="st-summary-row">
+                          <div className="st-summary-details">
+                            <span className="name">{item.name}</span>
+                            <span className="price-sub">₹{item.price} / {item.unit === 'Weight' ? 'kg' : 'pc'}</span>
+                          </div>
+                          <div className="st-summary-actions">
+                            {item.unit === 'Weight' ? (
+                              <div className="st-pos-qty-controls">
+                                <button onClick={() => handleItemClick(storeItems.find(si => si.id === item.id))} title="Edit Weight"><Scale size={12} /></button>
+                                <span>{item.quantity}kg</span>
+                              </div>
+                            ) : (
+                              <div className="st-pos-qty-controls">
+                                <button onClick={() => updateQuantity(item.id, -1)}><Minus size={12} /></button>
+                                <span>{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.id, 1)}><Plus size={12} /></button>
                               </div>
                             )}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
-                              <span>Subtotal (Excl. Tax)</span>
-                              <span>₹{posSubtotal.toFixed(2)}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
-                              <span>GST (5%)</span>
-                              <span>₹{posGst.toFixed(2)}</span>
-                            </div>
+                            <span className="total">₹{item.total.toFixed(2)}</span>
+                            <button className="remove-btn" onClick={() => setCart(cart.filter((_, i) => i !== idx))}><X size={14} /></button>
                           </div>
-
-                          <div className="total-display" style={{ marginBottom: '15px' }}>
-                            <span>Grand Total (Incl. Tax)</span>
-                            <span className="amt">₹{totalAmt.toFixed(2)}</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-
-                    <div className="payment-select">
-                      {['UPI', 'Cash', 'Card'].map(mode => (
-                        <button 
-                          key={mode} 
-                          className={`pay-mode-btn ${paymentMode === mode ? 'active' : ''}`}
-                          onClick={() => setPaymentMode(mode)}
-                        >
-                          {mode}
-                        </button>
+                        </div>
                       ))}
+                      {cart.length === 0 && (
+                        <div className="st-empty-cart">
+                          <ShoppingBag size={32} />
+                          <p>Your shopping cart is empty.</p>
+                        </div>
+                      )}
                     </div>
 
-                    <button 
-                      className="st-settle-btn" 
-                      onClick={settleBill} 
-                      disabled={submittingBill || cart.length === 0}
-                    >
-                      {submittingBill ? <div className="loader"></div> : 'Settle Bill & Settle'}
-                    </button>
+                    <div className="st-summary-settle">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                            Discount ({discountType === 'percent' ? '%' : '₹'})
+                          </label>
+                          <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
+                            <button
+                              type="button"
+                              onClick={() => setDiscountType('percent')}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: 'none',
+                                background: discountType === 'percent' ? 'var(--primary-color)' : '#f1f5f9',
+                                color: discountType === 'percent' ? '#ffffff' : '#475569',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiscountType('amount')}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                border: 'none',
+                                background: discountType === 'amount' ? 'var(--primary-color)' : '#f1f5f9',
+                                color: discountType === 'amount' ? '#ffffff' : '#475569',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ₹
+                            </button>
+                          </div>
+                        </div>
+                        <input
+                          type="number"
+                          placeholder={discountType === 'percent' ? 'e.g. 10%' : 'e.g. 50'}
+                          value={posDiscount}
+                          onChange={(e) => setPosDiscount(e.target.value)}
+                          style={{
+                            height: '38px',
+                            padding: '0 12px',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+
+                      {(() => {
+                        const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+                        const rawDiscount = parseFloat(posDiscount) || 0;
+                        const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
+                        const totalAmt = Math.max(0, cartTotal - discountVal);
+                        const posSubtotal = totalAmt / 1.05;
+                        const posGst = totalAmt - posSubtotal;
+
+
+                        return (
+                          <>
+                            <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '10px' }}>
+                              {discountVal > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                  <span>Cart Total</span>
+                                  <span>₹{cartTotal.toFixed(2)}</span>
+                                </div>
+                              )}
+                              {discountVal > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#dc2626', fontWeight: '700' }}>
+                                  <span>Discount</span>
+                                  <span>-₹{discountVal.toFixed(2)}</span>
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                <span>Subtotal (Excl. Tax)</span>
+                                <span>₹{posSubtotal.toFixed(2)}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                <span>GST (5%)</span>
+                                <span>₹{posGst.toFixed(2)}</span>
+                              </div>
+                            </div>
+
+                            <div className="total-display" style={{ marginBottom: '15px' }}>
+                              <span>Grand Total (Incl. Tax)</span>
+                              <span className="amt">₹{totalAmt.toFixed(2)}</span>
+                            </div>
+                          </>
+                        );
+                      })()}
+
+                      <div className="payment-select">
+                        {['UPI', 'Cash', 'Card'].map(mode => (
+                          <button
+                            key={mode}
+                            className={`pay-mode-btn ${paymentMode === mode ? 'active' : ''}`}
+                            onClick={() => setPaymentMode(mode)}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        className="st-settle-btn"
+                        onClick={settleBill}
+                        disabled={submittingBill || cart.length === 0}
+                      >
+                        {submittingBill ? <div className="loader"></div> : 'Settle Bill & Settle'}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
 
 
@@ -3700,14 +3735,14 @@ const StorePortal = () => {
                   <div className="st-filter-left">
                     <Calendar size={18} className="st-filter-cal-icon" />
                     <span className="st-filter-label">Filter Bills by Date:</span>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       className="st-date-picker-input"
-                      value={billsFilterDate} 
-                      onChange={(e) => setBillsFilterDate(e.target.value)} 
-                  />
+                      value={billsFilterDate}
+                      onChange={(e) => setBillsFilterDate(e.target.value)}
+                    />
                   </div>
-                  <button 
+                  <button
                     className="st-today-reset-btn"
                     onClick={() => setBillsFilterDate(new Date().toISOString().split('T')[0])}
                   >
@@ -3740,8 +3775,8 @@ const StorePortal = () => {
                           </td>
                           <td>{bill.items.length} items</td>
                           <td style={{ textAlign: 'center' }}>
-                            <button 
-                              className="st-mini-print-btn" 
+                            <button
+                              className="st-mini-print-btn"
                               onClick={() => handlePrintTrigger(bill)}
                               title="Print Invoice Receipt"
                             >
@@ -3918,75 +3953,75 @@ const StorePortal = () => {
           </div>
         )}
 
-      {/* Dynamic Camera Scanner Overlay Modal */}
-      <AnimatePresence>
-        {cameraActive && (
-          <div className="modal-overlay" style={{ zIndex: 6000 }}>
-            <motion.div
-              className="st-camera-scan-modal"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              style={{
-                width: '450px',
-                maxWidth: '90vw',
-                background: 'white',
-                borderRadius: '16px',
-                padding: '24px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '15px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-color)' }}>
-                  <Camera size={20} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>
-                    Live Camera Scanner
-                  </h3>
+        {/* Dynamic Camera Scanner Overlay Modal */}
+        <AnimatePresence>
+          {cameraActive && (
+            <div className="modal-overlay" style={{ zIndex: 6000 }}>
+              <motion.div
+                className="st-camera-scan-modal"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                style={{
+                  width: '450px',
+                  maxWidth: '90vw',
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '15px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary-color)' }}>
+                    <Camera size={20} />
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>
+                      Live Camera Scanner
+                    </h3>
+                  </div>
+                  <button
+                    onClick={stopCamera}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '50%' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
-                <button 
-                  onClick={stopCamera} 
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '50%' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <X size={18} />
-                </button>
-              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
-                <div style={{ 
-                  position: 'relative', 
-                  width: '320px', 
-                  height: '320px', 
-                  maxWidth: '100%',
-                  borderRadius: '12px', 
-                  overflow: 'hidden', 
-                  border: '2.5px solid #10b981',
-                  background: '#0f172a'
-                }}>
-                  <div className="st-camera-laser-sweep"></div>
-                  
-                  {/* html5-qrcode live stream node */}
-                  <div id="st-camera-reader" style={{ width: '100%', height: '100%', overflow: 'hidden' }}></div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                  <div style={{
+                    position: 'relative',
+                    width: '320px',
+                    height: '320px',
+                    maxWidth: '100%',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    border: '2.5px solid #10b981',
+                    background: '#0f172a'
+                  }}>
+                    <div className="st-camera-laser-sweep"></div>
+
+                    {/* html5-qrcode live stream node */}
+                    <div id="st-camera-reader" style={{ width: '100%', height: '100%', overflow: 'hidden' }}></div>
+                  </div>
+
+                  <p style={{ margin: '0', fontSize: '11px', color: '#64748b', fontWeight: '600', textAlign: 'center', lineHeight: '1.4' }}>
+                    Point your computer webcam or mobile camera at the printed QR code on the box slip. It will automatically scan and receive.
+                  </p>
                 </div>
-                
-                <p style={{ margin: '0', fontSize: '11px', color: '#64748b', fontWeight: '600', textAlign: 'center', lineHeight: '1.4' }}>
-                  Point your computer webcam or mobile camera at the printed QR code on the box slip. It will automatically scan and receive.
-                </p>
-              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button className="modal-btn cancel" onClick={stopCamera} style={{ height: '38px', borderRadius: '8px', fontWeight: '700' }}>
-                  Cancel / Close
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                  <button className="modal-btn cancel" onClick={stopCamera} style={{ height: '38px', borderRadius: '8px', fontWeight: '700' }}>
+                    Cancel / Close
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
 
@@ -4016,7 +4051,7 @@ const StorePortal = () => {
         {wsPreviewSheet && (() => {
           const globalQuantities = wsPreviewSheet.quantities || {};
           const storeQuantities = [];
-          
+
           wsItems.forEach(item => {
             const qty = globalQuantities[item.id]?.[id];
             if (qty && qty > 0) {
@@ -4055,12 +4090,12 @@ const StorePortal = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span className="ws-preview-name" style={{ fontWeight: '600', color: '#0f172a' }}>{item.name}</span>
                           {item.isCompleted && (
-                            <span style={{ 
-                              background: '#d1fae5', 
-                              color: '#065f46', 
-                              fontSize: '10px', 
-                              fontWeight: '800', 
-                              padding: '1px 6px', 
+                            <span style={{
+                              background: '#d1fae5',
+                              color: '#065f46',
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              padding: '1px 6px',
                               borderRadius: '12px',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -4095,7 +4130,7 @@ const StorePortal = () => {
       <AnimatePresence>
         {showBluetoothModal && (
           <div className="modal-overlay" style={{ zIndex: 5000 }}>
-            <motion.div 
+            <motion.div
               className="st-bluetooth-scan-modal"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -4128,8 +4163,8 @@ const StorePortal = () => {
                     <span className="results-label">Select Bluetooth Printer ({btDevices.length} found)</span>
                     <div className="devices-container">
                       {btDevices.map((device, idx) => (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           className={`device-list-row ${connectingBtDevice === device.name ? 'connecting' : ''}`}
                           onClick={() => connectBtDevice(device.name)}
                         >
@@ -4352,7 +4387,7 @@ const StorePortal = () => {
       <AnimatePresence>
         {selectedReceiptBill && (
           <div className="modal-overlay" style={{ zIndex: 4000 }}>
-            <motion.div 
+            <motion.div
               className="st-receipt-modal"
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -4457,7 +4492,7 @@ const StorePortal = () => {
       {/* Add Order Full Screen Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <motion.div 
+          <motion.div
             className="ord-full-modal"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
@@ -4478,15 +4513,15 @@ const StorePortal = () => {
 
             {/* Mobile Modal Tabs */}
             <div className="ord-modal-tabs-mobile" style={{ display: 'flex' }}>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`ord-modal-tab-btn-mobile ${activeModalTab === 'items' ? 'active' : ''}`}
                 onClick={() => setActiveModalTab('items')}
               >
                 <Plus size={16} /> 1. Select Items
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`ord-modal-tab-btn-mobile ${activeModalTab === 'summary' ? 'active' : ''}`}
                 onClick={() => setActiveModalTab('summary')}
                 style={{ position: 'relative' }}
@@ -4503,7 +4538,7 @@ const StorePortal = () => {
               <div className={`ord-items-panel ${activeModalTab === 'items' ? 'show-mobile' : 'hide-mobile'}`} style={{ overflowY: 'auto' }}>
                 <div className="ord-panel-header">
                   <div className="ord-panel-top" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                    <CustomDropdown 
+                    <CustomDropdown
                       label="Select Customer *"
                       options={orderCustomers}
                       onSelect={setSelectedCustomer}
@@ -4514,7 +4549,7 @@ const StorePortal = () => {
                       hasError={!!formErrors.customer}
                       errorMsg={formErrors.customer}
                     />
-                    
+
                     {/* Read-Only Non-Editable Selected Store */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>Delivery Store</label>
@@ -4536,7 +4571,7 @@ const StorePortal = () => {
                       </div>
                     </div>
 
-                    <CustomDropdown 
+                    <CustomDropdown
                       label="Select Packing Unit *"
                       options={orderPUnits}
                       onSelect={setSelectedPUnit}
@@ -4552,7 +4587,7 @@ const StorePortal = () => {
                   <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Date *</label>
-                      <input 
+                      <input
                         type="date"
                         required
                         value={deliveryDate}
@@ -4575,7 +4610,7 @@ const StorePortal = () => {
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Delivery Time *</label>
-                      <input 
+                      <input
                         type="time"
                         required
                         value={deliveryTime}
@@ -4598,7 +4633,7 @@ const StorePortal = () => {
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Packing Unit Instructions</label>
-                      <input 
+                      <input
                         type="text"
                         placeholder="Packaging and gift wrapping notes..."
                         value={pUnitDescription}
@@ -4620,7 +4655,7 @@ const StorePortal = () => {
                   <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Global Instructions</label>
-                      <textarea 
+                      <textarea
                         placeholder="General order instructions..."
                         value={globalDescription}
                         onChange={(e) => setGlobalDescription(e.target.value)}
@@ -4726,10 +4761,10 @@ const StorePortal = () => {
                       return (
                         <div key={item.id} className={`ord-selectable-card ${isInCart ? 'in-cart' : ''}`} onClick={() => handleItemClickOrder(item)}>
                           <div className="ord-item-img-container">
-                            <img 
-                              src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image} 
-                              alt={item.name} 
-                              className="ord-item-img" 
+                            <img
+                              src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image}
+                              alt={item.name}
+                              className="ord-item-img"
                               onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = DEFAULT_ITEM_IMAGE;
@@ -4795,7 +4830,7 @@ const StorePortal = () => {
               {/* Right Panel: Summary */}
               <div className={`ord-summary-panel ${activeModalTab === 'summary' ? 'show-mobile' : 'hide-mobile'}`}>
                 <h2><FileText size={20} /> Order Cart & Summary</h2>
-                
+
                 <div className="ord-summary-list">
                   {orderCart.length > 0 ? orderCart.map((item, idx) => (
                     <div key={idx} className="ord-summary-item">
@@ -4889,15 +4924,15 @@ const StorePortal = () => {
                     <span>Balance Due</span>
                     <span>₹{Math.max(0, orderTotalAmount - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
                   </div>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
                       <div className="ord-payment-modes" style={{ marginTop: '0' }}>
                         {['Cash', 'UPI', 'Card'].map(mode => (
-                          <button 
+                          <button
                             type="button"
-                            key={mode} 
+                            key={mode}
                             className={`ord-mode-btn ${orderPaymentMode === mode ? 'active' : ''}`}
                             onClick={() => setOrderPaymentMode(mode)}
                           >
@@ -4910,7 +4945,7 @@ const StorePortal = () => {
                     <div style={{ display: 'flex', gap: '15px' }}>
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
-                        <input 
+                        <input
                           type="number"
                           placeholder="0.00"
                           value={orderDiscount}
@@ -4929,7 +4964,7 @@ const StorePortal = () => {
                       </div>
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Received Amount (₹)</label>
-                        <input 
+                        <input
                           type="number"
                           placeholder="0.00"
                           value={receivedAmount}
@@ -4971,7 +5006,7 @@ const StorePortal = () => {
       <AnimatePresence>
         {showOrderWeightModal && (
           <div className="modal-overlay" style={{ zIndex: 3000 }}>
-            <motion.div 
+            <motion.div
               className="custom-modal"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -4981,13 +5016,13 @@ const StorePortal = () => {
                 <Scale size={32} />
               </div>
               <h3 className="modal-title">Enter Quantity for {showOrderWeightModal.name}</h3>
-              
+
               <div className="ord-weight-form">
                 <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '10px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700' }}>Weight (kg)</label>
-                  <input 
-                    type="number" 
-                    step="0.001" 
+                  <input
+                    type="number"
+                    step="0.001"
                     placeholder="0.000"
                     value={orderWeightInput.weight}
                     onChange={(e) => handleOrderWeightCalc('weight', e.target.value, showOrderWeightModal.price)}
@@ -4997,8 +5032,8 @@ const StorePortal = () => {
                 <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5, margin: '5px 0' }}>OR</div>
                 <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700' }}>Amount (₹)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     placeholder="0.00"
                     value={orderWeightInput.amount}
                     onChange={(e) => handleOrderWeightCalc('amount', e.target.value, showOrderWeightModal.price)}
@@ -5008,16 +5043,16 @@ const StorePortal = () => {
 
                 <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700' }}>Manufacturing description</label>
-                  <textarea 
+                  <textarea
                     placeholder="e.g. less sugar, extra packing..."
                     value={orderWeightInput.description}
                     onChange={(e) => setOrderWeightInput(prev => ({ ...prev, description: e.target.value }))}
-                    style={{ 
-                      height: '60px', 
-                      padding: '10px', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '8px', 
-                      fontSize: '13px', 
+                    style={{
+                      height: '60px',
+                      padding: '10px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      fontSize: '13px',
                       resize: 'none',
                       fontFamily: 'inherit'
                     }}
@@ -5026,8 +5061,8 @@ const StorePortal = () => {
 
                 <div className="modal-actions" style={{ marginTop: '10px' }}>
                   <button className="modal-btn cancel" onClick={() => setShowOrderWeightModal(null)}>Cancel</button>
-                  <button 
-                    className="modal-btn confirm" 
+                  <button
+                    className="modal-btn confirm"
                     style={{ background: 'var(--primary-color)' }}
                     onClick={confirmOrderWeightAdd}
                   >
@@ -5044,7 +5079,7 @@ const StorePortal = () => {
       <AnimatePresence>
         {showCreateCustomerModal && (
           <div className="modal-overlay" style={{ zIndex: 4000 }}>
-            <motion.div 
+            <motion.div
               className="custom-modal"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -5055,25 +5090,25 @@ const StorePortal = () => {
                 <User size={32} />
               </div>
               <h3 className="modal-title">Register New Customer</h3>
-              
+
               <form onSubmit={handleSaveCustomer} style={{ display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left', marginTop: '15px' }}>
                 <div style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700' }}>First Name *</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={customerFormData.firstName} 
+                    <input
+                      type="text"
+                      required
+                      value={customerFormData.firstName}
                       onChange={(e) => setCustomerFormData(prev => ({ ...prev, firstName: e.target.value }))}
                       style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                     />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700' }}>Last Name *</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={customerFormData.lastName} 
+                    <input
+                      type="text"
+                      required
+                      value={customerFormData.lastName}
                       onChange={(e) => setCustomerFormData(prev => ({ ...prev, lastName: e.target.value }))}
                       style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                     />
@@ -5082,21 +5117,21 @@ const StorePortal = () => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '11px', fontWeight: '700' }}>Mobile Number *</label>
-                  <input 
-                    type="tel" 
-                    required 
-                    value={customerFormData.mobileNumber} 
+                  <input
+                    type="tel"
+                    required
+                    value={customerFormData.mobileNumber}
                     onChange={(e) => setCustomerFormData(prev => ({ ...prev, mobileNumber: e.target.value }))}
                     style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                   />
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '5px 0' }}>
-                  <input 
-                    type="checkbox" 
-                    name="isB2B" 
-                    id="modalIsB2B" 
-                    checked={customerFormData.isB2B || false} 
+                  <input
+                    type="checkbox"
+                    name="isB2B"
+                    id="modalIsB2B"
+                    checked={customerFormData.isB2B || false}
                     onChange={(e) => setCustomerFormData(prev => ({ ...prev, isB2B: e.target.checked }))}
                     style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-color)' }}
                   />
@@ -5130,8 +5165,8 @@ const StorePortal = () => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '11px', fontWeight: '700' }}>Street Address</label>
-                  <textarea 
-                    value={customerFormData.address} 
+                  <textarea
+                    value={customerFormData.address}
                     onChange={(e) => setCustomerFormData(prev => ({ ...prev, address: e.target.value }))}
                     style={{ height: '50px', padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px', resize: 'none', fontFamily: 'inherit' }}
                   />
@@ -5140,18 +5175,18 @@ const StorePortal = () => {
                 <div style={{ display: 'flex', gap: '15px' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700' }}>City</label>
-                    <input 
-                      type="text" 
-                      value={customerFormData.city} 
+                    <input
+                      type="text"
+                      value={customerFormData.city}
                       onChange={(e) => setCustomerFormData(prev => ({ ...prev, city: e.target.value }))}
                       style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                     />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700' }}>State</label>
-                    <input 
-                      type="text" 
-                      value={customerFormData.state} 
+                    <input
+                      type="text"
+                      value={customerFormData.state}
                       onChange={(e) => setCustomerFormData(prev => ({ ...prev, state: e.target.value }))}
                       style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
                     />
@@ -5177,7 +5212,7 @@ const StorePortal = () => {
           const balanceDue = Number(previewOrder.totalAmount || 0) - Number(previewOrder.receivedAmount || 0);
           return (
             <div className="modal-overlay" style={{ zIndex: 4000 }}>
-              <motion.div 
+              <motion.div
                 className="custom-modal ord-preview-modal"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -5188,7 +5223,7 @@ const StorePortal = () => {
                   <h2>Order Invoice Preview</h2>
                   <button className="items-close-btn" onClick={() => setPreviewOrder(null)}><X size={24} /></button>
                 </div>
-                
+
                 <div className="ord-preview-body">
                   <div className="ord-preview-top" style={{ marginBottom: '15px' }}>
                     <div>
@@ -5308,14 +5343,14 @@ const StorePortal = () => {
                             previewOrder.boxes.map((box, bIdx) => {
                               const isReceived = box.received === true || box.status === 'received_at_store';
                               return (
-                                <div 
-                                  key={bIdx} 
-                                  className="ord-installment-card" 
-                                  style={{ 
-                                    padding: '14px', 
-                                    background: isReceived ? '#f0fdf4' : '#faf5ff', 
-                                    border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff', 
-                                    display: 'block', 
+                                <div
+                                  key={bIdx}
+                                  className="ord-installment-card"
+                                  style={{
+                                    padding: '14px',
+                                    background: isReceived ? '#f0fdf4' : '#faf5ff',
+                                    border: isReceived ? '1.5px solid #10b981' : '1px solid #f3e8ff',
+                                    display: 'block',
                                     textAlign: 'left',
                                     borderRadius: '10px',
                                     boxShadow: isReceived ? '0 0 12px rgba(16, 185, 129, 0.12)' : 'none',

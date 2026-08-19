@@ -45,6 +45,18 @@
   background: #ffffff;
 }
 
+.sa-date-input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-color, #0A2A1B);
+  outline: none;
+  background: #ffffff;
+  cursor: pointer;
+}
+
 /* Fast Barcode Scanner Header Box */
 .sa-barcode-scanner-bar {
   background: #ffffff;

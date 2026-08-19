@@ -25,7 +25,8 @@ import {
   Printer,
   Minus,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Calendar
 } from 'lucide-react';
 
 import logo from '../../assets/logo.png';
@@ -54,6 +55,24 @@ import { usePrinter } from '../../context/PrinterContext';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 
 
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateForBill = (dateStr) => {
+  if (!dateStr) return new Date().toLocaleDateString('en-IN');
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('en-IN');
+  }
+  return new Date(dateStr).toLocaleDateString('en-IN');
+};
+
 const StoreDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -70,6 +89,7 @@ const StoreDetails = () => {
   const [submittingAccess, setSubmittingAccess] = useState(false);
 
   // Billing State
+  const [billDate, setBillDate] = useState(getTodayDateString());
   const [storeItems, setStoreItems] = useState([]);
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [billingSearch, setBillingSearch] = useState('');
@@ -275,6 +295,9 @@ const StoreDetails = () => {
       const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
       const discountVal = parseFloat(posDiscount) || 0;
       const totalAmt = Math.max(0, cartTotal - discountVal);
+      const selectedBillDate = billDate || getTodayDateString();
+      const formattedDate = formatDateForBill(selectedBillDate);
+
       const billData = {
         billId,
         storeId: id,
@@ -290,12 +313,14 @@ const StoreDetails = () => {
         totalAmount: totalAmt,
         paymentMode,
         createdAt: serverTimestamp(),
-        date: new Date().toLocaleDateString()
+        date: formattedDate,
+        billDate: selectedBillDate
       };
       await addDoc(collection(db, 'stores', id, 'bills'), billData);
       toast.success(`Bill Settled: ${billId}`);
       setCart([]);
       setPosDiscount('');
+      setBillDate(getTodayDateString());
     } catch (error) {
       toast.error("Failed to settle bill");
     } finally {
@@ -824,6 +849,39 @@ const StoreDetails = () => {
                 </div>
 
                 <div className="summary-total">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Calendar size={13} color="var(--primary-color)" /> Bill Date
+                      </label>
+                      {billDate !== getTodayDateString() && (
+                        <button 
+                          type="button" 
+                          onClick={() => setBillDate(getTodayDateString())}
+                          style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: '4px', fontSize: '10px', fontWeight: '700', padding: '2px 6px', cursor: 'pointer' }}
+                        >
+                          Today
+                        </button>
+                      )}
+                    </div>
+                    <input 
+                      type="date"
+                      value={billDate}
+                      onChange={(e) => setBillDate(e.target.value)}
+                      style={{
+                        height: '38px',
+                        padding: '0 12px',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        color: 'var(--text-primary)'
+                      }}
+                    />
+                  </div>
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Discount (₹)</label>
                     <input 

@@ -1,25 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  CreditCard, 
-  Search, 
-  Store as StoreIcon, 
-  UserPlus, 
-  Barcode, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  X, 
-  Printer, 
-  Save, 
-  CheckCircle2, 
-  Scale, 
+import {
+  CreditCard,
+  Search,
+  Store as StoreIcon,
+  UserPlus,
+  Barcode,
+  Plus,
+  Minus,
+  Trash2,
+  X,
+  Printer,
+  Save,
+  CheckCircle2,
+  Scale,
   Clock,
   Receipt,
   UserCheck,
   ShoppingBag,
   Bluetooth,
   Usb,
-  RefreshCw
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 
 import { usePrinter } from '../../context/PrinterContext';
@@ -33,6 +34,45 @@ import logo from '../../assets/logo.png';
 import './SuperAdminPOS.css';
 
 const DEFAULT_ITEM_IMAGE = logo;
+
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateForBill = (dateStr) => {
+  if (!dateStr) return new Date().toLocaleDateString('en-IN');
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('en-IN');
+  }
+  return new Date(dateStr).toLocaleDateString('en-IN');
+};
+
+const convertToInputDateFormat = (dateStr) => {
+  if (!dateStr) return getTodayDateString();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+      return `${year}-${month}-${day}`;
+    }
+  }
+  try {
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+    }
+  } catch (e) { }
+  return getTodayDateString();
+};
 
 
 const SuperAdminPOS = () => {
@@ -63,6 +103,7 @@ const SuperAdminPOS = () => {
 
 
   // Active Billing State
+  const [billDate, setBillDate] = useState(getTodayDateString());
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustDropdown, setShowCustDropdown] = useState(false);
@@ -182,7 +223,7 @@ const SuperAdminPOS = () => {
     const scannedCode = parts[0].trim();
     const multiplier = parts.length > 1 ? parseFloat(parts[1]) : null;
 
-    const foundItem = items.find(i => 
+    const foundItem = items.find(i =>
       (i.barcode || i.barcodeId || '').toLowerCase() === scannedCode.toLowerCase() ||
       i.id === scannedCode ||
       i.name.toLowerCase() === scannedCode.toLowerCase()
@@ -341,6 +382,9 @@ const SuperAdminPOS = () => {
       const selectedStoreObj = stores.find(s => s.id === selectedStoreId);
       const billId = editingBillId ? (savedBillsList.find(b => b.id === editingBillId)?.billId || generateBillId()) : generateBillId();
 
+      const selectedBillDate = billDate || getTodayDateString();
+      const formattedDate = formatDateForBill(selectedBillDate);
+
       const billData = {
         billId,
         storeId: selectedStoreId,
@@ -363,18 +407,19 @@ const SuperAdminPOS = () => {
         totalAmount: totalAmt,
         paymentMode,
         status: billStatus, // 'settled' or 'saved'
-        date: new Date().toLocaleDateString('en-IN'),
+        date: formattedDate,
+        billDate: selectedBillDate,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
 
       if (editingBillId) {
         await updateDoc(doc(db, 'bills', editingBillId), billData);
-        await updateDoc(doc(db, 'stores', selectedStoreId, 'bills', editingBillId), billData).catch(() => {});
+        await updateDoc(doc(db, 'stores', selectedStoreId, 'bills', editingBillId), billData).catch(() => { });
         toast.success(`Bill #${billId} ${billStatus === 'settled' ? 'settled' : 'updated & saved'}!`);
       } else {
         const docRef = await addDoc(collection(db, 'bills'), billData);
-        await addDoc(collection(db, 'stores', selectedStoreId, 'bills'), { ...billData, id: docRef.id }).catch(() => {});
+        await addDoc(collection(db, 'stores', selectedStoreId, 'bills'), { ...billData, id: docRef.id }).catch(() => { });
         toast.success(`Bill #${billId} ${billStatus === 'settled' ? 'settled' : 'saved as draft'}!`);
       }
 
@@ -388,6 +433,7 @@ const SuperAdminPOS = () => {
       setPosDiscount('');
       setEditingBillId(null);
       setSelectedCustomerId('');
+      setBillDate(getTodayDateString());
     } catch (err) {
       console.error("Save/Settle Bill Error:", err);
       toast.error("Failed to process bill");
@@ -412,6 +458,7 @@ const SuperAdminPOS = () => {
     setCart(bill.items || []);
     setPosDiscount(bill.discount ? bill.discount.toString() : '');
     setPaymentMode(bill.paymentMode || 'Cash');
+    setBillDate(bill.billDate || convertToInputDateFormat(bill.date));
     setActiveTab('pos');
     toast.success(`Loaded saved bill #${bill.billId}! You can now modify and settle it.`);
   };
@@ -419,11 +466,9 @@ const SuperAdminPOS = () => {
   const filteredCustomers = customers.filter(c => {
     const q = customerSearch.toLowerCase().trim();
     if (!q) return true;
-    return (
-      (c.firstName || '').toLowerCase().includes(q) ||
-      (c.lastName || '').toLowerCase().includes(q) ||
-      (c.mobileNumber || '').includes(q)
-    );
+    const fullName = `${c.firstName} ${c.lastName || ''}`.toLowerCase();
+    const phone = (c.mobileNumber || '').toLowerCase();
+    return fullName.includes(q) || phone.includes(q);
   });
 
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
@@ -446,27 +491,53 @@ const SuperAdminPOS = () => {
           </div>
         </div>
 
-        {/* Store Selector */}
-        <div className="sa-store-selector-box">
-          <label>Active Store Outlet:</label>
-          <select className="sa-store-select" value={selectedStoreId} onChange={handleStoreChange}>
-            {stores.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+        {/* Controls: Date Selector & Store Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Bill Date Selector */}
+          <div className="sa-store-selector-box">
+            <Calendar size={16} color="var(--primary-color)" />
+            <label>Bill Date:</label>
+            <input
+              type="date"
+              className="sa-date-input"
+              value={billDate}
+              onChange={(e) => setBillDate(e.target.value)}
+            />
+            {billDate !== getTodayDateString() && (
+              <button
+                type="button"
+                onClick={() => setBillDate(getTodayDateString())}
+                style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '11px', fontWeight: '700', padding: '2px 8px', cursor: 'pointer' }}
+                title="Reset to today's date"
+              >
+                Today
+              </button>
+            )}
+          </div>
+
+          {/* Store Selector */}
+          <div className="sa-store-selector-box">
+            <StoreIcon size={16} color="var(--primary-color)" />
+            <label>Active Store Outlet:</label>
+            <select className="sa-store-select" value={selectedStoreId} onChange={handleStoreChange}>
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Tabs: Active POS Terminal vs Saved (Parked) Bills */}
       <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
-        <button 
+        <button
           className={`polaris-btn ${activeTab === 'pos' ? 'polaris-btn-primary' : 'polaris-btn-secondary'}`}
           onClick={() => setActiveTab('pos')}
         >
           <CreditCard size={15} /> Active POS Billing
         </button>
 
-        <button 
+        <button
           className={`polaris-btn ${activeTab === 'saved_bills' ? 'polaris-btn-primary' : 'polaris-btn-secondary'}`}
           onClick={() => setActiveTab('saved_bills')}
         >
@@ -480,7 +551,7 @@ const SuperAdminPOS = () => {
           <form className="sa-barcode-scanner-bar" onSubmit={handleBarcodeSubmit}>
             <Barcode size={22} color="var(--primary-color)" />
             <div className="sa-barcode-input-wrapper">
-              <input 
+              <input
                 ref={barcodeInputRef}
                 type="text"
                 placeholder="Scan barcode or enter ID*Qty (e.g. 890123456789*500)..."
@@ -499,8 +570,8 @@ const SuperAdminPOS = () => {
                 <h3>Product Catalog</h3>
                 <div className="st-pos-search">
                   <Search size={16} />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Search by product name or price..."
                     value={itemSearch}
                     onChange={(e) => setItemSearch(e.target.value)}
@@ -516,9 +587,9 @@ const SuperAdminPOS = () => {
                     return (
                       <div key={item.id} className="st-pos-item-card" onClick={() => handleItemClick(item)}>
                         <div className="st-pos-item-img">
-                          <img 
+                          <img
                             src={(!item.image || typeof item.image !== 'string' || item.image.trim() === "" || item.image.toLowerCase() === "none" || item.image.toLowerCase() === "null" || item.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : item.image}
-                            alt={item.name} 
+                            alt={item.name}
                             onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_ITEM_IMAGE; }}
                           />
                           {inCart && (
@@ -552,6 +623,32 @@ const SuperAdminPOS = () => {
 
             {/* Billing Cart & Settle Panel */}
             <div className="st-pos-summary">
+              {/* Billing Date Selector Card */}
+              {/* <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: '10px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={16} color="var(--primary-color)" />
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)' }}>Bill Date:</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input 
+                    type="date" 
+                    value={billDate} 
+                    onChange={(e) => setBillDate(e.target.value)} 
+                    style={{ height: '32px', padding: '0 8px', borderRadius: '6px', border: '1.5px solid #cbd5e1', fontSize: '13px', fontWeight: '700', color: '#1e293b', outline: 'none' }}
+                  />
+                  {billDate !== getTodayDateString() && (
+                    <button 
+                      type="button" 
+                      onClick={() => setBillDate(getTodayDateString())}
+                      style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '11px', fontWeight: '700', padding: '4px 8px', cursor: 'pointer' }}
+                      title="Reset to today"
+                    >
+                      Today
+                    </button>
+                  )}
+                </div>
+              </div> */}
+
               {/* Mandatory Customer Selector */}
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 14px', borderRadius: '10px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -559,8 +656,8 @@ const SuperAdminPOS = () => {
                     <UserCheck size={15} /> Select Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '11px' }}>(Optional)</span>
                   </label>
 
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowCreateCustomerModal(true)}
                     style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
@@ -585,8 +682,8 @@ const SuperAdminPOS = () => {
                               </div>
                             </div>
                           </div>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); }}
                             style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '4px' }}
                             title="Clear selected customer"
@@ -596,8 +693,8 @@ const SuperAdminPOS = () => {
                         </div>
                       ) : (
                         <div style={{ position: 'relative' }}>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             placeholder="Type customer name or mobile number..."
                             value={customerSearch}
                             onFocus={() => setShowCustDropdown(true)}
@@ -612,7 +709,7 @@ const SuperAdminPOS = () => {
                             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '220px', overflowY: 'auto', marginTop: '4px' }}>
                               {filteredCustomers.length > 0 ? (
                                 filteredCustomers.map(c => (
-                                  <div 
+                                  <div
                                     key={c.id}
                                     onClick={() => {
                                       setSelectedCustomerId(c.id);
@@ -633,7 +730,7 @@ const SuperAdminPOS = () => {
                                   </div>
                                 ))
                               ) : (
-                                <div 
+                                <div
                                   onClick={() => {
                                     setCustForm(p => ({
                                       ...p,
@@ -745,8 +842,8 @@ const SuperAdminPOS = () => {
                       </button>
                     </div>
                   </div>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     placeholder={discountType === 'percent' ? 'e.g. 10%' : 'e.g. 50'}
                     value={posDiscount}
                     onChange={(e) => setPosDiscount(e.target.value)}
@@ -772,8 +869,8 @@ const SuperAdminPOS = () => {
                 {/* Payment Methods */}
                 <div className="payment-select" style={{ marginBottom: '12px' }}>
                   {['UPI', 'Cash', 'Card'].map(mode => (
-                    <button 
-                      key={mode} 
+                    <button
+                      key={mode}
                       className={`pay-mode-btn ${paymentMode === mode ? 'active' : ''}`}
                       onClick={() => setPaymentMode(mode)}
                     >
@@ -784,7 +881,7 @@ const SuperAdminPOS = () => {
 
                 {/* Action Buttons: Save (Park) vs Settle */}
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
+                  <button
                     type="button"
                     className="polaris-btn polaris-btn-secondary"
                     style={{ flex: 1, justifyContent: 'center', height: '42px', fontWeight: '700' }}
@@ -794,7 +891,7 @@ const SuperAdminPOS = () => {
                     <Save size={16} /> Save Bill (Park)
                   </button>
 
-                  <button 
+                  <button
                     type="button"
                     className="st-settle-btn"
                     style={{ flex: 1.2, height: '42px' }}
@@ -835,7 +932,7 @@ const SuperAdminPOS = () => {
                       <td>{(bill.items || []).length} items</td>
                       <td style={{ fontWeight: '700' }}>₹{Number(bill.totalAmount || 0).toFixed(2)}</td>
                       <td style={{ textAlign: 'right' }}>
-                        <button 
+                        <button
                           className="polaris-btn polaris-btn-primary"
                           style={{ height: '30px', padding: '0 12px', fontSize: '12px' }}
                           onClick={() => loadSavedBill(bill)}
@@ -883,8 +980,8 @@ const SuperAdminPOS = () => {
 
               {/* B2B Customer Toggle */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '4px' }}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="isB2BCheck"
                   checked={custForm.isB2B}
                   onChange={(e) => setCustForm(p => ({ ...p, isB2B: e.target.checked }))}
