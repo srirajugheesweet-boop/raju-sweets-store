@@ -86,7 +86,12 @@ const BarcodeGenerator = () => {
     confirmQZPrinter,
     disconnectQZTray,
     printRawUSB,
-    printHTMLContent
+    printHTMLContent,
+    webUsbConnected,
+    webUsbDevice,
+    handleWebUSBConnect,
+    disconnectWebUSB,
+    printRawWebUSB
   } = usePrinter();
 
   // Item & Data states
@@ -605,16 +610,84 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
     printHTMLContent(fullHtml);
   };
 
-  // --- Browser & USB Print Handlers ---
+  // --- Browser Windows Print Handler ---
   const handleBrowserPrintCurrent = () => {
     if (!selectedItem) return;
     printStickersViaIframe(false);
   };
 
-  // --- USB Printer Handler ---
+  // --- WebUSB Direct Print Handlers ---
+  const handleWebUSBPrintCurrent = async () => {
+    if (!selectedItem) {
+      toast.error("Please select a product first");
+      return;
+    }
+
+    if (!webUsbConnected) {
+      toast("Connecting WebUSB thermal printer...", { icon: '🔌' });
+      await handleWebUSBConnect();
+      return;
+    }
+
+    const copyQty = Number(quantity) || 1;
+    const toastId = toast.loading(`Sending ${copyQty} sticker(s) to WebUSB (${webUsbDevice || 'USB Thermal Printer'})...`);
+
+    try {
+      const stickerItems = getStickersList(false);
+      const tsplCode = buildTSPLBuffer(stickerItems);
+      const encoder = new TextEncoder();
+      await printRawWebUSB(encoder.encode(tsplCode));
+      toast.success(`Printed ${copyQty} sticker(s) directly via WebUSB!`, { id: toastId });
+    } catch (err) {
+      console.error("WebUSB Print Error:", err);
+      toast.error(`WebUSB print error: ${err.message || 'Check USB connection'}. Trying Windows Driver...`, { id: toastId });
+      setTimeout(() => {
+        printStickersViaIframe(false);
+      }, 200);
+    }
+  };
+
+  const handleWebUSBPrintBatch = async () => {
+    if (printQueue.length === 0) {
+      toast.error("Print queue is empty!");
+      return;
+    }
+
+    if (!webUsbConnected) {
+      toast("Connecting WebUSB thermal printer...", { icon: '🔌' });
+      await handleWebUSBConnect();
+      return;
+    }
+
+    const totalCount = printQueue.reduce((a, c) => a + c.quantity, 0);
+    const toastId = toast.loading(`Sending ${totalCount} batch stickers to WebUSB (${webUsbDevice || 'USB Printer'})...`);
+
+    try {
+      const flattenedStickers = getStickersList(true);
+      const tsplCode = buildTSPLBuffer(flattenedStickers);
+      const encoder = new TextEncoder();
+      await printRawWebUSB(encoder.encode(tsplCode));
+      toast.success(`Printed ${totalCount} stickers directly via WebUSB!`, { id: toastId });
+    } catch (err) {
+      console.error("WebUSB Batch Print Error:", err);
+      toast.error(`WebUSB batch error: ${err.message || 'Check USB'}. Opening Windows Driver...`, { id: toastId });
+      setTimeout(() => {
+        printStickersViaIframe(true);
+      }, 200);
+    }
+  };
+
+  // --- Smart USB / Browser Print Handler ---
   const handleUSBPrintCurrent = async () => {
     if (!selectedItem) return;
 
+    // 1. Direct WebUSB connected
+    if (webUsbConnected) {
+      await handleWebUSBPrintCurrent();
+      return;
+    }
+
+    // 2. QZ Tray Desktop Service connected
     if (qzConnected && selectedQZPrinter) {
       const copyQty = Number(quantity) || 1;
       const toastId = toast.loading(`Printing ${copyQty} sticker(s) on ${labelColumns}-Column roll to ${selectedQZPrinter}...`);
@@ -669,7 +742,7 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
       }
     }
 
-    // Fallback: Windows Printer Driver Print via isolated iframe
+    // 3. Fallback: Windows Printer Driver Print via isolated iframe
     toast("Opening Windows USB Printer Driver...", { icon: '🖨️' });
     setTimeout(() => {
       printStickersViaIframe(false);
@@ -683,8 +756,15 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
       return;
     }
 
+    // 1. Direct WebUSB connected
+    if (webUsbConnected) {
+      await handleWebUSBPrintBatch();
+      return;
+    }
+
     const totalCount = printQueue.reduce((a, c) => a + c.quantity, 0);
 
+    // 2. QZ Tray connected
     if (qzConnected && selectedQZPrinter) {
       const toastId = toast.loading(`Printing ${labelColumns}-Column queue batch (${totalCount} stickers) to ${selectedQZPrinter}...`);
 
@@ -726,7 +806,7 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
       }
     }
 
-    // Fallback: Trigger Browser Print for entire batch via isolated iframe
+    // 3. Fallback: Trigger Browser Print for entire batch via isolated iframe
     toast("Opening Windows USB Print dialog for batch...", { icon: '🖨️' });
     setTimeout(() => {
       printStickersViaIframe(true);
@@ -836,13 +916,34 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
 
         {/* Top Actions */}
         <div className="barcode-header-actions">
+          {webUsbConnected ? (
+            <button 
+              className="barcode-btn barcode-btn-webusb" 
+              onClick={handleWebUSBPrintCurrent}
+              disabled={!selectedItem}
+              title={`Direct WebUSB connected: ${webUsbDevice}`}
+            >
+              <Usb size={16} />
+              WebUSB Print ({quantity} Copies)
+            </button>
+          ) : (
+            <button 
+              className="barcode-btn barcode-btn-webusb" 
+              onClick={handleWebUSBConnect}
+              title="Pair WebUSB Thermal Printer (No app needed!)"
+            >
+              <Usb size={16} />
+              Pair WebUSB Printer
+            </button>
+          )}
+
           <button 
             className="barcode-btn barcode-btn-secondary" 
             onClick={handleBrowserPrintCurrent}
             disabled={!selectedItem}
           >
             <Printer size={16} />
-            Direct Windows Driver Print
+            Windows Print
           </button>
 
           <button 
@@ -850,13 +951,58 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
             onClick={handleUSBPrintCurrent}
             disabled={!selectedItem}
           >
-            <Usb size={16} />
-            Print Stickers ({quantity} Copies)
+            <Printer size={16} />
+            Print Stickers ({quantity})
           </button>
         </div>
       </div>
 
-      {/* USB PRINTER STATUS & SETUP BANNER */}
+      {/* DUAL USB PRINTER CONTROL BANNER: WEBUSB & QZ TRAY */}
+      <div className="usb-printer-control-banner">
+        {/* Left: WebUSB Direct (Recommended / Driverless) */}
+        <div className="usb-banner-info">
+          <div className={`usb-status-dot ${webUsbConnected ? 'active' : 'inactive'}`} />
+          <div>
+            <h4 className="usb-banner-title">
+              {webUsbConnected ? `WebUSB Direct: ${webUsbDevice || 'USB Thermal Printer'}` : 'WebUSB Direct Thermal Print (Recommended)'}
+            </h4>
+            <p className="usb-banner-sub">
+              {webUsbConnected 
+                ? 'High-speed 2-Column TSPL barcode printing directly through USB.' 
+                : 'Direct USB printing in Chrome/Edge without installing any desktop software or drivers.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="usb-banner-actions">
+          {webUsbConnected ? (
+            <>
+              <button className="barcode-btn barcode-btn-webusb" onClick={handleWebUSBPrintCurrent} disabled={!selectedItem}>
+                <Usb size={14} /> Test WebUSB Print
+              </button>
+              <button className="barcode-btn barcode-btn-outline" onClick={disconnectWebUSB}>
+                Disconnect WebUSB
+              </button>
+            </>
+          ) : (
+            <button className="barcode-btn barcode-btn-webusb" onClick={handleWebUSBConnect}>
+              <Usb size={14} /> Pair WebUSB Printer
+            </button>
+          )}
+
+          {qzConnected ? (
+            <button className="barcode-btn barcode-btn-secondary" onClick={() => setShowQZModal(true)}>
+              <Settings2 size={14} /> QZ: {selectedQZPrinter ? (selectedQZPrinter.length > 12 ? `${selectedQZPrinter.substring(0, 12)}...` : selectedQZPrinter) : 'Active'}
+            </button>
+          ) : (
+            <button className="barcode-btn barcode-btn-secondary" onClick={() => setShowQZSetupGuide(true)}>
+              <HelpCircle size={14} /> QZ Guide
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* USB PRINTER WARNING BANNER FOR VIRTUAL PRINTER */}
       {qzConnected && /pdf|fax|onenote|xps|document writer|microsoft/i.test(selectedQZPrinter || '') && (
         <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', padding: '14px 20px', borderRadius: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -866,55 +1012,15 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
                 Virtual File Printer Selected: "{selectedQZPrinter}"
               </div>
               <div style={{ fontSize: '13px', color: '#7f1d1d', marginTop: '2px' }}>
-                This is why Windows opens a "Save File" dialog instead of printing to paper. Please select your physical USB Sticker Printer (e.g. TSC, TVS, Xprinter, Zebra).
+                This opens a "Save File" dialog instead of printing to paper. Connect WebUSB or select your physical USB Sticker Printer.
               </div>
             </div>
           </div>
           <button className="barcode-btn barcode-btn-primary" style={{ background: '#dc2626', border: 'none', whiteSpace: 'nowrap' }} onClick={() => setShowQZModal(true)}>
-            Select Physical USB Printer
+            Select Physical Printer
           </button>
         </div>
       )}
-
-      <div className="usb-printer-control-banner">
-        <div className="usb-banner-info">
-          <div className={`usb-status-dot ${qzConnected ? 'active' : 'inactive'}`} />
-          <div>
-            <h4 className="usb-banner-title">
-              {qzConnected ? `QZ Tray USB Active: ${selectedQZPrinter || 'Printer Connected'}` : 'USB Thermal Printer Setup'}
-            </h4>
-            <p className="usb-banner-sub">
-              {qzConnected 
-                ? '2-Column 2-Up TSPL sticker printing is active.' 
-                : 'QZ Tray desktop app is disconnected. You can connect QZ Tray for silent printing OR use Direct Windows Driver print.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="usb-banner-actions">
-          {qzConnected ? (
-            <>
-              <button className="barcode-btn barcode-btn-secondary" onClick={() => setShowQZModal(true)}>
-                <Settings2 size={14} /> Change Printer
-              </button>
-              <button className="barcode-btn barcode-btn-outline" onClick={disconnectQZTray}>
-                Disconnect
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="barcode-btn barcode-btn-primary" onClick={connectQZTray} disabled={qzConnecting}>
-                <RefreshCw size={14} className={qzConnecting ? 'animate-spin' : ''} />
-                {qzConnecting ? `Connecting (${qzConnectTimer}s)...` : 'Connect QZ Tray USB'}
-              </button>
-
-              <button className="barcode-btn barcode-btn-secondary" onClick={() => setShowQZSetupGuide(true)}>
-                <HelpCircle size={14} /> Setup & Download Guide
-              </button>
-            </>
-          )}
-        </div>
-      </div>
 
       {/* Main Grid Layout */}
       <div className="barcode-main-grid">
@@ -1305,23 +1411,35 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
             </div>
 
             {/* Quick Print Action Buttons */}
-            <div className="preview-action-buttons">
-              <button 
-                className="barcode-btn barcode-btn-primary flex-1"
-                onClick={handleUSBPrintCurrent}
-                disabled={!selectedItem}
-              >
-                <Printer size={16} />
-                Print Labels ({quantity})
-              </button>
+            <div className="preview-action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="barcode-btn barcode-btn-webusb flex-1"
+                  onClick={handleWebUSBPrintCurrent}
+                  disabled={!selectedItem}
+                  title="Direct WebUSB thermal print (Chrome / Edge)"
+                >
+                  <Usb size={16} />
+                  {webUsbConnected ? `WebUSB Print (${quantity})` : 'Pair WebUSB'}
+                </button>
+
+                <button 
+                  className="barcode-btn barcode-btn-primary flex-1"
+                  onClick={handleUSBPrintCurrent}
+                  disabled={!selectedItem}
+                >
+                  <Printer size={16} />
+                  Print Labels ({quantity})
+                </button>
+              </div>
 
               <button 
-                className="barcode-btn barcode-btn-secondary flex-1"
+                className="barcode-btn barcode-btn-secondary full-width"
                 onClick={handleBrowserPrintCurrent}
                 disabled={!selectedItem}
               >
                 <FileText size={16} />
-                Windows Print / PDF
+                Windows Print / PDF Dialog
               </button>
             </div>
 
@@ -1379,13 +1497,23 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
                   <div className="queue-total-summary">
                     Total Stickers to Print: <strong>{printQueue.reduce((sum, item) => sum + item.quantity, 0)}</strong>
                   </div>
-                  <button 
-                    className="barcode-btn barcode-btn-primary full-width"
-                    onClick={handleUSBPrintBatch}
-                  >
-                    <Printer size={16} />
-                    Print All Queue Items
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="barcode-btn barcode-btn-webusb flex-1"
+                      onClick={handleWebUSBPrintBatch}
+                      title="Print all queue items via WebUSB"
+                    >
+                      <Usb size={16} />
+                      {webUsbConnected ? 'WebUSB Batch Print' : 'Pair & Print WebUSB'}
+                    </button>
+                    <button 
+                      className="barcode-btn barcode-btn-primary flex-1"
+                      onClick={handleUSBPrintBatch}
+                    >
+                      <Printer size={16} />
+                      Print Batch
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
