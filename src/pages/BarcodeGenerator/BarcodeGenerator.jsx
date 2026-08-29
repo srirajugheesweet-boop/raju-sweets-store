@@ -102,21 +102,46 @@ const BarcodeGenerator = () => {
   const [barcodeFormatOption, setBarcodeFormatOption] = useState('asterisk'); // Default 'asterisk' (1004*0400)
   const [customBarcodeId, setCustomBarcodeId] = useState('1004');
 
-  // Sticker Dimensions & Printer Calibration
-  const [labelColumns, setLabelColumns] = useState(2); // 2 Columns per row (2-Up Sticker Roll)
-  const [labelWidth, setLabelWidth] = useState(50); // 50mm per sticker
-  const [labelHeight, setLabelHeight] = useState(25); // 25mm per sticker
-  const [printMode, setPrintMode] = useState('tspl'); // 'tspl' (2-Column TSPL Text) or 'image' (Bitmap)
-  const [labelDirection, setLabelDirection] = useState(0); // 0 = Standard, 1 = 180° Inverted
-  const [xOffset, setXOffset] = useState(0);
-  const [yOffset, setYOffset] = useState(0);
+  // Sticker Dimensions & Printer Calibration (with localStorage persistence)
+  const savedSettings = (() => {
+    try {
+      const s = localStorage.getItem('raju_barcode_settings');
+      return s ? JSON.parse(s) : null;
+    } catch (_) { return null; }
+  })();
+
+  const [labelColumns, setLabelColumns] = useState(savedSettings?.columns ?? 2); // 2 Columns per row (2-Up Sticker Roll)
+  const [labelWidth, setLabelWidth] = useState(savedSettings?.width ?? 50); // 50mm per sticker
+  const [labelHeight, setLabelHeight] = useState(savedSettings?.height ?? 25); // 25mm per sticker
+  const [labelGap, setLabelGap] = useState(savedSettings?.gap ?? 3); // 3mm horizontal gap between stickers
+  const [printMode, setPrintMode] = useState(savedSettings?.mode ?? 'tspl'); // 'tspl' or 'image'
+  const [labelDirection, setLabelDirection] = useState(savedSettings?.direction ?? 0); // 0 = Standard, 1 = 180° Inverted
+  const [xOffset, setXOffset] = useState(savedSettings?.xOffset ?? 0);
+  const [yOffset, setYOffset] = useState(savedSettings?.yOffset ?? 0);
   const [showCalibration, setShowCalibration] = useState(false);
+
+  // Save settings when changed
+  useEffect(() => {
+    try {
+      localStorage.setItem('raju_barcode_settings', JSON.stringify({
+        columns: labelColumns,
+        width: labelWidth,
+        height: labelHeight,
+        gap: labelGap,
+        mode: printMode,
+        direction: labelDirection,
+        xOffset,
+        yOffset
+      }));
+    } catch (_) {}
+  }, [labelColumns, labelWidth, labelHeight, labelGap, printMode, labelDirection, xOffset, yOffset]);
 
   // Batch Print Queue
   const [printQueue, setPrintQueue] = useState([]);
 
-  // Barcode SVG Ref for rendering
+  // Barcode SVG Ref for rendering live preview
   const barcodeRef = useRef(null);
+  const barcodeRightRef = useRef(null);
   const printAreaRef = useRef(null);
 
   // Fetch products from Firestore
@@ -167,24 +192,57 @@ const BarcodeGenerator = () => {
 
   const barcodeValue = getBarcodeValue();
 
-  // Render Barcode using JsBarcode
+  // Render Barcode in preview using JsBarcode
   useEffect(() => {
     if (barcodeRef.current && barcodeValue) {
       try {
         JsBarcode(barcodeRef.current, barcodeValue, {
           format: "CODE128",
           lineColor: "#000000",
-          width: 1.6,
-          height: 38,
+          width: 1.5,
+          height: 34,
           displayValue: false,
           margin: 0,
           background: "transparent"
         });
       } catch (err) {
-        console.warn("JsBarcode render notice:", err);
+        console.warn("JsBarcode preview render notice:", err);
       }
     }
-  }, [barcodeValue, barcodeRef.current]);
+    if (barcodeRightRef.current && barcodeValue) {
+      try {
+        JsBarcode(barcodeRightRef.current, barcodeValue, {
+          format: "CODE128",
+          lineColor: "#000000",
+          width: 1.5,
+          height: 34,
+          displayValue: false,
+          margin: 0,
+          background: "transparent"
+        });
+      } catch (_) {}
+    }
+  }, [barcodeValue, barcodeRef.current, barcodeRightRef.current]);
+
+  // Helper to generate standalone SVG markup for any barcode
+  const generateBarcodeSVGString = (val) => {
+    try {
+      const svgNode = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      JsBarcode(svgNode, val || barcodeValue, {
+        format: "CODE128",
+        lineColor: "#000000",
+        width: 1.4,
+        height: 30,
+        displayValue: false,
+        margin: 0,
+        background: "transparent"
+      });
+      return svgNode.outerHTML;
+    } catch (err) {
+      console.warn("Barcode SVG generation fallback:", err);
+      return `<svg width="140" height="30"><text x="10" y="20" font-size="12" font-family="monospace">${val}</text></svg>`;
+    }
+  };
 
   // Formatted Weight Display String (e.g. "400 GM" or "1 KG")
   const getFormattedWeightLabel = () => {
@@ -239,46 +297,80 @@ const BarcodeGenerator = () => {
     setPrintQueue([]);
   };
 
+  // Get flattened list of all stickers to print
+  const getStickersList = (isBatch = false) => {
+    if (isBatch) {
+      const flat = [];
+      printQueue.forEach(item => {
+        const count = Number(item.quantity) || 1;
+        for (let i = 0; i < count; i++) {
+          flat.push({
+            itemName: item.itemName,
+            weightLabel: item.weightLabel,
+            barcodeValue: item.barcodeValue,
+            barcodeId: item.barcodeId,
+            mrp: item.mrp
+          });
+        }
+      });
+      return flat;
+    } else {
+      if (!selectedItem) return [];
+      const count = Number(quantity) || 1;
+      const singleObj = {
+        itemName: selectedItem.name,
+        weightLabel: getFormattedWeightLabel(),
+        barcodeValue,
+        barcodeId: customBarcodeId || extractCleanNumericBarcodeId(selectedItem),
+        mrp: Number(customPrice) || 0
+      };
+      return Array.from({ length: count }).map(() => singleObj);
+    }
+  };
+
   // --- TSPL 2-Column Buffer Generator ---
   const buildTSPLBuffer = (stickerItems) => {
     let tspl = '';
     const cols = Number(labelColumns);
-    const totalWidthMm = cols === 2 ? 104 : labelWidth;
+    const singleW = Number(labelWidth) || 50;
+    const gapW = Number(labelGap) || 3;
+    const singleH = Number(labelHeight) || 25;
+    const totalWidthMm = cols === 2 ? (singleW * 2 + gapW) : singleW;
 
     for (let i = 0; i < stickerItems.length; i += cols) {
       const col1 = stickerItems[i];
       const col2 = cols === 2 ? stickerItems[i + 1] : null;
 
       tspl += `
-SIZE ${totalWidthMm} mm, ${labelHeight} mm
+SIZE ${totalWidthMm} mm, ${singleH} mm
 GAP 2 mm, 0 mm
 DIRECTION ${labelDirection}
 CLS
 `;
 
-      // --- COLUMN 1 (LEFT STICKER: X = 10) ---
-      const x1 = 10 + Number(xOffset);
-      const y1 = 8 + Number(yOffset);
+      // --- COLUMN 1 (LEFT STICKER: X = 0 to 400 dots) ---
+      const x1 = 12 + Number(xOffset);
+      const y1 = 6 + Number(yOffset);
       tspl += `
-TEXT ${180 + x1}, ${y1}, "2", 0, 1, 1, "${STORE_NAME}"
-TEXT ${x1}, ${30 + y1}, "2", 0, 1, 1, "${col1.itemName.substring(0, 18)}"
-TEXT ${300 + x1}, ${30 + y1}, "2", 0, 1, 1, "${col1.weightLabel}"
-BARCODE ${15 + x1}, ${56 + y1}, "128", 40, 0, 0, 2, 2, "${col1.barcodeValue}"
-TEXT ${15 + x1}, ${102 + y1}, "2", 0, 1, 1, "${col1.barcodeId}"
-TEXT ${230 + x1}, ${102 + y1}, "2", 0, 1, 1, "MRP: ${col1.mrp}/-"
+TEXT ${100 + x1}, ${y1}, "2", 0, 1, 1, "${STORE_NAME}"
+TEXT ${10 + x1}, ${28 + y1}, "2", 0, 1, 1, "${col1.itemName.substring(0, 16)}"
+TEXT ${280 + x1}, ${28 + y1}, "2", 0, 1, 1, "${col1.weightLabel}"
+BARCODE ${40 + x1}, ${52 + y1}, "128", 38, 0, 0, 2, 2, "${col1.barcodeValue}"
+TEXT ${15 + x1}, ${96 + y1}, "2", 0, 1, 1, "${col1.barcodeId}"
+TEXT ${240 + x1}, ${96 + y1}, "2", 0, 1, 1, "MRP: ${col1.mrp}/-"
 `;
 
-      // --- COLUMN 2 (RIGHT STICKER: X = 425) ---
+      // --- COLUMN 2 (RIGHT STICKER: X = 425 to 825 dots) ---
       if (col2) {
-        const x2 = 425 + Number(xOffset);
-        const y2 = 8 + Number(yOffset);
+        const x2 = 430 + Number(xOffset);
+        const y2 = 6 + Number(yOffset);
         tspl += `
-TEXT ${180 + x2}, ${y2}, "2", 0, 1, 1, "${STORE_NAME}"
-TEXT ${x2}, ${30 + y2}, "2", 0, 1, 1, "${col2.itemName.substring(0, 18)}"
-TEXT ${300 + x2}, ${30 + y2}, "2", 0, 1, 1, "${col2.weightLabel}"
-BARCODE ${15 + x2}, ${56 + y2}, "128", 40, 0, 0, 2, 2, "${col2.barcodeValue}"
-TEXT ${15 + x2}, ${102 + y2}, "2", 0, 1, 1, "${col2.barcodeId}"
-TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
+TEXT ${100 + x2}, ${y2}, "2", 0, 1, 1, "${STORE_NAME}"
+TEXT ${10 + x2}, ${28 + y2}, "2", 0, 1, 1, "${col2.itemName.substring(0, 16)}"
+TEXT ${280 + x2}, ${28 + y2}, "2", 0, 1, 1, "${col2.weightLabel}"
+BARCODE ${40 + x2}, ${52 + y2}, "128", 38, 0, 0, 2, 2, "${col2.barcodeValue}"
+TEXT ${15 + x2}, ${96 + y2}, "2", 0, 1, 1, "${col2.barcodeId}"
+TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
 `;
       }
 
@@ -288,100 +380,235 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
     return tspl;
   };
 
-  const printStickersViaIframe = () => {
-    if (!printAreaRef.current) return;
-    const stickerHtml = printAreaRef.current.innerHTML;
-    const fullHtml = `
+  // --- HTML 2-Column Row-Based Generator for Browser / Windows Driver Print ---
+  const buildPrintHTML = (stickerItems) => {
+    const cols = Number(labelColumns);
+    const singleW = Number(labelWidth) || 50;
+    const singleH = Number(labelHeight) || 25;
+    const gapW = Number(labelGap) || 3;
+    const totalWidthMm = cols === 2 ? (singleW * 2 + gapW) : singleW;
+
+    // Group stickers into Rows (2 stickers per row if 2-columns)
+    const rows = [];
+    for (let i = 0; i < stickerItems.length; i += cols) {
+      if (cols === 2) {
+        rows.push({
+          left: stickerItems[i],
+          right: stickerItems[i + 1] || null
+        });
+      } else {
+        rows.push({
+          left: stickerItems[i],
+          right: null
+        });
+      }
+    }
+
+    const rowsHtml = rows.map((row, rIdx) => {
+      const leftSvg = generateBarcodeSVGString(row.left.barcodeValue);
+      const rightSvg = row.right ? generateBarcodeSVGString(row.right.barcodeValue) : '';
+
+      return `
+        <div class="sticker-print-row" key="row-${rIdx}">
+          <!-- LEFT STICKER -->
+          <div class="print-sticker-card">
+            <div class="sticker-header-title">${STORE_NAME}</div>
+            <div class="sticker-sub-row">
+              <span class="sticker-item-name">${row.left.itemName}</span>
+              <span class="sticker-weight-tag">${row.left.weightLabel}</span>
+            </div>
+            <div class="sticker-barcode-wrapper">
+              ${leftSvg}
+            </div>
+            <div class="sticker-footer-row">
+              <span class="sticker-code-id">${row.left.barcodeId}</span>
+              <span class="sticker-mrp-price">MRP: ${row.left.mrp}/-</span>
+            </div>
+          </div>
+
+          ${cols === 2 ? (
+            row.right ? `
+              <!-- RIGHT STICKER -->
+              <div class="print-sticker-card">
+                <div class="sticker-header-title">${STORE_NAME}</div>
+                <div class="sticker-sub-row">
+                  <span class="sticker-item-name">${row.right.itemName}</span>
+                  <span class="sticker-weight-tag">${row.right.weightLabel}</span>
+                </div>
+                <div class="sticker-barcode-wrapper">
+                  ${rightSvg}
+                </div>
+                <div class="sticker-footer-row">
+                  <span class="sticker-code-id">${row.right.barcodeId}</span>
+                  <span class="sticker-mrp-price">MRP: ${row.right.mrp}/-</span>
+                </div>
+              </div>
+            ` : `
+              <!-- BLANK RIGHT STICKER PLACEHOLDER (KEEPS LEFT STICKER IN COLUMN 1) -->
+              <div class="print-sticker-card blank-sticker"></div>
+            `
+          ) : ''}
+        </div>
+      `;
+    }).join('\n');
+
+    return `
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8">
           <title>Barcodes - Raju Ghee Sweets</title>
           <style>
             @page {
-              size: 104mm auto;
-              margin: 0;
+              size: ${totalWidthMm}mm ${singleH}mm;
+              margin: 0mm !important;
             }
-            body {
+            * {
+              box-sizing: border-box !important;
               margin: 0;
               padding: 0;
-              background: #fff;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
-            .printable-stickers-area {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 2mm 3mm;
-              width: 103mm;
-              padding: 1mm;
-              box-sizing: border-box;
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              width: ${totalWidthMm}mm !important;
+            }
+            .printable-stickers-container {
+              width: ${totalWidthMm}mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            .sticker-print-row {
+              display: flex !important;
+              flex-direction: row !important;
+              justify-content: space-between !important;
+              align-items: stretch !important;
+              width: ${totalWidthMm}mm !important;
+              height: ${singleH}mm !important;
+              max-height: ${singleH}mm !important;
+              page-break-after: always !important;
+              break-after: page !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+              padding: 0 !important;
+              margin: 0 !important;
             }
             .print-sticker-card {
-              width: 50mm;
-              height: 25mm;
-              border: 1px solid #d1d5db;
-              border-radius: 1mm;
-              padding: 1.5mm 2mm;
-              box-sizing: border-box;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              page-break-inside: avoid;
-              font-family: 'Arial', sans-serif;
-              color: #000000;
+              width: ${cols === 2 ? `${singleW - 1.5}mm` : `${singleW - 1}mm`} !important;
+              height: ${singleH - 0.5}mm !important;
+              max-height: ${singleH - 0.5}mm !important;
+              border: none !important;
+              padding: 0.8mm 1.5mm !important;
+              box-sizing: border-box !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              overflow: hidden !important;
+              font-family: Arial, Helvetica, sans-serif !important;
+              color: #000000 !important;
+              background: #ffffff !important;
+            }
+            .print-sticker-card.blank-sticker {
+              visibility: hidden !important;
+              border: none !important;
             }
             .sticker-header-title {
-              text-align: center;
-              font-size: 9pt;
-              font-weight: 700;
-              letter-spacing: 0.3px;
-              text-transform: uppercase;
+              text-align: center !important;
+              font-size: 8pt !important;
+              font-weight: 800 !important;
+              line-height: 1 !important;
+              letter-spacing: 0.2px !important;
+              text-transform: uppercase !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              margin-bottom: 0.4mm !important;
             }
             .sticker-sub-row {
-              display: flex;
-              justify-content: space-between;
-              font-size: 8pt;
-              font-weight: 600;
-              color: #000000;
+              display: flex !important;
+              justify-content: space-between !important;
+              align-items: center !important;
+              font-size: 7.5pt !important;
+              font-weight: 700 !important;
+              line-height: 1 !important;
+              white-space: nowrap !important;
+              overflow: hidden !important;
+              margin-bottom: 0.4mm !important;
+            }
+            .sticker-item-name {
+              max-width: 32mm !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+            }
+            .sticker-weight-tag {
+              font-weight: 800 !important;
+              white-space: nowrap !important;
             }
             .sticker-barcode-wrapper {
-              display: flex;
-              justify-content: center;
-              height: 11mm;
-              overflow: hidden;
+              display: flex !important;
+              justify-content: center !important;
+              align-items: center !important;
+              height: 9.5mm !important;
+              max-height: 9.5mm !important;
+              overflow: hidden !important;
+              margin: 0 auto !important;
+              width: 100% !important;
             }
             .sticker-barcode-wrapper svg {
-              height: 100%;
-              width: 100%;
+              height: 100% !important;
+              max-height: 9.5mm !important;
+              width: 100% !important;
+              max-width: 44mm !important;
+              display: block !important;
             }
             .sticker-footer-row {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-end;
+              display: flex !important;
+              justify-content: space-between !important;
+              align-items: flex-end !important;
+              font-size: 7.5pt !important;
+              line-height: 1 !important;
+              margin-top: 0.4mm !important;
             }
             .sticker-code-id {
-              font-size: 8pt;
-              font-weight: 600;
-              font-family: monospace;
+              font-size: 7.5pt !important;
+              font-weight: 700 !important;
+              font-family: 'Courier New', monospace !important;
             }
             .sticker-mrp-price {
-              font-size: 10pt;
-              font-weight: 700;
+              font-size: 8.5pt !important;
+              font-weight: 800 !important;
             }
           </style>
         </head>
         <body>
-          <div class="printable-stickers-area">
-            ${stickerHtml}
+          <div class="printable-stickers-container">
+            ${rowsHtml}
           </div>
         </body>
       </html>
     `;
+  };
+
+  const printStickersViaIframe = (isBatch = false) => {
+    const stickerList = getStickersList(isBatch);
+    if (stickerList.length === 0) {
+      toast.error("No items to print");
+      return;
+    }
+    const fullHtml = buildPrintHTML(stickerList);
     printHTMLContent(fullHtml);
   };
 
   // --- Browser & USB Print Handlers ---
   const handleBrowserPrintCurrent = () => {
     if (!selectedItem) return;
-    printStickersViaIframe();
+    printStickersViaIframe(false);
   };
 
   // --- USB Printer Handler ---
@@ -390,18 +617,10 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
 
     if (qzConnected && selectedQZPrinter) {
       const copyQty = Number(quantity) || 1;
-      const toastId = toast.loading(`Printing ${copyQty} sticker(s) on 2-Column roll to ${selectedQZPrinter}...`);
+      const toastId = toast.loading(`Printing ${copyQty} sticker(s) on ${labelColumns}-Column roll to ${selectedQZPrinter}...`);
 
       try {
-        const singleStickerObj = {
-          itemName: selectedItem.name,
-          weightLabel: getFormattedWeightLabel(),
-          barcodeValue,
-          barcodeId: customBarcodeId || extractCleanNumericBarcodeId(selectedItem),
-          mrp: Number(customPrice) || 0
-        };
-
-        const stickerItems = Array.from({ length: copyQty }).map(() => singleStickerObj);
+        const stickerItems = getStickersList(false);
 
         if (printMode === 'image') {
           // --- HIGH-PRECISION BITMAP RASTER MODE ---
@@ -437,23 +656,23 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
           toast.success(`Printed ${copyQty} sticker(s) successfully!`, { id: toastId });
           return;
         } else {
-          // --- 2-COLUMN TSPL MODE (RECOMMENDED FOR 2-UP ROLL) ---
+          // --- TSPL MODE (RECOMMENDED FOR 2-UP ROLL) ---
           const tsplCode = buildTSPLBuffer(stickerItems);
           const encoder = new TextEncoder();
           await printRawUSB(encoder.encode(tsplCode));
-          toast.success(`Sent 2-Column stickers (${barcodeValue}) to USB printer!`, { id: toastId });
+          toast.success(`Sent ${copyQty} stickers (${barcodeValue}) to USB printer!`, { id: toastId });
           return;
         }
       } catch (err) {
         console.error("USB Print Error:", err);
-        toast.error(`Direct USB print error: ${err.message || 'Check printer'}. Trying Windows Driver...`, { id: toastId });
+        toast.error(`Direct USB print note: ${err.message || 'Check printer'}. Opening Windows Driver...`, { id: toastId });
       }
     }
 
     // Fallback: Windows Printer Driver Print via isolated iframe
     toast("Opening Windows USB Printer Driver...", { icon: '🖨️' });
     setTimeout(() => {
-      printStickersViaIframe();
+      printStickersViaIframe(false);
     }, 150);
   };
 
@@ -464,23 +683,19 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
       return;
     }
 
+    const totalCount = printQueue.reduce((a, c) => a + c.quantity, 0);
+
     if (qzConnected && selectedQZPrinter) {
-      const totalCount = printQueue.reduce((a, c) => a + c.quantity, 0);
-      const toastId = toast.loading(`Printing 2-Column queue batch (${totalCount} stickers) to ${selectedQZPrinter}...`);
+      const toastId = toast.loading(`Printing ${labelColumns}-Column queue batch (${totalCount} stickers) to ${selectedQZPrinter}...`);
 
       try {
-        const flattenedStickers = [];
-        printQueue.forEach(item => {
-          for (let i = 0; i < item.quantity; i++) {
-            flattenedStickers.push(item);
-          }
-        });
+        const flattenedStickers = getStickersList(true);
 
         if (printMode === 'tspl') {
           const tsplCode = buildTSPLBuffer(flattenedStickers);
           const encoder = new TextEncoder();
           await printRawUSB(encoder.encode(tsplCode));
-          toast.success(`Printed ${totalCount} stickers on 2-Column roll!`, { id: toastId });
+          toast.success(`Printed ${totalCount} stickers on ${labelColumns}-Column roll!`, { id: toastId });
           return;
         } else {
           const qz = window.qz;
@@ -514,7 +729,7 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
     // Fallback: Trigger Browser Print for entire batch via isolated iframe
     toast("Opening Windows USB Print dialog for batch...", { icon: '🖨️' });
     setTimeout(() => {
-      printStickersViaIframe();
+      printStickersViaIframe(true);
     }, 150);
   };
 
@@ -522,25 +737,36 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
     <div className="barcode-generator-page">
       {/* Printable Area for Window Print (@media print hides everything else) */}
       <div className="printable-stickers-area" ref={printAreaRef}>
-        {printQueue.length > 0 ? (
-          printQueue.map((item) => (
-            Array.from({ length: item.quantity }).map((_, idx) => (
-              <div key={`${item.queueId}-${idx}`} className="print-sticker-card">
+        {(() => {
+          const itemsToRender = getStickersList(printQueue.length > 0);
+          const cols = Number(labelColumns) || 2;
+          const rows = [];
+          for (let i = 0; i < itemsToRender.length; i += cols) {
+            rows.push({
+              left: itemsToRender[i],
+              right: cols === 2 ? (itemsToRender[i + 1] || null) : null
+            });
+          }
+
+          return rows.map((row, rIdx) => (
+            <div key={`print-row-${rIdx}`} className="sticker-print-row">
+              {/* Left Sticker */}
+              <div className="print-sticker-card">
                 <div className="sticker-header-title">{STORE_NAME}</div>
                 <div className="sticker-sub-row">
-                  <span className="sticker-item-name">{item.itemName}</span>
-                  <span className="sticker-weight-tag">{item.weightLabel}</span>
+                  <span className="sticker-item-name">{row.left.itemName}</span>
+                  <span className="sticker-weight-tag">{row.left.weightLabel}</span>
                 </div>
                 <div className="sticker-barcode-wrapper">
                   <svg 
                     ref={node => {
                       if (node) {
                         try {
-                          JsBarcode(node, item.barcodeValue, {
+                          JsBarcode(node, row.left.barcodeValue, {
                             format: "CODE128",
                             lineColor: "#000000",
                             width: 1.5,
-                            height: 34,
+                            height: 30,
                             displayValue: false,
                             margin: 0
                           });
@@ -550,45 +776,50 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
                   />
                 </div>
                 <div className="sticker-footer-row">
-                  <span className="sticker-code-id">{item.barcodeId}</span>
-                  <span className="sticker-mrp-price">MRP: {item.mrp}/-</span>
+                  <span className="sticker-code-id">{row.left.barcodeId}</span>
+                  <span className="sticker-mrp-price">MRP: {row.left.mrp}/-</span>
                 </div>
               </div>
-            ))
-          ))
-        ) : selectedItem ? (
-          Array.from({ length: quantity }).map((_, idx) => (
-            <div key={`current-${idx}`} className="print-sticker-card">
-              <div className="sticker-header-title">{STORE_NAME}</div>
-              <div className="sticker-sub-row">
-                <span className="sticker-item-name">{selectedItem.name}</span>
-                <span className="sticker-weight-tag">{getFormattedWeightLabel()}</span>
-              </div>
-              <div className="sticker-barcode-wrapper">
-                <svg 
-                  ref={node => {
-                    if (node) {
-                      try {
-                        JsBarcode(node, barcodeValue, {
-                          format: "CODE128",
-                          lineColor: "#000000",
-                          width: 1.5,
-                          height: 34,
-                          displayValue: false,
-                          margin: 0
-                        });
-                      } catch(e) {}
-                    }
-                  }} 
-                />
-              </div>
-              <div className="sticker-footer-row">
-                <span className="sticker-code-id">{customBarcodeId || extractCleanNumericBarcodeId(selectedItem)}</span>
-                <span className="sticker-mrp-price">MRP: {customPrice}/-</span>
-              </div>
+
+              {/* Right Sticker */}
+              {cols === 2 && (
+                row.right ? (
+                  <div className="print-sticker-card">
+                    <div className="sticker-header-title">{STORE_NAME}</div>
+                    <div className="sticker-sub-row">
+                      <span className="sticker-item-name">{row.right.itemName}</span>
+                      <span className="sticker-weight-tag">{row.right.weightLabel}</span>
+                    </div>
+                    <div className="sticker-barcode-wrapper">
+                      <svg 
+                        ref={node => {
+                          if (node) {
+                            try {
+                              JsBarcode(node, row.right.barcodeValue, {
+                                format: "CODE128",
+                                lineColor: "#000000",
+                                width: 1.5,
+                                height: 30,
+                                displayValue: false,
+                                margin: 0
+                              });
+                            } catch(e) {}
+                          }
+                        }} 
+                      />
+                    </div>
+                    <div className="sticker-footer-row">
+                      <span className="sticker-code-id">{row.right.barcodeId}</span>
+                      <span className="sticker-mrp-price">MRP: {row.right.mrp}/-</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="print-sticker-card blank-sticker" />
+                )
+              )}
             </div>
-          ))
-        ) : null}
+          ));
+        })()}
       </div>
 
       {/* Screen UI Header */}
@@ -929,6 +1160,18 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
                 </div>
               </div>
 
+              {labelColumns === 2 && (
+                <div className="form-group margin-top">
+                  <label>Gap Between 2 Columns (mm)</label>
+                  <input 
+                    type="number" 
+                    value={labelGap}
+                    onChange={(e) => setLabelGap(Number(e.target.value))}
+                    className="calibration-input"
+                  />
+                </div>
+              )}
+
               <div className="form-group margin-top">
                 <label>Label Feed Orientation / Rotation</label>
                 <select 
@@ -988,33 +1231,65 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
           <div className="barcode-card preview-card">
             <div className="card-section-header">
               <Eye size={18} />
-              <h3>Live Sticker Preview</h3>
-              <span className="live-tag">Clean Crisp Format</span>
+              <h3>Live Sticker Preview {labelColumns === 2 ? '(2-Up Side-by-Side Row)' : '(1-Column)'}</h3>
+              <span className="live-tag">Exact Thermal Output</span>
             </div>
 
             <div className="sticker-preview-wrapper">
-              <div className="physical-sticker-preview" id="physical-sticker-preview">
-                {/* Header: SRI RAJU SWEETS */}
-                <div className="preview-store-header">{STORE_NAME}</div>
-                
-                {/* Second Line: Item Name (Left) | Weight (Right) */}
-                <div className="preview-item-row">
-                  <span className="preview-item-name">{selectedItem?.name || 'Kaju Kalakan'}</span>
-                  <span className="preview-weight">{getFormattedWeightLabel()}</span>
+              <div className="preview-row-container" style={{ display: 'flex', gap: '8px', justifyContent: 'center', width: '100%' }}>
+                {/* Column 1 (Left Sticker) */}
+                <div className="physical-sticker-preview" id="physical-sticker-preview" style={{ flex: 1 }}>
+                  <div className="preview-col-tag">Left Column (1)</div>
+                  {/* Header: SRI RAJU SWEETS */}
+                  <div className="preview-store-header">{STORE_NAME}</div>
+                  
+                  {/* Second Line: Item Name (Left) | Weight (Right) */}
+                  <div className="preview-item-row">
+                    <span className="preview-item-name">{selectedItem?.name || 'Kaju Kalakan'}</span>
+                    <span className="preview-weight">{getFormattedWeightLabel()}</span>
+                  </div>
+
+                  {/* Third Line: Barcode Graphics */}
+                  <div className="preview-barcode-container">
+                    <svg ref={barcodeRef} className="preview-barcode-svg" />
+                  </div>
+
+                  {/* Fourth & Fifth Line: Barcode ID (Left) | MRP (Right) */}
+                  <div className="preview-footer-row">
+                    <span className="preview-barcode-id">
+                      {customBarcodeId || extractCleanNumericBarcodeId(selectedItem)}
+                    </span>
+                    <span className="preview-mrp">MRP: {customPrice || 360}/-</span>
+                  </div>
                 </div>
 
-                {/* Third Line: Barcode Graphics */}
-                <div className="preview-barcode-container">
-                  <svg ref={barcodeRef} className="preview-barcode-svg" />
-                </div>
+                {/* Column 2 (Right Sticker) if 2-Column Mode */}
+                {labelColumns === 2 && (
+                  <div className="physical-sticker-preview" style={{ flex: 1 }}>
+                    <div className="preview-col-tag">Right Column (2)</div>
+                    {/* Header: SRI RAJU SWEETS */}
+                    <div className="preview-store-header">{STORE_NAME}</div>
+                    
+                    {/* Second Line: Item Name (Left) | Weight (Right) */}
+                    <div className="preview-item-row">
+                      <span className="preview-item-name">{selectedItem?.name || 'Kaju Kalakan'}</span>
+                      <span className="preview-weight">{getFormattedWeightLabel()}</span>
+                    </div>
 
-                {/* Fourth & Fifth Line: Barcode ID (Left) | MRP (Right) */}
-                <div className="preview-footer-row">
-                  <span className="preview-barcode-id">
-                    {customBarcodeId || extractCleanNumericBarcodeId(selectedItem)}
-                  </span>
-                  <span className="preview-mrp">MRP: {customPrice || 360}/-</span>
-                </div>
+                    {/* Third Line: Barcode Graphics */}
+                    <div className="preview-barcode-container">
+                      <svg ref={barcodeRightRef} className="preview-barcode-svg" />
+                    </div>
+
+                    {/* Fourth & Fifth Line: Barcode ID (Left) | MRP (Right) */}
+                    <div className="preview-footer-row">
+                      <span className="preview-barcode-id">
+                        {customBarcodeId || extractCleanNumericBarcodeId(selectedItem)}
+                      </span>
+                      <span className="preview-mrp">MRP: {customPrice || 360}/-</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1024,8 +1299,8 @@ TEXT ${230 + x2}, ${102 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
                 <span className="info-val monospace" style={{ fontWeight: '700', color: '#047857' }}>{barcodeValue}</span>
               </div>
               <div className="info-item">
-                <span className="info-label">Print Layout:</span>
-                <span className="info-val">{labelColumns} Columns / Row</span>
+                <span className="info-label">Print Roll Format:</span>
+                <span className="info-val">{labelColumns} Stickers Across / Row</span>
               </div>
             </div>
 

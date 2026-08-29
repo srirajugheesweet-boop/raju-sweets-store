@@ -577,32 +577,57 @@
 }
 
 /* Physical Sticker Card (Matches attached user photo exactly!) */
+.preview-row-container {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: stretch;
+  width: 100%;
+}
+
 .physical-sticker-preview {
-  width: 320px; /* Scaled visual ratio matching standard 50mm x 25mm label */
-  min-height: 160px;
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  min-height: 155px;
   background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   box-sizing: border-box;
-  font-family: 'Arial', 'Helvetica', sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   color: #000000;
+  position: relative;
+}
+
+.preview-col-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-align: center;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 /* Header line centered bold */
 .preview-store-header {
   text-align: center;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.5px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
   color: #000000;
-  margin-bottom: 4px;
-  font-family: 'Arial', 'Helvetica', sans-serif;
+  margin-bottom: 2px;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 /* Subheader line */
@@ -610,20 +635,25 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .preview-item-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: #000000;
   letter-spacing: -0.2px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preview-weight {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: #000000;
+  white-space: nowrap;
 }
 
 /* Barcode SVG container */
@@ -638,7 +668,7 @@
 
 .preview-barcode-svg {
   max-width: 100%;
-  height: 44px;
+  height: 38px;
 }
 
 /* Footer row */
@@ -650,18 +680,18 @@
 }
 
 .preview-barcode-id {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: #000000;
   font-family: 'Courier New', Courier, monospace;
 }
 
 .preview-mrp {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: #000000;
   letter-spacing: -0.3px;
-  font-family: 'Arial', 'Helvetica', sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 .preview-info-box {
@@ -793,11 +823,9 @@
   }
 
   .printable-stickers-area {
-    display: grid !important;
-    grid-template-columns: repeat(2, 50mm) !important; /* 2 Column / 2-Up Sticker Roll */
-    column-gap: 3mm !important;
-    row-gap: 2mm !important;
-    width: 103mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100mm !important;
     position: absolute;
     left: 0;
     top: 0;
@@ -806,64 +834,118 @@
     margin: 0 !important;
   }
 
+  .sticker-print-row {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: stretch !important;
+    width: 100mm !important;
+    height: 25mm !important;
+    max-height: 25mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   .print-sticker-card {
-    width: 50mm;
-    height: 25mm;
-    border: 1px solid #d1d5db;
-    border-radius: 1mm;
-    padding: 1.5mm 2mm;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    page-break-inside: avoid;
-    font-family: 'Arial', sans-serif;
-    color: #000000;
+    width: 48.5mm !important;
+    height: 24.5mm !important;
+    max-height: 24.5mm !important;
+    border: none !important;
+    padding: 0.8mm 1.5mm !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    overflow: hidden !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  .print-sticker-card.blank-sticker {
+    visibility: hidden !important;
+    border: none !important;
   }
 
   .sticker-header-title {
-    text-align: center;
-    font-size: 9pt;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    font-family: 'Arial', sans-serif;
+    text-align: center !important;
+    font-size: 8pt !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    letter-spacing: 0.2px !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-bottom: 0.4mm !important;
   }
 
   .sticker-sub-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 8pt;
-    font-weight: 600;
-    color: #000000;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    margin-bottom: 0.4mm !important;
+  }
+
+  .sticker-item-name {
+    max-width: 32mm !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .sticker-weight-tag {
+    font-weight: 800 !important;
+    white-space: nowrap !important;
   }
 
   .sticker-barcode-wrapper {
-    display: flex;
-    justify-content: center;
-    height: 11mm;
-    overflow: hidden;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    height: 9.5mm !important;
+    max-height: 9.5mm !important;
+    overflow: hidden !important;
+    margin: 0 auto !important;
+    width: 100% !important;
   }
 
   .sticker-barcode-wrapper svg {
-    height: 100%;
-    width: 100%;
+    height: 100% !important;
+    max-height: 9.5mm !important;
+    width: 100% !important;
+    max-width: 44mm !important;
+    display: block !important;
   }
 
   .sticker-footer-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-end !important;
+    font-size: 7.5pt !important;
+    line-height: 1 !important;
+    margin-top: 0.4mm !important;
   }
 
   .sticker-code-id {
-    font-size: 8pt;
-    font-weight: 600;
-    font-family: monospace;
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    font-family: 'Courier New', monospace !important;
   }
 
   .sticker-mrp-price {
-    font-size: 10pt;
-    font-weight: 700;
+    font-size: 8.5pt !important;
+    font-weight: 800 !important;
   }
 }
