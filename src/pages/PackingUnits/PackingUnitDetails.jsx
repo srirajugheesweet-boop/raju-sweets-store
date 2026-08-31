@@ -51,8 +51,11 @@ const PackingUnitDetails = () => {
     connectedDevice,
     qzConnected,
     selectedQZPrinter,
+    webUsbConnected,
+    webUsbDevice,
     printRawBLE,
     printRawUSB,
+    printRawWebUSB,
     printHTMLContent
   } = usePrinter();
 
@@ -277,11 +280,83 @@ const PackingUnitDetails = () => {
   };
 
   const handlePrintTrigger = (order, boxesList, notes = '') => {
-    if (bluetoothConnected) {
+    if (webUsbConnected) {
+      printDirectToWebUSB(order, boxesList, notes);
+    } else if (bluetoothConnected) {
       printDirectToBluetooth(order, boxesList, notes);
     } else if (qzConnected && selectedQZPrinter) {
       printDirectToQZ(order, boxesList, notes);
     } else {
+      handlePrintBoxes(order, boxesList, notes);
+    }
+  };
+
+  const printDirectToWebUSB = async (order, boxesList, notes = '') => {
+    toast.loading("Sending print job directly to WebUSB printer...", { id: 'webusb-print-job' });
+
+    try {
+      for (const box of boxesList) {
+        const encoder = new TextEncoder();
+
+        // ESC/POS Commands
+        const INIT = new Uint8Array([0x1b, 0x40]);
+        const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
+        const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
+        const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
+        const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
+
+        let bytes = [];
+
+        bytes.push(...INIT);
+
+        bytes.push(...CENTER);
+        bytes.push(...DOUBLE_SIZE);
+        bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
+        bytes.push(...NORMAL_SIZE);
+        bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
+        bytes.push(...encoder.encode("--------------------------------\n"));
+
+        bytes.push(...DOUBLE_SIZE);
+        bytes.push(...encoder.encode(`BOX ${box.boxNum} OF ${boxesList.length}\n`));
+        bytes.push(...NORMAL_SIZE);
+        bytes.push(...encoder.encode("--------------------------------\n"));
+
+        bytes.push(...LEFT);
+        bytes.push(...encoder.encode(`Order ID: #${order.orderId}\n`));
+        bytes.push(...encoder.encode(`Date: ${new Date().toLocaleDateString()}\n`));
+        bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
+        bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
+        bytes.push(...encoder.encode("--------------------------------\n"));
+
+        bytes.push(...encoder.encode("Items in Box:\n"));
+        bytes.push(...encoder.encode(`${box.contents}\n`));
+
+        if (notes) {
+          bytes.push(...encoder.encode("--------------------------------\n"));
+          bytes.push(...encoder.encode(`Note: ${notes}\n`));
+        }
+
+        bytes.push(...encoder.encode("--------------------------------\n"));
+
+        bytes.push(...CENTER);
+        bytes.push(...encoder.encode(`Packed by Unit: ${id || 'Facility'}\n`));
+        bytes.push(...encoder.encode("Thank you for your order!\n\n"));
+
+        const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
+        bytes.push(...CUT);
+
+        const dataArray = new Uint8Array(bytes);
+
+        await printRawWebUSB(dataArray);
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      toast.dismiss('webusb-print-job');
+      toast.success("Printed successfully to WebUSB printer!");
+    } catch (err) {
+      console.error("Direct WebUSB print error: ", err);
+      toast.dismiss('webusb-print-job');
+      toast.error("Failed to print via WebUSB. Opening system print fallback...");
       handlePrintBoxes(order, boxesList, notes);
     }
   };

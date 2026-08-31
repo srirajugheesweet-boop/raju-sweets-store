@@ -402,6 +402,30 @@
   color: #34D399;
 }
 
+.header-print-status-btn.connected.webusb {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: #8B5CF6;
+  color: #A78BFA;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.15);
+}
+
+.header-print-status-btn.connected.webusb:hover {
+  background: rgba(139, 92, 246, 0.3);
+  color: #C4B5FD;
+}
+
+.header-print-status-btn.connected.wifi {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: #0EA5E9;
+  color: #38BDF8;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.15);
+}
+
+.header-print-status-btn.connected.wifi:hover {
+  background: rgba(14, 165, 233, 0.3);
+  color: #7DD3FC;
+}
+
 .header-print-status-btn.connected.usb {
   background: rgba(59, 130, 246, 0.15);
   border-color: #3B82F6;

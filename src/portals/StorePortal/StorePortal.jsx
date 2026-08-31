@@ -817,6 +817,10 @@ const StorePortal = () => {
     qzConnected,
     qzPrinters,
     selectedQZPrinter,
+    webUsbConnected,
+    webUsbDevice,
+    handleWebUSBConnect,
+    disconnectWebUSB,
     isScanningBt,
     btDevices,
     connectingBtDevice,
@@ -3246,6 +3250,15 @@ const StorePortal = () => {
             {/* Printer Connection Banner */}
             <div className="pu-bt-banner animate-fade-in" style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 16px', borderRadius: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {/* WebUSB Status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: webUsbConnected ? '#8b5cf6' : '#cbd5e1', boxShadow: webUsbConnected ? '0 0 8px #8b5cf6' : 'none', flexShrink: 0 }}></div>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                    WebUSB: {webUsbConnected ? (webUsbDevice || 'Connected') : 'Not Connected'}
+                  </span>
+                </div>
+                {/* Divider */}
+                <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }}></div>
                 {/* Bluetooth Status */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: bluetoothConnected ? '#22c55e' : '#cbd5e1', boxShadow: bluetoothConnected ? '0 0 8px #22c55e' : 'none', flexShrink: 0 }}></div>
@@ -3264,6 +3277,18 @@ const StorePortal = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {/* WebUSB Button */}
+                {webUsbConnected ? (
+                  <button type="button" onClick={disconnectWebUSB}
+                    style={{ background: '#7c3aed', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Usb size={12} /> Disconnect WebUSB
+                  </button>
+                ) : (
+                  <button type="button" onClick={handleWebUSBConnect}
+                    style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Usb size={12} /> Connect WebUSB
+                  </button>
+                )}
                 {/* BT Button */}
                 {bluetoothConnected ? (
                   <button type="button" onClick={disconnectPrinter}
@@ -3402,6 +3427,14 @@ const StorePortal = () => {
 
                         {/* Printer Status Triggers */}
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <div className="st-compact-bluetooth"
+                            onClick={webUsbConnected ? disconnectWebUSB : handleWebUSBConnect}
+                            style={{ cursor: 'pointer', background: webUsbConnected ? '#f5f3ff' : undefined, border: webUsbConnected ? '1px solid #ddd6fe' : undefined }}>
+                            <Usb size={12} style={{ color: webUsbConnected ? '#8b5cf6' : '#64748b' }} />
+                            <span style={{ fontSize: '10px', fontWeight: '700', color: webUsbConnected ? '#8b5cf6' : '#64748b' }}>
+                              {webUsbConnected ? 'WebUSB On' : 'WebUSB'}
+                            </span>
+                          </div>
                           <div className="st-compact-bluetooth" onClick={bluetoothConnected ? disconnectPrinter : handleBluetoothConnect} style={{ cursor: 'pointer' }}>
                             <Bluetooth size={13} className={bluetoothConnected ? 'connected' : 'disconnected'} />
                             <span style={{ fontSize: '10px', fontWeight: '700', color: bluetoothConnected ? '#10b981' : '#64748b' }}>
@@ -3420,16 +3453,19 @@ const StorePortal = () => {
                       </div>
 
                       {/* Active Printer Banner */}
-                      {(bluetoothConnected || qzConnected) && (
-                        <div className="st-bluetooth-banner" style={{ background: bluetoothConnected ? '#f0fdf4' : '#eff6ff', borderColor: bluetoothConnected ? '#bbf7d0' : '#bfdbfe' }}>
+                      {(webUsbConnected || bluetoothConnected || qzConnected) && (
+                        <div className="st-bluetooth-banner" style={{
+                          background: webUsbConnected ? '#f5f3ff' : bluetoothConnected ? '#f0fdf4' : '#eff6ff',
+                          borderColor: webUsbConnected ? '#ddd6fe' : bluetoothConnected ? '#bbf7d0' : '#bfdbfe'
+                        }}>
                           <div className="st-banner-left">
-                            {bluetoothConnected ? <Bluetooth size={12} color="#16a34a" /> : <Usb size={12} color="#2563eb" />}
-                            <span style={{ color: bluetoothConnected ? '#16a34a' : '#2563eb' }}>
-                              {bluetoothConnected ? `BT: ${connectedDevice}` : `USB: ${selectedQZPrinter || 'No printer'}`}
+                            {webUsbConnected ? <Usb size={12} color="#8b5cf6" /> : bluetoothConnected ? <Bluetooth size={12} color="#16a34a" /> : <Usb size={12} color="#2563eb" />}
+                            <span style={{ color: webUsbConnected ? '#8b5cf6' : bluetoothConnected ? '#16a34a' : '#2563eb' }}>
+                              {webUsbConnected ? `WebUSB: ${webUsbDevice || 'Connected'}` : bluetoothConnected ? `BT: ${connectedDevice}` : `USB: ${selectedQZPrinter || 'No printer'}`}
                             </span>
                           </div>
                           <button
-                            onClick={bluetoothConnected ? disconnectPrinter : disconnectQZTray}
+                            onClick={webUsbConnected ? disconnectWebUSB : bluetoothConnected ? disconnectPrinter : disconnectQZTray}
                             className="st-banner-disconnect-btn">
                             Disconnect
                           </button>

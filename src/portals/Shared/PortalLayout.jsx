@@ -43,6 +43,17 @@ const PortalLayout = ({ children, title, links }) => {
     qzConnected,
     qzPrinters,
     selectedQZPrinter,
+    webUsbConnected,
+    webUsbDevice,
+    handleWebUSBConnect,
+    disconnectWebUSB,
+    wifiConnected,
+    wifiPrinterIp,
+    showWifiModal,
+    setShowWifiModal,
+    connectWifiPrinter,
+    disconnectWifiPrinter,
+    testWifiPrint,
     isScanningBt,
     btDevices,
     connectingBtDevice,
@@ -174,6 +185,34 @@ const PortalLayout = ({ children, title, links }) => {
 
           {/* Printer Connection Chips */}
           <div className="header-printer-status-bar">
+            {webUsbConnected ? (
+              <button className="header-print-status-btn connected webusb" title={`WebUSB: ${webUsbDevice} (Click to disconnect)`} onClick={disconnectWebUSB}>
+                <UsbIcon size={13} />
+                <span>WebUSB: {webUsbDevice ? (webUsbDevice.length > 8 ? `${webUsbDevice.substring(0, 8)}...` : webUsbDevice) : 'Connected'}</span>
+              </button>
+            ) : (
+              <button
+                className="header-print-status-btn disconnected webusb"
+                title="Connect Direct WebUSB Thermal Printer"
+                onClick={() => {
+                  if (!navigator.usb) {
+                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    const isHttps = window.location.protocol === 'https:';
+                    if (!isLocalhost && !isHttps) {
+                      toast.error('WebUSB requires localhost or HTTPS access. Open http://localhost:5173 on the POS machine.');
+                    } else {
+                      toast.error('WebUSB is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
+                    }
+                    return;
+                  }
+                  handleWebUSBConnect();
+                }}
+              >
+                <UsbIcon size={13} />
+                <span>WebUSB</span>
+              </button>
+            )}
+
             {bluetoothConnected ? (
               <button className="header-print-status-btn connected ble" title={`BLE: ${connectedDevice}`} onClick={disconnectPrinter}>
                 <BluetoothIcon size={13} />
@@ -192,7 +231,7 @@ const PortalLayout = ({ children, title, links }) => {
                 <span>USB: {selectedQZPrinter ? (selectedQZPrinter.length > 8 ? `${selectedQZPrinter.substring(0, 8)}...` : selectedQZPrinter) : 'Connected'}</span>
               </button>
             ) : (
-              <button className="header-print-status-btn disconnected usb" title="Connect USB Printer" onClick={connectQZTray} disabled={qzConnecting}>
+              <button className="header-print-status-btn disconnected usb" title="Connect USB Printer (QZ Tray)" onClick={connectQZTray} disabled={qzConnecting}>
                 <UsbIcon size={13} />
                 <span>{qzConnecting ? `USB: ${qzConnectTimer}s` : 'USB'}</span>
               </button>

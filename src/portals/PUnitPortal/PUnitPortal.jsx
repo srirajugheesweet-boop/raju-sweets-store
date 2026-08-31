@@ -49,8 +49,13 @@ const PUnitPortal = () => {
     connectedDevice,
     qzConnected,
     selectedQZPrinter,
+    webUsbConnected,
+    webUsbDevice,
+    handleWebUSBConnect,
+    disconnectWebUSB,
     printRawBLE,
     printRawUSB,
+    printRawWebUSB,
     printHTMLContent,
     handleBluetoothConnect,
     disconnectPrinter,
@@ -307,11 +312,116 @@ const PUnitPortal = () => {
     if (document.activeElement && typeof document.activeElement.blur === 'function') {
       document.activeElement.blur();
     }
-    if (bluetoothConnected) {
+    if (webUsbConnected) {
+      printDirectToWebUSB(order, boxesList, notes);
+    } else if (bluetoothConnected) {
       printDirectToBluetooth(order, boxesList, notes);
     } else if (qzConnected && selectedQZPrinter) {
       printDirectToQZ(order, boxesList, notes);
     } else {
+      handlePrintBoxes(order, boxesList, notes);
+    }
+  };
+
+  const printDirectToWebUSB = async (order, boxesList, notes = '') => {
+    toast.loading("Sending print job directly to WebUSB printer...", { id: 'webusb-print-job' });
+    try {
+      const { charsPerLine, qrWidth } = getPrinterWidthParams();
+      const separator = "-".repeat(charsPerLine) + "\n";
+
+      for (const box of boxesList) {
+        const encoder = new TextEncoder();
+
+        const INIT = new Uint8Array([0x1b, 0x40]);
+        const CENTER = new Uint8Array([0x1b, 0x61, 0x01]);
+        const LEFT = new Uint8Array([0x1b, 0x61, 0x00]);
+        const DOUBLE_SIZE = new Uint8Array([0x1d, 0x21, 0x11]);
+        const NORMAL_SIZE = new Uint8Array([0x1d, 0x21, 0x00]);
+
+        let bytes = [];
+        bytes.push(...INIT);
+        bytes.push(...CENTER);
+        bytes.push(...DOUBLE_SIZE);
+        bytes.push(...encoder.encode("RAJU GHEE SWEETS\n"));
+        bytes.push(...NORMAL_SIZE);
+        bytes.push(...encoder.encode("Quality Sweets & Savouries\n"));
+        bytes.push(...encoder.encode(separator));
+
+        bytes.push(...DOUBLE_SIZE);
+        bytes.push(...encoder.encode(`BOX ${box.boxNum} OF ${boxesList.length}\n`));
+        bytes.push(...NORMAL_SIZE);
+        bytes.push(...encoder.encode(separator));
+
+        bytes.push(...LEFT);
+        bytes.push(...encoder.encode(`Order ID: ${order.serialNumber ? `S${order.serialNumber}-${order.orderId}` : `#${order.orderId}`}\n`));
+        bytes.push(...encoder.encode(`Store: ${order.storeName || 'Outlet Store'}\n`));
+        bytes.push(...encoder.encode(`Date: ${formatToDDMMYYYY(new Date())}\n`));
+        bytes.push(...encoder.encode(`Customer: ${order.customerName}\n`));
+        bytes.push(...encoder.encode(`Phone: ${order.customerPhone || 'N/A'}\n`));
+        bytes.push(...encoder.encode(separator));
+
+        bytes.push(...encoder.encode("Order Items:\n"));
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            const itemQtyStr = `${item.quantity} ${item.unit === 'Weight' ? 'kg' : 'pcs'}`;
+            const maxNameLen = charsPerLine - itemQtyStr.length - 2;
+            let nameToPrint = item.name;
+            if (nameToPrint.length > maxNameLen) {
+              nameToPrint = nameToPrint.substring(0, maxNameLen - 3) + "...";
+            }
+            const dotsCount = charsPerLine - nameToPrint.length - itemQtyStr.length;
+            const lineStr = `${nameToPrint}${".".repeat(Math.max(1, dotsCount))}${itemQtyStr}\n`;
+            bytes.push(...encoder.encode(lineStr));
+          });
+        } else {
+          bytes.push(...encoder.encode("No items found\n"));
+        }
+        bytes.push(...encoder.encode(separator));
+
+        bytes.push(...encoder.encode("Items in Box:\n"));
+        bytes.push(...encoder.encode(`${box.contents}\n`));
+
+        if (notes) {
+          bytes.push(...encoder.encode(separator));
+          bytes.push(...encoder.encode(`Note: ${notes}\n`));
+        }
+
+        bytes.push(...encoder.encode(separator));
+
+        // --- Dynamic ESC/POS QR Code Rasterization ---
+        const boxIdToUse = box.id || `box_${Date.now()}_${box.boxNum}_${Math.random()}`;
+        const qrDataUrl = window.location.origin + '/scan-box/' + order.id + '/' + boxIdToUse;
+        const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${qrWidth}x${qrWidth}&data=${encodeURIComponent(qrDataUrl)}`;
+
+        try {
+          const qrBytes = await getLogoESCPOS(qrImgUrl, qrWidth);
+          if (qrBytes && qrBytes.length > 0) {
+            bytes.push(...CENTER);
+            bytes.push(...qrBytes);
+            bytes.push(...encoder.encode("\nScan to Receive at Store\n"));
+            bytes.push(...encoder.encode(separator));
+          }
+        } catch (qrErr) {
+          console.error("ESCPOS QR generation error:", qrErr);
+        }
+
+        bytes.push(...CENTER);
+        bytes.push(...encoder.encode(`Packed by Unit: ${pUnitDetails?.name || id || 'Facility'}\n`));
+        bytes.push(...encoder.encode("Thank you for your order!\n\n"));
+
+        const CUT = new Uint8Array([0x1d, 0x56, 0x41, 0x00]);
+        bytes.push(...CUT);
+
+        const dataArray = new Uint8Array(bytes);
+        await printRawWebUSB(dataArray);
+        await new Promise(resolve => setTimeout(resolve, 800)); // wait between boxes
+      }
+      toast.dismiss('webusb-print-job');
+      toast.success("Printed successfully to WebUSB printer!");
+    } catch (err) {
+      console.error("WebUSB print error: ", err);
+      toast.dismiss('webusb-print-job');
+      toast.error(`Failed to print via WebUSB (${err.message || 'Error'}). Opening system print fallback...`, { duration: 6000 });
       handlePrintBoxes(order, boxesList, notes);
     }
   };
@@ -1057,6 +1167,15 @@ const PUnitPortal = () => {
                 {/* Printer Connection Banner */}
                 <div className="pu-bt-banner animate-fade-in" style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 16px', borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    {/* WebUSB Status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: webUsbConnected ? '#8b5cf6' : '#cbd5e1', boxShadow: webUsbConnected ? '0 0 8px #8b5cf6' : 'none', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                        WebUSB: {webUsbConnected ? (webUsbDevice || 'Connected') : 'Not Connected'}
+                      </span>
+                    </div>
+                    {/* Divider */}
+                    <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }}></div>
                     {/* Bluetooth Status */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: bluetoothConnected ? '#22c55e' : '#cbd5e1', boxShadow: bluetoothConnected ? '0 0 8px #22c55e' : 'none', flexShrink: 0 }}></div>
@@ -1075,6 +1194,18 @@ const PUnitPortal = () => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {/* WebUSB Button */}
+                    {webUsbConnected ? (
+                      <button type="button" onClick={disconnectWebUSB}
+                        style={{ background: '#7c3aed', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Usb size={12} /> Disconnect WebUSB
+                      </button>
+                    ) : (
+                      <button type="button" onClick={handleWebUSBConnect}
+                        style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Usb size={12} /> Connect WebUSB
+                      </button>
+                    )}
                     {/* BT Button */}
                     {bluetoothConnected ? (
                       <button type="button" onClick={disconnectPrinter}
