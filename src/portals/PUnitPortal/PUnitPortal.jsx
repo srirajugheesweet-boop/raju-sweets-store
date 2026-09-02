@@ -107,6 +107,25 @@ const PUnitPortal = () => {
   const [storeFilter, setStoreFilter] = useState('All');
   const [itemFilter, setItemFilter] = useState('');
   const [orderFilter, setOrderFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+
+  // Quick Date Helpers
+  const getTodayStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getTomorrowStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // Get unique stores from the orders assigned to this unit
   const uniqueStores = React.useMemo(() => {
@@ -1055,13 +1074,27 @@ const PUnitPortal = () => {
 
   if (!tab) return <Navigate to={`/punit-portal/${id}/orders`} replace />;
 
+  // Helper function to check if order matches a date filter (checks deliveryDate, createdAt, and orderDate)
+  const matchesOrderDate = (order, dateStr) => {
+    if (!dateStr) return true;
+    const delDate = order.deliveryDate ? (typeof order.deliveryDate === 'string' ? order.deliveryDate : formatToDDMMYYYY(order.deliveryDate)) : '';
+    const createdDate = order.createdAt ? formatToDDMMYYYY(order.createdAt) : '';
+    const ordDate = order.orderDate ? (typeof order.orderDate === 'string' ? order.orderDate : formatToDDMMYYYY(order.orderDate)) : '';
+    return isSameDay(delDate, dateStr) || isSameDay(createdDate, dateStr) || isSameDay(ordDate, dateStr);
+  };
+
   // Filter orders assigned to this packing unit
   const assignedOrders = orders.filter(order => order.pUnitId === id);
 
+  // Active orders considering date filter (for dynamic badge counts)
+  const dateFilteredAssigned = dateFilter
+    ? assignedOrders.filter(order => matchesOrderDate(order, dateFilter))
+    : assignedOrders;
+
   // Calculate Active Sub-tab counts
-  const pendingCount = assignedOrders.filter(order => order.items?.some(i => i.status === 'moved_to_packing')).length;
-  const completedCount = assignedOrders.filter(order => order.items?.some(i => i.status === 'packing_complete') && !order.items?.some(i => i.status === 'moved_to_packing')).length;
-  const movedCount = assignedOrders.filter(order => order.items?.some(i => i.status === 'moved_to_store') && !order.items?.some(i => i.status === 'moved_to_packing') && !order.items?.some(i => i.status === 'packing_complete')).length;
+  const pendingCount = dateFilteredAssigned.filter(order => order.items?.some(i => i.status === 'moved_to_packing')).length;
+  const completedCount = dateFilteredAssigned.filter(order => order.items?.some(i => i.status === 'packing_complete') && !order.items?.some(i => i.status === 'moved_to_packing')).length;
+  const movedCount = dateFilteredAssigned.filter(order => order.items?.some(i => i.status === 'moved_to_store') && !order.items?.some(i => i.status === 'moved_to_packing') && !order.items?.some(i => i.status === 'packing_complete')).length;
 
   // Filter active packing orders based on sweet packaging status and selected sub-tab
   const getSubTabActiveOrders = () => {
@@ -1085,9 +1118,9 @@ const PUnitPortal = () => {
 
   // Filter history orders based on selected date filter
   const historyOrders = assignedOrders.filter(order => {
-    if (!historyDate) return true;
-    const orderDateStr = order.deliveryDate || (order.createdAt ? formatToDDMMYYYY(order.createdAt) : '');
-    return isSameDay(orderDateStr, historyDate);
+    const filterToUse = dateFilter || historyDate;
+    if (!filterToUse) return true;
+    return matchesOrderDate(order, filterToUse);
   });
 
   const applyAllFilters = (ordersList) => {
@@ -1097,8 +1130,13 @@ const PUnitPortal = () => {
         const orderStore = order.storeName || 'Outlet Store';
         if (orderStore !== storeFilter) return false;
       }
+
+      // 2. Date Filter
+      if (dateFilter && !matchesOrderDate(order, dateFilter)) {
+        return false;
+      }
       
-      // 2. Item Filter (Search inside order.items)
+      // 3. Item Filter (Search inside order.items)
       if (itemFilter.trim() !== '') {
         const query = itemFilter.toLowerCase();
         const matchesItem = order.items && order.items.some(item => 
@@ -1107,7 +1145,7 @@ const PUnitPortal = () => {
         if (!matchesItem) return false;
       }
       
-      // 3. Order Filter (Search orderId, customerName, customerPhone)
+      // 4. Order Filter (Search orderId, customerName, customerPhone)
       if (orderFilter.trim() !== '') {
         const query = orderFilter.toLowerCase();
         const matchesOrder = 
@@ -1367,7 +1405,7 @@ const PUnitPortal = () => {
                   </div>
                 )}
 
-                {/* Store, Order, and Item Filters */}
+                {/* Store, Order, Item, and Date Filters */}
                 <div className="pu-filters-bar" style={{
                   display: 'flex',
                   gap: '15px',
@@ -1381,7 +1419,7 @@ const PUnitPortal = () => {
                   boxShadow: 'var(--shadow-sm)'
                 }}>
                   {/* Store Filter */}
-                  <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ flex: '1 1 180px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Filter by Store</label>
                     <select
                       value={storeFilter}
@@ -1406,8 +1444,83 @@ const PUnitPortal = () => {
                     </select>
                   </div>
 
+                  {/* Date Filter */}
+                  <div style={{ flex: '1.2 1 210px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Calendar size={13} style={{ color: 'var(--primary-color)' }} /> Filter by Date
+                      </label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDateFilter(getTodayStr());
+                            setHistoryDate(getTodayStr());
+                          }}
+                          style={{
+                            border: 'none',
+                            background: dateFilter === getTodayStr() ? 'var(--primary-color)' : '#f1f5f9',
+                            color: dateFilter === getTodayStr() ? 'white' : '#475569',
+                            borderRadius: '4px',
+                            padding: '1px 6px',
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Today
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDateFilter(getTomorrowStr());
+                            setHistoryDate(getTomorrowStr());
+                          }}
+                          style={{
+                            border: 'none',
+                            background: dateFilter === getTomorrowStr() ? 'var(--primary-color)' : '#f1f5f9',
+                            color: dateFilter === getTomorrowStr() ? 'white' : '#475569',
+                            borderRadius: '4px',
+                            padding: '1px 6px',
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Tomorrow
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="date"
+                        value={dateFilter}
+                        onChange={(e) => {
+                          setDateFilter(e.target.value);
+                          setHistoryDate(e.target.value);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          height: '38px',
+                          background: '#fff',
+                          cursor: 'pointer'
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   {/* Order Search Filter */}
-                  <div style={{ flex: '2 1 250px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ flex: '2 1 220px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Search Order (ID, Customer, Phone)</label>
                     <div style={{ position: 'relative' }}>
                       <input
@@ -1432,7 +1545,7 @@ const PUnitPortal = () => {
                   </div>
 
                   {/* Item Search Filter */}
-                  <div style={{ flex: '2 1 250px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ flex: '2 1 200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Search Item Name</label>
                     <div style={{ position: 'relative' }}>
                       <input
@@ -1457,13 +1570,15 @@ const PUnitPortal = () => {
                   </div>
                   
                   {/* Clear All Filters Button */}
-                  {(storeFilter !== 'All' || orderFilter !== '' || itemFilter !== '') && (
+                  {(storeFilter !== 'All' || orderFilter !== '' || itemFilter !== '' || dateFilter !== '' || historyDate !== '') && (
                     <button
                       type="button"
                       onClick={() => {
                         setStoreFilter('All');
                         setOrderFilter('');
                         setItemFilter('');
+                        setDateFilter('');
+                        setHistoryDate('');
                       }}
                       style={{
                         alignSelf: 'flex-end',

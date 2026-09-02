@@ -12,7 +12,9 @@ import {
   X,
   Filter,
   CreditCard,
-  ShoppingBag
+  ShoppingBag,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -32,6 +34,15 @@ const WalkInSales = () => {
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all', 'settled', 'saved'
   const [filterDate, setFilterDate] = useState('');
   const [previewBill, setPreviewBill] = useState(null);
+  const [expandedBills, setExpandedBills] = useState([]);
+
+  const toggleBillAccordion = (billId) => {
+    setExpandedBills(prev => 
+      prev.includes(billId) 
+        ? prev.filter(id => id !== billId) 
+        : [...prev, billId]
+    );
+  };
 
   // Fetch Outlets / Stores List for Filter
   useEffect(() => {
@@ -259,56 +270,159 @@ const WalkInSales = () => {
               <tbody>
                 {filteredBills.map(bill => {
                   const billStatus = bill.status || 'settled';
+                  const isExpanded = expandedBills.includes(bill.id);
+                  const itemsList = bill.items || [];
+
                   return (
-                    <tr key={bill.id}>
-                      <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
-                        {bill.billId}
-                      </td>
-                      <td style={{ fontWeight: '600' }}>
-                        <div>{bill.storeName || 'Outlet Store'}</div>
-                        {bill.tradeName && bill.tradeName !== bill.storeName && (
-                          <div style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700' }}>{bill.tradeName}</div>
-                        )}
-                        {bill.storeGstNumber && (
-                          <div style={{ fontSize: '10px', color: '#1e3a8a', fontWeight: '700' }}>GST: {bill.storeGstNumber}</div>
-                        )}
-                      </td>
-                      <td>{bill.customerName || 'Walk-in Customer'}</td>
-                      <td style={{ color: '#4b5563' }}>{bill.customerPhone || '—'}</td>
-                      <td style={{ fontWeight: '700', fontSize: '14px' }}>₹{Number(bill.totalAmount || 0).toFixed(2)}</td>
-                      <td>
-                        <span className="polaris-badge" style={{ background: '#f3f4f6', color: '#1f2937', fontWeight: '700' }}>
-                          {bill.paymentMode || 'Cash'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`walkin-status-badge ${billStatus}`}>
-                          {billStatus === 'settled' ? <CheckCircle2 size={11} /> : <Clock size={11} />}
-                          {billStatus === 'settled' ? 'Settled' : 'Saved (Draft)'}
-                        </span>
-                      </td>
-                      <td style={{ color: '#6b7280', fontSize: '12px' }}>{bill.date || '—'}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                          <button 
-                            className="polaris-btn polaris-btn-secondary" 
-                            style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
-                            onClick={() => setPreviewBill(bill)}
-                            title="View Bill Details"
-                          >
-                            <Eye size={14} /> View
-                          </button>
-                          <button 
-                            className="polaris-btn polaris-btn-secondary" 
-                            style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
-                            onClick={() => handlePrintReceipt(bill)}
-                            title="Print Thermal Receipt"
-                          >
-                            <Printer size={14} /> Print
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    <React.Fragment key={bill.id}>
+                      <tr className={`walkin-data-row ${isExpanded ? 'walkin-row-expanded' : ''}`}>
+                        <td style={{ fontWeight: '700', color: 'var(--primary-color)' }}>
+                          <div className="walkin-bill-id-cell">
+                            <button
+                              type="button"
+                              className={`walkin-accordion-btn ${isExpanded ? 'expanded' : ''}`}
+                              onClick={() => toggleBillAccordion(bill.id)}
+                              title={isExpanded ? "Collapse Items" : "Expand Items"}
+                              aria-label={isExpanded ? "Collapse Items" : "Expand Items"}
+                            >
+                              {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                            </button>
+                            <span 
+                              className="walkin-bill-id-text"
+                              onClick={() => toggleBillAccordion(bill.id)}
+                              title="Click to toggle product details"
+                            >
+                              {bill.billId}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: '600' }}>
+                          <div>{bill.storeName || 'Outlet Store'}</div>
+                          {bill.tradeName && bill.tradeName !== bill.storeName && (
+                            <div style={{ fontSize: '11px', color: 'var(--primary-color)', fontWeight: '700' }}>{bill.tradeName}</div>
+                          )}
+                          {bill.storeGstNumber && (
+                            <div style={{ fontSize: '10px', color: '#1e3a8a', fontWeight: '700' }}>GST: {bill.storeGstNumber}</div>
+                          )}
+                        </td>
+                        <td>{bill.customerName || 'Walk-in Customer'}</td>
+                        <td style={{ color: '#4b5563' }}>{bill.customerPhone || '—'}</td>
+                        <td style={{ fontWeight: '700', fontSize: '14px' }}>₹{Number(bill.totalAmount || 0).toFixed(2)}</td>
+                        <td>
+                          <span className="polaris-badge" style={{ background: '#f3f4f6', color: '#1f2937', fontWeight: '700' }}>
+                            {bill.paymentMode || 'Cash'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`walkin-status-badge ${billStatus}`}>
+                            {billStatus === 'settled' ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+                            {billStatus === 'settled' ? 'Settled' : 'Saved (Draft)'}
+                          </span>
+                        </td>
+                        <td style={{ color: '#6b7280', fontSize: '12px' }}>{bill.date || '—'}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                            <button 
+                              className="polaris-btn polaris-btn-secondary" 
+                              style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
+                              onClick={() => setPreviewBill(bill)}
+                              title="View Bill Details"
+                            >
+                              <Eye size={14} /> View
+                            </button>
+                            <button 
+                              className="polaris-btn polaris-btn-secondary" 
+                              style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
+                              onClick={() => handlePrintReceipt(bill)}
+                              title="Print Thermal Receipt"
+                            >
+                              <Printer size={14} /> Print
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Accordion Sub-row: Products list in this bill */}
+                      {isExpanded && (
+                        <tr className="walkin-accordion-row">
+                          <td colSpan={9} className="walkin-accordion-td">
+                            <div className="walkin-accordion-content">
+                              <div className="walkin-accordion-header">
+                                <div className="walkin-acc-title">
+                                  <ShoppingBag size={15} />
+                                  <span>Products in this Bill ({itemsList.length} {itemsList.length === 1 ? 'item' : 'items'})</span>
+                                </div>
+                                {Number(bill.discount || 0) > 0 && (
+                                  <div className="walkin-acc-discount">
+                                    Discount Applied: ₹{Number(bill.discount).toFixed(2)}
+                                  </div>
+                                )}
+                              </div>
+
+                              {itemsList.length > 0 ? (
+                                <div className="walkin-items-table-wrapper">
+                                  <table className="walkin-items-subtable">
+                                    <thead>
+                                      <tr>
+                                        <th style={{ width: '40px', textAlign: 'center' }}>#</th>
+                                        <th>Product Name</th>
+                                        <th style={{ textAlign: 'right', width: '120px' }}>Unit Rate</th>
+                                        <th style={{ textAlign: 'center', width: '130px' }}>Quantity</th>
+                                        <th style={{ textAlign: 'right', width: '130px' }}>Item Total</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {itemsList.map((item, idx) => {
+                                        const itemQty = Number(item.quantity || 1);
+                                        const itemPrice = Number(item.price || 0);
+                                        const itemTotal = Number(item.total != null ? item.total : (itemQty * itemPrice));
+                                        const isWeight = item.unit === 'Weight' || item.weightUnit;
+                                        const formattedQty = isWeight ? `${itemQty} kg` : `${itemQty} ${item.unit || 'pcs'}`;
+
+                                        return (
+                                          <tr key={idx}>
+                                            <td style={{ color: '#9ca3af', fontWeight: '600', textAlign: 'center' }}>{idx + 1}</td>
+                                            <td>
+                                              <div style={{ fontWeight: '600', color: '#1f2937' }}>
+                                                {item.name || 'Unnamed Product'}
+                                              </div>
+                                              {item.category && (
+                                                <span className="walkin-item-cat-badge">{item.category}</span>
+                                              )}
+                                            </td>
+                                            <td style={{ textAlign: 'right', color: '#4b5563' }}>₹{itemPrice.toFixed(2)}</td>
+                                            <td style={{ textAlign: 'center' }}>
+                                              <span className="walkin-qty-badge">{formattedQty}</span>
+                                            </td>
+                                            <td style={{ textAlign: 'right', fontWeight: '700', color: '#111827' }}>
+                                              ₹{itemTotal.toFixed(2)}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                    <tfoot>
+                                      <tr>
+                                        <td colSpan={4} style={{ textAlign: 'right', fontWeight: '700', color: '#4b5563' }}>
+                                          Grand Total:
+                                        </td>
+                                        <td style={{ textAlign: 'right', fontWeight: '800', color: 'var(--primary-color, #0A2A1B)', fontSize: '13px' }}>
+                                          ₹{Number(bill.totalAmount || 0).toFixed(2)}
+                                        </td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div className="walkin-acc-empty">
+                                  No product items recorded for this bill.
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
