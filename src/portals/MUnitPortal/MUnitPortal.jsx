@@ -48,6 +48,8 @@ const MUnitPortal = () => {
   const [expandedOrders, setExpandedOrders] = useState([]);
   const [packingUnits, setPackingUnits] = useState([]);
   const [selectedPUnitFilter, setSelectedPUnitFilter] = useState('All');
+  const [stores, setStores] = useState([]);
+  const [selectedStoreFilter, setSelectedStoreFilter] = useState('All');
 
   // Today Worksheet states
   const [worksheetSubTab, setWorksheetSubTab] = useState('pending'); // 'pending' or 'completed'
@@ -61,23 +63,40 @@ const MUnitPortal = () => {
   const [mUnitWorksheetLoading, setMUnitWorksheetLoading] = useState(false);
   const [storeWorksheetSubTab, setStoreWorksheetSubTab] = useState('pending'); // 'pending' or 'completed'
 
-  // Fetch items & stores on mount / tab change
+  // Fetch stores & packing units on mount
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const [storesSnap, pUnitsSnap] = await Promise.all([
+          getDocs(query(collection(db, 'stores'), orderBy('name', 'asc'))),
+          getDocs(collection(db, 'packing_units'))
+        ]);
+        const fetchedStores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedPUnits = pUnitsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        fetchedPUnits.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setStores(fetchedStores);
+        setMUnitStores(fetchedStores);
+        setPackingUnits(fetchedPUnits);
+      } catch (err) {
+        console.error("Failed to load stores or packing units in MUnitPortal:", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
+
+  // Fetch items on store-worksheet tab
   useEffect(() => {
     if (tab === 'store-worksheet') {
-      const fetchStoresAndItems = async () => {
+      const fetchItems = async () => {
         try {
-          const [storesSnap, itemsSnap] = await Promise.all([
-            getDocs(query(collection(db, 'stores'), orderBy('name', 'asc'))),
-            getDocs(query(collection(db, 'items'), orderBy('name', 'asc')))
-          ]);
-          setMUnitStores(storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          const itemsSnap = await getDocs(query(collection(db, 'items'), orderBy('name', 'asc')));
           setMUnitItems(itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (err) {
-          console.error("Error fetching stores or items in MUnitPortal:", err);
+          console.error("Error fetching items in MUnitPortal:", err);
           toast.error("Failed to load metadata.");
         }
       };
-      fetchStoresAndItems();
+      fetchItems();
     }
   }, [tab]);
 
@@ -116,21 +135,6 @@ const MUnitPortal = () => {
     });
 
     return () => unsubscribe();
-  }, []);
-
-  // Fetch Packing Units on mount for filters
-  useEffect(() => {
-    const fetchPackingUnits = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'packing_units'));
-        const fetched = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        fetched.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setPackingUnits(fetched);
-      } catch (err) {
-        console.error("Failed to load packing units in MUnitPortal:", err);
-      }
-    };
-    fetchPackingUnits();
   }, []);
 
   const links = [
@@ -202,6 +206,9 @@ const MUnitPortal = () => {
     orders.forEach(order => {
       // Filter by Packing Unit
       if (selectedPUnitFilter !== 'All' && order.pUnitId !== selectedPUnitFilter) return;
+
+      // Filter by Store
+      if (selectedStoreFilter !== 'All' && order.storeId !== selectedStoreFilter && order.storeName !== selectedStoreFilter) return;
 
       // Filter orders matching the selected date (Target Delivery Date, fallback to Creation Date)
       const orderDateStr = order.deliveryDate || (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '');
@@ -281,7 +288,8 @@ const MUnitPortal = () => {
   const getAssignedOrders = () => {
     return orders.filter(order =>
       order.items && order.items.some(item => item.mUnitId === id) &&
-      (selectedPUnitFilter === 'All' || order.pUnitId === selectedPUnitFilter)
+      (selectedPUnitFilter === 'All' || order.pUnitId === selectedPUnitFilter) &&
+      (selectedStoreFilter === 'All' || order.storeId === selectedStoreFilter || order.storeName === selectedStoreFilter)
     );
   };
 
@@ -431,11 +439,13 @@ const MUnitPortal = () => {
 
         Object.entries(allocations).forEach(([storeId, qty]) => {
           if (qty > 0) {
+            if (selectedStoreFilter !== 'All' && storeId !== selectedStoreFilter) return;
+
             const isCompleted = !!(completedMap[item.id]?.[storeId]);
             const match = (statusType === 'pending' && !isCompleted) || (statusType === 'completed' && isCompleted);
 
             if (match) {
-              const storeName = mUnitStores.find(s => s.id === storeId)?.name || 'Unknown Store';
+              const storeName = stores.find(s => s.id === storeId)?.name || mUnitStores.find(s => s.id === storeId)?.name || 'Unknown Store';
               storeAllocations.push({ storeId, storeName, qty, isCompleted });
               total += Number(qty);
             }
@@ -522,60 +532,108 @@ const MUnitPortal = () => {
                   </div>
                 </div>
 
-                {/* Packing Unit Filter Buttons */}
-                <div className="mu-punit-filters" style={{ 
+                {/* Filter Section: Store & Packing Unit */}
+                <div className="mu-filters-wrapper" style={{ 
                   display: 'flex', 
-                  gap: '10px', 
-                  flexWrap: 'wrap', 
+                  flexDirection: 'column',
+                  gap: '12px', 
                   marginBottom: '24px', 
                   padding: '16px', 
                   background: '#f8fafc', 
                   borderRadius: '12px', 
-                  border: '1px solid #edf2f7',
-                  alignItems: 'center'
+                  border: '1px solid #edf2f7'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
-                    📦 Target Packing Unit:
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPUnitFilter('All')}
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      border: '1.5px solid ' + (selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#cbd5e1'),
-                      background: selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#ffffff',
-                      color: selectedPUnitFilter === 'All' ? '#ffffff' : '#475569',
-                      boxShadow: selectedPUnitFilter === 'All' ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
-                    }}
-                  >
-                    All Packing Units
-                  </button>
-                  {packingUnits.map(pu => (
+                  {/* Store Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                      🏪 Target Store:
+                    </div>
                     <button
-                      key={pu.id}
                       type="button"
-                      onClick={() => setSelectedPUnitFilter(pu.id)}
+                      onClick={() => setSelectedStoreFilter('All')}
                       style={{
-                        padding: '8px 16px',
+                        padding: '6px 14px',
                         fontSize: '12px',
                         fontWeight: '700',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        border: '1.5px solid ' + (selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#cbd5e1'),
-                        background: selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#ffffff',
-                        color: selectedPUnitFilter === pu.id ? '#ffffff' : '#475569',
-                        boxShadow: selectedPUnitFilter === pu.id ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
+                        border: '1.5px solid ' + (selectedStoreFilter === 'All' ? '#059669' : '#cbd5e1'),
+                        background: selectedStoreFilter === 'All' ? '#059669' : '#ffffff',
+                        color: selectedStoreFilter === 'All' ? '#ffffff' : '#475569',
+                        boxShadow: selectedStoreFilter === 'All' ? '0 2px 4px rgba(5, 150, 105, 0.2)' : 'none'
                       }}
                     >
-                      {pu.name}
+                      All Stores
                     </button>
-                  ))}
+                    {stores.map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setSelectedStoreFilter(st.id)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (selectedStoreFilter === st.id ? '#059669' : '#cbd5e1'),
+                          background: selectedStoreFilter === st.id ? '#059669' : '#ffffff',
+                          color: selectedStoreFilter === st.id ? '#ffffff' : '#475569',
+                          boxShadow: selectedStoreFilter === st.id ? '0 2px 4px rgba(5, 150, 105, 0.2)' : 'none'
+                        }}
+                      >
+                        {st.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Packing Unit Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                      📦 Target Packing Unit:
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPUnitFilter('All')}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        border: '1.5px solid ' + (selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#cbd5e1'),
+                        background: selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#ffffff',
+                        color: selectedPUnitFilter === 'All' ? '#ffffff' : '#475569',
+                        boxShadow: selectedPUnitFilter === 'All' ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
+                      }}
+                    >
+                      All Packing Units
+                    </button>
+                    {packingUnits.map(pu => (
+                      <button
+                        key={pu.id}
+                        type="button"
+                        onClick={() => setSelectedPUnitFilter(pu.id)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#cbd5e1'),
+                          background: selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#ffffff',
+                          color: selectedPUnitFilter === pu.id ? '#ffffff' : '#475569',
+                          boxShadow: selectedPUnitFilter === pu.id ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
+                        }}
+                      >
+                        {pu.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {activeWorksheetItems.length === 0 ? (
@@ -998,60 +1056,108 @@ const MUnitPortal = () => {
                   <span className="mu-badge">{assignedOrders.length} Total Orders</span>
                 </div>
 
-                {/* Packing Unit Filter Buttons */}
-                <div className="mu-punit-filters" style={{ 
+                {/* Filter Section: Store & Packing Unit */}
+                <div className="mu-filters-wrapper" style={{ 
                   display: 'flex', 
-                  gap: '10px', 
-                  flexWrap: 'wrap', 
+                  flexDirection: 'column',
+                  gap: '12px', 
                   marginBottom: '24px', 
                   padding: '16px', 
                   background: '#f8fafc', 
                   borderRadius: '12px', 
-                  border: '1px solid #edf2f7',
-                  alignItems: 'center'
+                  border: '1px solid #edf2f7'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
-                    📦 Target Packing Unit:
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPUnitFilter('All')}
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '12px',
-                      fontWeight: '700',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      border: '1.5px solid ' + (selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#cbd5e1'),
-                      background: selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#ffffff',
-                      color: selectedPUnitFilter === 'All' ? '#ffffff' : '#475569',
-                      boxShadow: selectedPUnitFilter === 'All' ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
-                    }}
-                  >
-                    All Packing Units
-                  </button>
-                  {packingUnits.map(pu => (
+                  {/* Store Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                      🏪 Target Store:
+                    </div>
                     <button
-                      key={pu.id}
                       type="button"
-                      onClick={() => setSelectedPUnitFilter(pu.id)}
+                      onClick={() => setSelectedStoreFilter('All')}
                       style={{
-                        padding: '8px 16px',
+                        padding: '6px 14px',
                         fontSize: '12px',
                         fontWeight: '700',
                         borderRadius: '8px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
-                        border: '1.5px solid ' + (selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#cbd5e1'),
-                        background: selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#ffffff',
-                        color: selectedPUnitFilter === pu.id ? '#ffffff' : '#475569',
-                        boxShadow: selectedPUnitFilter === pu.id ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
+                        border: '1.5px solid ' + (selectedStoreFilter === 'All' ? '#059669' : '#cbd5e1'),
+                        background: selectedStoreFilter === 'All' ? '#059669' : '#ffffff',
+                        color: selectedStoreFilter === 'All' ? '#ffffff' : '#475569',
+                        boxShadow: selectedStoreFilter === 'All' ? '0 2px 4px rgba(5, 150, 105, 0.2)' : 'none'
                       }}
                     >
-                      {pu.name}
+                      All Stores
                     </button>
-                  ))}
+                    {stores.map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setSelectedStoreFilter(st.id)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (selectedStoreFilter === st.id ? '#059669' : '#cbd5e1'),
+                          background: selectedStoreFilter === st.id ? '#059669' : '#ffffff',
+                          color: selectedStoreFilter === st.id ? '#ffffff' : '#475569',
+                          boxShadow: selectedStoreFilter === st.id ? '0 2px 4px rgba(5, 150, 105, 0.2)' : 'none'
+                        }}
+                      >
+                        {st.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Packing Unit Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                      📦 Target Packing Unit:
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPUnitFilter('All')}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        border: '1.5px solid ' + (selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#cbd5e1'),
+                        background: selectedPUnitFilter === 'All' ? 'var(--primary-color)' : '#ffffff',
+                        color: selectedPUnitFilter === 'All' ? '#ffffff' : '#475569',
+                        boxShadow: selectedPUnitFilter === 'All' ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
+                      }}
+                    >
+                      All Packing Units
+                    </button>
+                    {packingUnits.map(pu => (
+                      <button
+                        key={pu.id}
+                        type="button"
+                        onClick={() => setSelectedPUnitFilter(pu.id)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#cbd5e1'),
+                          background: selectedPUnitFilter === pu.id ? 'var(--primary-color)' : '#ffffff',
+                          color: selectedPUnitFilter === pu.id ? '#ffffff' : '#475569',
+                          boxShadow: selectedPUnitFilter === pu.id ? '0 2px 4px rgba(99, 102, 241, 0.2)' : 'none'
+                        }}
+                      >
+                        {pu.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {assignedOrders.length === 0 ? (
@@ -1299,6 +1405,62 @@ const MUnitPortal = () => {
                       Select Today
                     </button>
                   </div>
+                </div>
+
+                {/* Store Filter Buttons */}
+                <div className="mu-store-filters" style={{ 
+                  display: 'flex', 
+                  gap: '8px', 
+                  flexWrap: 'wrap', 
+                  marginBottom: '20px', 
+                  padding: '14px 16px', 
+                  background: '#f8fafc', 
+                  borderRadius: '12px', 
+                  border: '1px solid #edf2f7',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                    🏪 Filter Store:
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStoreFilter('All')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: '1.5px solid ' + (selectedStoreFilter === 'All' ? '#059669' : '#cbd5e1'),
+                      background: selectedStoreFilter === 'All' ? '#059669' : '#ffffff',
+                      color: selectedStoreFilter === 'All' ? '#ffffff' : '#475569',
+                      boxShadow: selectedStoreFilter === 'All' ? '0 2px 4px rgba(5, 150, 105, 0.2)' : 'none'
+                    }}
+                  >
+                    All Stores
+                  </button>
+                  {stores.map(st => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setSelectedStoreFilter(st.id)}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        border: '1.5px solid ' + (selectedStoreFilter === st.id ? '#059669' : '#cbd5e1'),
+                        background: selectedStoreFilter === st.id ? '#059669' : '#ffffff',
+                        color: selectedStoreFilter === st.id ? '#ffffff' : '#475569',
+                        boxShadow: selectedStoreFilter === st.id ? '0 2px 4px rgba(5, 150, 105, 0.2)' : 'none'
+                      }}
+                    >
+                      {st.name}
+                    </button>
+                  ))}
                 </div>
 
                 {mUnitWorksheetLoading ? (
