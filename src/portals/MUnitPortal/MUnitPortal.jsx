@@ -41,6 +41,58 @@ const format12Hour = (time24) => {
   return `${hours}:${minutes} ${ampm}`;
 };
 
+// Delivery Time Slots requested by user
+export const DELIVERY_TIME_SLOTS = [
+  { id: 'All', label: 'All Times' },
+  { id: '0-12', label: '12:00 AM - 12:00 PM' },
+  { id: '12-15', label: '12:00 PM - 3:00 PM' },
+  { id: '15-18', label: '3:00 PM - 6:00 PM' },
+  { id: '18-24', label: '6:00 PM - 12:00 AM' }
+];
+
+// Helper to parse time string ("HH:MM" or "HH:MM AM/PM") into minutes from midnight (0..1439)
+export const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const str = timeStr.trim().toLowerCase();
+  
+  const isPM = str.includes('pm');
+  const isAM = str.includes('am');
+  const cleanStr = str.replace(/[^\d:]/g, '');
+  const parts = cleanStr.split(':');
+  if (parts.length < 2) return null;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+};
+
+// Helper to check if a delivery time string falls within a selected time slot
+export const matchesTimeSlot = (deliveryTimeStr, selectedSlot) => {
+  if (selectedSlot === 'All' || !selectedSlot) return true;
+  if (!deliveryTimeStr) return false;
+  const mins = parseTimeToMinutes(deliveryTimeStr);
+  if (mins === null) return false;
+
+  if (selectedSlot === '0-12') {
+    return mins >= 0 && mins < 720;
+  }
+  if (selectedSlot === '12-15') {
+    return mins >= 720 && mins < 900;
+  }
+  if (selectedSlot === '15-18') {
+    return mins >= 900 && mins < 1080;
+  }
+  if (selectedSlot === '18-24') {
+    return mins >= 1080 && mins <= 1440;
+  }
+  return true;
+};
+
 const MUnitPortal = () => {
   const { id, tab } = useParams();
   const [orders, setOrders] = useState([]);
@@ -50,6 +102,7 @@ const MUnitPortal = () => {
   const [selectedPUnitFilter, setSelectedPUnitFilter] = useState('All');
   const [stores, setStores] = useState([]);
   const [selectedStoreFilter, setSelectedStoreFilter] = useState('All');
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState('All');
 
   // Today Worksheet states
   const [worksheetSubTab, setWorksheetSubTab] = useState('pending'); // 'pending' or 'completed'
@@ -210,6 +263,9 @@ const MUnitPortal = () => {
       // Filter by Store
       if (selectedStoreFilter !== 'All' && order.storeId !== selectedStoreFilter && order.storeName !== selectedStoreFilter) return;
 
+      // Filter by Delivery Time Slot
+      if (!matchesTimeSlot(order.deliveryTime, selectedTimeFilter)) return;
+
       // Filter orders matching the selected date (Target Delivery Date, fallback to Creation Date)
       const orderDateStr = order.deliveryDate || (order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : '');
       if (!isSameDay(orderDateStr, worksheetDate)) return;
@@ -289,7 +345,8 @@ const MUnitPortal = () => {
     return orders.filter(order =>
       order.items && order.items.some(item => item.mUnitId === id) &&
       (selectedPUnitFilter === 'All' || order.pUnitId === selectedPUnitFilter) &&
-      (selectedStoreFilter === 'All' || order.storeId === selectedStoreFilter || order.storeName === selectedStoreFilter)
+      (selectedStoreFilter === 'All' || order.storeId === selectedStoreFilter || order.storeName === selectedStoreFilter) &&
+      matchesTimeSlot(order.deliveryTime, selectedTimeFilter)
     );
   };
 
@@ -631,6 +688,34 @@ const MUnitPortal = () => {
                         }}
                       >
                         {pu.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Delivery Time Slot Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                      <Clock size={15} style={{ color: '#7c3aed' }} /> Delivery Time:
+                    </div>
+                    {DELIVERY_TIME_SLOTS.map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setSelectedTimeFilter(slot.id)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (selectedTimeFilter === slot.id ? '#7c3aed' : '#cbd5e1'),
+                          background: selectedTimeFilter === slot.id ? '#7c3aed' : '#ffffff',
+                          color: selectedTimeFilter === slot.id ? '#ffffff' : '#475569',
+                          boxShadow: selectedTimeFilter === slot.id ? '0 2px 4px rgba(124, 58, 237, 0.2)' : 'none'
+                        }}
+                      >
+                        {slot.label}
                       </button>
                     ))}
                   </div>
@@ -1155,6 +1240,34 @@ const MUnitPortal = () => {
                         }}
                       >
                         {pu.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Delivery Time Slot Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '150px', fontSize: '13px', fontWeight: '800', color: '#475569' }}>
+                      <Clock size={15} style={{ color: '#7c3aed' }} /> Delivery Time:
+                    </div>
+                    {DELIVERY_TIME_SLOTS.map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setSelectedTimeFilter(slot.id)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (selectedTimeFilter === slot.id ? '#7c3aed' : '#cbd5e1'),
+                          background: selectedTimeFilter === slot.id ? '#7c3aed' : '#ffffff',
+                          color: selectedTimeFilter === slot.id ? '#ffffff' : '#475569',
+                          boxShadow: selectedTimeFilter === slot.id ? '0 2px 4px rgba(124, 58, 237, 0.2)' : 'none'
+                        }}
+                      >
+                        {slot.label}
                       </button>
                     ))}
                   </div>

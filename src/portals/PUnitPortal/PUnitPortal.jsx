@@ -38,6 +38,58 @@ import { triggerWhatsAppOrderReady } from '../../utils/whatsapp';
 import { sendEventNotification } from '../../utils/notificationService';
 
 
+// Delivery Time Slots requested by user
+const DELIVERY_TIME_SLOTS = [
+  { id: 'All', label: 'All Delivery Times' },
+  { id: '0-12', label: '12:00 AM - 12:00 PM' },
+  { id: '12-15', label: '12:00 PM - 3:00 PM' },
+  { id: '15-18', label: '3:00 PM - 6:00 PM' },
+  { id: '18-24', label: '6:00 PM - 12:00 AM' }
+];
+
+// Helper to parse time string ("HH:MM" or "HH:MM AM/PM") into minutes from midnight (0..1439)
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const str = timeStr.trim().toLowerCase();
+  
+  const isPM = str.includes('pm');
+  const isAM = str.includes('am');
+  const cleanStr = str.replace(/[^\d:]/g, '');
+  const parts = cleanStr.split(':');
+  if (parts.length < 2) return null;
+  
+  let hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+};
+
+// Helper to check if a delivery time string falls within a selected time slot
+const matchesTimeSlot = (deliveryTimeStr, selectedSlot) => {
+  if (selectedSlot === 'All' || !selectedSlot) return true;
+  if (!deliveryTimeStr) return false;
+  const mins = parseTimeToMinutes(deliveryTimeStr);
+  if (mins === null) return false;
+
+  if (selectedSlot === '0-12') {
+    return mins >= 0 && mins < 720;
+  }
+  if (selectedSlot === '12-15') {
+    return mins >= 720 && mins < 900;
+  }
+  if (selectedSlot === '15-18') {
+    return mins >= 900 && mins < 1080;
+  }
+  if (selectedSlot === '18-24') {
+    return mins >= 1080 && mins <= 1440;
+  }
+  return true;
+};
+
 const PUnitPortal = () => {
   const { id, tab } = useParams();
   const [orders, setOrders] = useState([]);
@@ -108,6 +160,7 @@ const PUnitPortal = () => {
   const [itemFilter, setItemFilter] = useState('');
   const [orderFilter, setOrderFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [deliveryTimeFilter, setDeliveryTimeFilter] = useState('All');
 
   // Quick Date Helpers
   const getTodayStr = () => {
@@ -1155,6 +1208,13 @@ const PUnitPortal = () => {
         if (!matchesOrder) return false;
       }
       
+      // 5. Delivery Time Slot Filter
+      if (deliveryTimeFilter !== 'All') {
+        if (!matchesTimeSlot(order.deliveryTime, deliveryTimeFilter)) {
+          return false;
+        }
+      }
+      
       return true;
     });
   };
@@ -1544,6 +1604,33 @@ const PUnitPortal = () => {
                     </div>
                   </div>
 
+                  {/* Delivery Time Slot Filter */}
+                  <div style={{ flex: '1.2 1 200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={13} style={{ color: 'var(--primary-color)' }} /> Delivery Time Slot
+                    </label>
+                    <select
+                      value={deliveryTimeFilter}
+                      onChange={(e) => setDeliveryTimeFilter(e.target.value)}
+                      style={{
+                        padding: '8px 12px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#334155',
+                        outline: 'none',
+                        background: '#fff',
+                        cursor: 'pointer',
+                        height: '38px'
+                      }}
+                    >
+                      {DELIVERY_TIME_SLOTS.map(slot => (
+                        <option key={slot.id} value={slot.id}>{slot.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Item Search Filter */}
                   <div style={{ flex: '2 1 200px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>Search Item Name</label>
@@ -1570,7 +1657,7 @@ const PUnitPortal = () => {
                   </div>
                   
                   {/* Clear All Filters Button */}
-                  {(storeFilter !== 'All' || orderFilter !== '' || itemFilter !== '' || dateFilter !== '' || historyDate !== '') && (
+                  {(storeFilter !== 'All' || orderFilter !== '' || itemFilter !== '' || dateFilter !== '' || historyDate !== '' || deliveryTimeFilter !== 'All') && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1579,6 +1666,7 @@ const PUnitPortal = () => {
                         setItemFilter('');
                         setDateFilter('');
                         setHistoryDate('');
+                        setDeliveryTimeFilter('All');
                       }}
                       style={{
                         alignSelf: 'flex-end',
@@ -1600,6 +1688,34 @@ const PUnitPortal = () => {
                       <X size={14} /> Clear
                     </button>
                   )}
+
+                  {/* Quick Delivery Time Slot Pills */}
+                  <div style={{ width: '100%', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '800', color: '#64748b' }}>
+                      <Clock size={14} style={{ color: '#7c3aed' }} /> Quick Time Filter:
+                    </div>
+                    {DELIVERY_TIME_SLOTS.map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setDeliveryTimeFilter(slot.id)}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: '1.5px solid ' + (deliveryTimeFilter === slot.id ? '#7c3aed' : '#e2e8f0'),
+                          background: deliveryTimeFilter === slot.id ? '#7c3aed' : '#f8fafc',
+                          color: deliveryTimeFilter === slot.id ? '#ffffff' : '#475569',
+                          boxShadow: deliveryTimeFilter === slot.id ? '0 2px 4px rgba(124, 58, 237, 0.2)' : 'none'
+                        }}
+                      >
+                        {slot.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="pu-orders-grid">
