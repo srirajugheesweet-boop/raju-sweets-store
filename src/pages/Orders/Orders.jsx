@@ -1568,7 +1568,6 @@ const Orders = () => {
                         )}
                         <button className="ord-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={16} /></button>
                         <button className="ord-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
-                        <button className="ord-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -1842,7 +1841,6 @@ const Orders = () => {
                   )}
                   <button className="ord-mobile-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={14} /> Print</button>
                   <button className="ord-mobile-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={14} /> Edit</button>
-                  <button className="ord-mobile-action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}><Trash2 size={14} /> Delete</button>
                 </div>
 
                 {/* Accordion / Expanded Details */}

@@ -35,6 +35,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import WalkInSales from './pages/WalkInSales/WalkInSales';
 import SuperAdminPOS from './pages/SuperAdminPOS/SuperAdminPOS';
 import BarcodeGenerator from './pages/BarcodeGenerator/BarcodeGenerator';
+import BulkOrderCleanupModal from './components/BulkOrderCleanupModal/BulkOrderCleanupModal';
 import { Toaster } from 'react-hot-toast';
 
 import { NotificationProvider } from './context/NotificationContext';
@@ -71,6 +72,7 @@ function App() {
             }
           }}
         />
+        <BulkOrderCleanupModal />
         <Routes>
           <Route path="/login" element={<Login />} />
           
