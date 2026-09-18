@@ -519,6 +519,50 @@
   color: #475569;
 }
 
+/* Initial No-Filter Prompt State */
+.boc-no-filter-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.boc-no-filter-icon-box {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(10, 42, 27, 0.08) 0%, rgba(197, 160, 89, 0.15) 100%);
+  color: #0A2A1B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  border: 1px solid rgba(10, 42, 27, 0.12);
+  box-shadow: 0 4px 12px rgba(10, 42, 27, 0.05);
+}
+
+.boc-no-filter-state h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.02em;
+}
+
+.boc-no-filter-state p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  max-width: 520px;
+  line-height: 1.6;
+}
+
+.boc-no-filter-state p strong {
+  color: #0A2A1B;
+}
+
 /* Loading & Empty States */
 .boc-loading-state,
 .boc-empty-state {

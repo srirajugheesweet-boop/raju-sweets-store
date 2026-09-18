@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  X, 
-  Trash2, 
-  Calendar, 
-  Search, 
-  Filter, 
-  AlertTriangle, 
-  CheckSquare, 
-  Square, 
-  RefreshCw, 
-  Layers, 
+import {
+  X,
+  Trash2,
+  Calendar,
+  Search,
+  Filter,
+  AlertTriangle,
+  CheckSquare,
+  Square,
+  RefreshCw,
+  Layers,
   User,
   Phone
 } from 'lucide-react';
-import { 
-  collection, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  doc, 
-  writeBatch 
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  doc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import toast from 'react-hot-toast';
@@ -141,8 +141,12 @@ export default function BulkOrderCleanupModal() {
     return null;
   };
 
+  const hasActiveFilter = Boolean(fromDate || toDate || statusFilter !== 'All' || orderIdSearch.trim());
+
   // Filtered orders strictly based on Created Date (from/to), Status, and Order ID
   const filteredOrders = useMemo(() => {
+    if (!hasActiveFilter) return [];
+
     return orders.filter((order) => {
       // 1. Created From Date filter
       const orderDate = parseOrderDate(order);
@@ -177,11 +181,11 @@ export default function BulkOrderCleanupModal() {
 
       return true;
     });
-  }, [orders, fromDate, toDate, statusFilter, orderIdSearch]);
+  }, [orders, fromDate, toDate, statusFilter, orderIdSearch, hasActiveFilter]);
 
   // Clean up selected IDs if they are no longer in filtered orders
   const filteredIdsSet = useMemo(() => new Set(filteredOrders.map(o => o.id)), [filteredOrders]);
-  
+
   const selectedFilteredCount = useMemo(() => {
     let count = 0;
     for (const id of selectedIds) {
@@ -259,7 +263,7 @@ export default function BulkOrderCleanupModal() {
       }
 
       toast.success(`Permanently deleted ${idsToDelete.length} orders`, { id: toastId });
-      
+
       // Clear deleted IDs from selection
       setSelectedIds((prev) => {
         const next = new Set(prev);
@@ -291,7 +295,7 @@ export default function BulkOrderCleanupModal() {
   return (
     <div className="boc-overlay animate-fade-in" role="dialog" aria-modal="true">
       <div className="boc-container">
-        
+
         {/* Full Screen Modal Header */}
         <header className="boc-header">
           <div className="boc-header-left">
@@ -305,12 +309,12 @@ export default function BulkOrderCleanupModal() {
             </p>
           </div>
           <div className="boc-header-right">
-            <div className="boc-key-hint">
+            {/* <div className="boc-key-hint">
               <span>Shortcut:</span> <kbd>Ctrl</kbd> + <kbd>244273</kbd>
-            </div>
-            <button 
-              type="button" 
-              className="boc-close-btn" 
+            </div> */}
+            <button
+              type="button"
+              className="boc-close-btn"
               onClick={() => setIsOpen(false)}
               title="Close (Esc)"
               disabled={isDeleting}
@@ -384,9 +388,9 @@ export default function BulkOrderCleanupModal() {
                 className="boc-input"
               />
               {orderIdSearch && (
-                <button 
-                  type="button" 
-                  className="boc-input-clear" 
+                <button
+                  type="button"
+                  className="boc-input-clear"
                   onClick={() => setOrderIdSearch('')}
                   title="Clear search"
                 >
@@ -398,8 +402,8 @@ export default function BulkOrderCleanupModal() {
 
           {(fromDate || toDate || statusFilter !== 'All' || orderIdSearch) && (
             <div className="boc-filter-actions">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="boc-reset-btn"
                 onClick={handleResetFilters}
               >
@@ -409,53 +413,65 @@ export default function BulkOrderCleanupModal() {
           )}
         </section>
 
-        {/* Selection Summary & Action Bar */}
-        <div className="boc-action-bar">
-          <div className="boc-action-bar-left">
-            <button 
-              type="button" 
-              className="boc-select-toggle-btn"
-              onClick={handleToggleSelectAll}
-              disabled={filteredOrders.length === 0}
-            >
-              {isAllSelected ? (
-                <>
-                  <CheckSquare size={16} className="text-active" /> Deselect All
-                </>
-              ) : (
-                <>
-                  <Square size={16} /> Select All ({filteredOrders.length})
-                </>
-              )}
-            </button>
+        {/* Selection Summary & Action Bar - Only displayed when filters are selected */}
+        {hasActiveFilter && (
+          <div className="boc-action-bar animate-fade-in">
+            <div className="boc-action-bar-left">
+              <button
+                type="button"
+                className="boc-select-toggle-btn"
+                onClick={handleToggleSelectAll}
+                disabled={filteredOrders.length === 0}
+              >
+                {isAllSelected ? (
+                  <>
+                    <CheckSquare size={16} className="text-active" /> Deselect All
+                  </>
+                ) : (
+                  <>
+                    <Square size={16} /> Select All ({filteredOrders.length})
+                  </>
+                )}
+              </button>
 
-            <span className="boc-selection-counter">
-              Showing <strong>{filteredOrders.length}</strong> matching orders | Selected: <strong>{selectedFilteredCount}</strong>
-            </span>
-          </div>
+              <span className="boc-selection-counter">
+                Showing <strong>{filteredOrders.length}</strong> matching orders | Selected: <strong>{selectedFilteredCount}</strong>
+              </span>
+            </div>
 
-          <div className="boc-action-bar-right">
-            <button
-              type="button"
-              className="boc-delete-btn"
-              disabled={selectedFilteredCount === 0 || isDeleting}
-              onClick={() => setShowConfirmModal(true)}
-            >
-              <Trash2 size={16} />
-              <span>Delete All Selected ({selectedFilteredCount})</span>
-            </button>
+            <div className="boc-action-bar-right">
+              <button
+                type="button"
+                className="boc-delete-btn"
+                disabled={selectedFilteredCount === 0 || isDeleting}
+                onClick={() => setShowConfirmModal(true)}
+              >
+                <Trash2 size={16} />
+                <span>Delete All Selected ({selectedFilteredCount})</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Orders Table Display */}
         <div className="boc-table-container">
-          {loading ? (
+          {!hasActiveFilter ? (
+            <div className="boc-no-filter-state animate-fade-in">
+              <div className="boc-no-filter-icon-box">
+                <Filter size={36} />
+              </div>
+              <h3>Select Filters to View Orders</h3>
+              <p>
+                Orders will be loaded once you select a <strong>Created Date range</strong>, an <strong>Order Status</strong>, or search with an <strong>Order ID</strong> above.
+              </p>
+            </div>
+          ) : loading ? (
             <div className="boc-loading-state">
               <RefreshCw size={28} className="boc-spin" />
               <p>Loading orders from database...</p>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="boc-empty-state">
+            <div className="boc-empty-state animate-fade-in">
               <Layers size={40} />
               <h3>No orders match your filter criteria</h3>
               <p>Try adjusting the date range, status, or Order ID search term.</p>
@@ -494,13 +510,13 @@ export default function BulkOrderCleanupModal() {
                   const isSelected = selectedIds.has(order.id);
                   const orderDate = parseOrderDate(order);
                   const itemCount = Array.isArray(order.items) ? order.items.length : 0;
-                  const itemNames = Array.isArray(order.items) 
+                  const itemNames = Array.isArray(order.items)
                     ? order.items.map(i => i.name || i.itemName || 'Item').slice(0, 3).join(', ') + (order.items.length > 3 ? '...' : '')
                     : 'No items';
 
                   return (
-                    <tr 
-                      key={order.id} 
+                    <tr
+                      key={order.id}
                       className={isSelected ? 'boc-row-selected' : ''}
                       onClick={() => handleToggleSelect(order.id)}
                     >
