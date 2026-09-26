@@ -2479,6 +2479,7 @@ const StorePortal = () => {
                             <div className="ord-actions-cell" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                               <button className="ord-action-btn view" title="Preview" onClick={() => { setPreviewTab('items'); setPreviewOrder(order); }}><Eye size={16} /></button>
                               <button className="ord-action-btn print" title="Print" onClick={() => handlePrintOrder(order)}><Printer size={16} /></button>
+                              <button className="ord-action-btn delete" title="Delete Order" onClick={() => handleDeleteOrder(order.id)} style={{ color: '#ef4444' }}><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>
@@ -3371,6 +3372,12 @@ const StorePortal = () => {
                     <div className="st-catalogue-grid">
                       {storeItems
                         .filter(i => (i.name || '').toLowerCase().includes(billingSearch.toLowerCase()))
+                        .sort((a, b) => {
+                          const favA = a.isFavourite ? 1 : 0;
+                          const favB = b.isFavourite ? 1 : 0;
+                          if (favB !== favA) return favB - favA;
+                          return (a.name || '').localeCompare(b.name || '');
+                        })
                         .map(item => {
                           const inCart = cart.find(c => c.id === item.id);
                           return (

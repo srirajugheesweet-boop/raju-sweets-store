@@ -582,6 +582,12 @@ const SuperAdminPOS = () => {
               <div className="st-catalogue-grid">
                 {items
                   .filter(i => (i.name || '').toLowerCase().includes(itemSearch.toLowerCase()))
+                  .sort((a, b) => {
+                    const favA = a.isFavourite ? 1 : 0;
+                    const favB = b.isFavourite ? 1 : 0;
+                    if (favB !== favA) return favB - favA;
+                    return (a.name || '').localeCompare(b.name || '');
+                  })
                   .map(item => {
                     const inCart = cart.find(c => c.id === item.id);
                     return (

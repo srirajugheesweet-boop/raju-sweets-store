@@ -167,11 +167,6 @@ const WalkInSales = () => {
 
       {/* High-Level Metrics Summary Cards */}
       <div className="walkin-metrics-grid">
-        <div className="walkin-metric-card">
-          <div className="walkin-metric-label">Total Walk-In Sales</div>
-          <div className="walkin-metric-value">₹{totalWalkInRevenue.toLocaleString('en-IN')}</div>
-          <div className="walkin-metric-subtext">All time settled POS invoices</div>
-        </div>
 
         <div className="walkin-metric-card">
           <div className="walkin-metric-label">Settled Bills</div>

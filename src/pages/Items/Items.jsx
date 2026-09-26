@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Info,
-  Barcode
+  Barcode,
+  Star
 } from 'lucide-react';
 
 import { db } from '../../config/firebase';
@@ -136,7 +137,8 @@ const Items = () => {
     mUnitId: '',
     categoryId: '',
     image: '',
-    showInWorksheet: true
+    showInWorksheet: true,
+    isFavourite: false
   });
   const [imageFile, setImageFile] = useState(null);
 
@@ -237,6 +239,7 @@ const Items = () => {
         barcode: (formData.barcode || '').trim(),
         price: Number(formData.price),
         image: finalImageUrl,
+        isFavourite: Boolean(formData.isFavourite),
         updatedAt: serverTimestamp()
       };
 
@@ -261,7 +264,7 @@ const Items = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', barcode: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '', showInWorksheet: true });
+    setFormData({ name: '', barcode: '', unit: 'Weight', price: '', mUnitId: '', categoryId: '', image: '', showInWorksheet: true, isFavourite: false });
     setImageFile(null);
     setShowAddForm(false);
     setEditingItem(null);
@@ -277,9 +280,25 @@ const Items = () => {
       mUnitId: item.mUnitId,
       categoryId: item.categoryId || '',
       image: item.image,
-      showInWorksheet: item.showInWorksheet !== false
+      showInWorksheet: item.showInWorksheet !== false,
+      isFavourite: Boolean(item.isFavourite)
     });
     setShowAddForm(true);
+  };
+
+  const handleToggleFavourite = async (item, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const nextFav = !item.isFavourite;
+      await updateDoc(doc(db, 'items', item.id), {
+        isFavourite: nextFav,
+        updatedAt: serverTimestamp()
+      });
+      toast.success(nextFav ? `Added "${item.name}" to favourites` : `Removed "${item.name}" from favourites`);
+    } catch (err) {
+      console.error("Failed to update favourite:", err);
+      toast.error("Failed to update favourite status");
+    }
   };
 
 
@@ -595,7 +614,16 @@ const Items = () => {
     setShowImportModal(false);
   };
 
-  const filteredItems = items.filter(item => {
+  const sortedItems = [...items].sort((a, b) => {
+    const favA = a.isFavourite ? 1 : 0;
+    const favB = b.isFavourite ? 1 : 0;
+    if (favB !== favA) return favB - favA;
+    const timeA = a.createdAt?.seconds || 0;
+    const timeB = b.createdAt?.seconds || 0;
+    return timeB - timeA;
+  });
+
+  const filteredItems = sortedItems.filter(item => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     const nameMatch = (item.name || '').toLowerCase().includes(q);
@@ -715,7 +743,33 @@ const Items = () => {
                                   e.target.src = DEFAULT_ITEM_IMAGE;
                                 }}
                               />
-                              <div className="polaris-item-title">{item.name}</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleToggleFavourite(item, e)}
+                                    title={item.isFavourite ? "Remove from favourites" : "Add to favourites"}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      padding: '0',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: item.isFavourite ? '#eab308' : '#94a3b8'
+                                    }}
+                                  >
+                                    <Star size={15} fill={item.isFavourite ? "#eab308" : "none"} strokeWidth={item.isFavourite ? 2 : 1.5} />
+                                  </button>
+                                  <span className="polaris-item-title">{item.name}</span>
+                                </div>
+                                {item.isFavourite && (
+                                  <span style={{ width: 'fit-content', fontSize: '10px', background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                    ★ FAVOURITE
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td>
@@ -888,6 +942,24 @@ const Items = () => {
                       type="checkbox" 
                       checked={formData.showInWorksheet} 
                       onChange={(e) => setFormData(prev => ({ ...prev, showInWorksheet: e.target.checked }))}
+                    />
+                    <span className="slider round"></span>
+                  </label>
+                </div>
+
+                <div className="items-input-group" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)', marginTop: '5px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Star size={15} fill={formData.isFavourite ? "#eab308" : "none"} color={formData.isFavourite ? "#eab308" : "var(--text-primary)"} />
+                      Add to Favourite
+                    </label>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Display this product first in product lists</span>
+                  </div>
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.isFavourite || false} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, isFavourite: e.target.checked }))}
                     />
                     <span className="slider round"></span>
                   </label>

@@ -623,6 +623,8 @@ const Orders = () => {
   };
   const [previewOrder, setPreviewOrder] = useState(null);
   const [editingOrderId, setEditingOrderId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
 
   // Form State
   const [customers, setCustomers] = useState([]);
@@ -1185,15 +1187,25 @@ const Orders = () => {
     setShowAddModal(true);
   };
 
-  const handleDeleteOrder = async (id) => {
-    if (window.confirm("Are you sure you want to delete this order?")) {
-      try {
-        await deleteDoc(doc(db, 'orders', id));
-        toast.success("Order deleted successfully");
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to delete order");
+  const handleDeleteOrder = (order) => {
+    setShowDeleteModal(order);
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!showDeleteModal) return;
+    setIsDeletingOrder(true);
+    try {
+      await deleteDoc(doc(db, 'orders', showDeleteModal.id));
+      toast.success(`Order #${showDeleteModal.orderId} deleted successfully`);
+      if (previewOrder?.id === showDeleteModal.id) {
+        setPreviewOrder(null);
       }
+      setShowDeleteModal(null);
+    } catch (err) {
+      console.error("Failed to delete order:", err);
+      toast.error("Failed to delete order");
+    } finally {
+      setIsDeletingOrder(false);
     }
   };
 
@@ -1318,11 +1330,18 @@ const Orders = () => {
     return status.replace(/_/g, ' ').toUpperCase();
   };
 
-  const filteredItemsForOrder = items.filter(item => {
-    const matchesSearch = (item.name || '').toLowerCase().includes(itemSearchQuery.toLowerCase());
-    const matchesCategory = selectedCategoryFilter === 'All' || item.categoryId === selectedCategoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredItemsForOrder = items
+    .filter(item => {
+      const matchesSearch = (item.name || '').toLowerCase().includes(itemSearchQuery.toLowerCase());
+      const matchesCategory = selectedCategoryFilter === 'All' || item.categoryId === selectedCategoryFilter;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const favA = a.isFavourite ? 1 : 0;
+      const favB = b.isFavourite ? 1 : 0;
+      if (favB !== favA) return favB - favA;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
   const discountVal = parseFloat(discount) || 0;
@@ -1397,13 +1416,6 @@ const Orders = () => {
             {orders.filter(o => o.status === 'Delivered').length}
           </div>
           <div className="polaris-metric-subtext">Successfully fulfilled</div>
-        </div>
-        <div className="polaris-metric-item">
-          <div className="polaris-metric-label">Total Value</div>
-          <div className="polaris-metric-value">
-            ₹{orders.reduce((acc, curr) => acc + (Number(curr.totalAmount) || 0), 0).toLocaleString('en-IN')}
-          </div>
-          <div className="polaris-metric-subtext">Gross sales revenue</div>
         </div>
       </div>
 
@@ -1568,6 +1580,7 @@ const Orders = () => {
                         )}
                         <button className="ord-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={16} /></button>
                         <button className="ord-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={16} /></button>
+                        <button className="ord-action-btn delete" title="Delete Order" onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order); }}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -1841,6 +1854,7 @@ const Orders = () => {
                   )}
                   <button className="ord-mobile-action-btn print" title="Print" onClick={() => handlePrint(order)}><Printer size={14} /> Print</button>
                   <button className="ord-mobile-action-btn edit" title="Edit" onClick={() => handleEditOrder(order)}><Edit size={14} /> Edit</button>
+                  <button className="ord-mobile-action-btn delete" title="Delete Order" onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order); }}><Trash2 size={14} /> Delete</button>
                 </div>
 
                 {/* Accordion / Expanded Details */}
@@ -3208,6 +3222,47 @@ const Orders = () => {
         )}
       </AnimatePresence>
 
+      {/* Delete Order Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="modal-overlay" style={{ zIndex: 4000 }}>
+            <motion.div
+              className="custom-modal"
+              style={{ maxWidth: '420px', width: '90%' }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box delete" style={{ background: '#FEE2E2', color: '#EF4444' }}>
+                <Trash2 size={32} />
+              </div>
+              <h3 className="modal-title">Delete Order?</h3>
+              <p className="modal-text">
+                Are you sure you want to permanently delete Order <strong>#{showDeleteModal.orderId}</strong> for <strong>{showDeleteModal.customerName}</strong>? This action cannot be undone.
+              </p>
+              <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="modal-btn cancel"
+                  onClick={() => setShowDeleteModal(null)}
+                  disabled={isDeletingOrder}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="modal-btn confirm delete"
+                  style={{ background: '#EF4444', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  onClick={confirmDeleteOrder}
+                  disabled={isDeletingOrder}
+                >
+                  {isDeletingOrder ? <div className="loader" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Yes, Delete Order'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
