@@ -432,6 +432,27 @@
   text-align: center;
 }
 
+.st-pos-qty-controls input {
+  width: 40px;
+  height: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  outline: none;
+  padding: 0 2px;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.st-pos-qty-controls input:focus {
+  border-color: var(--primary-color, #701a28);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--primary-color, #701a28);
+}
+
 .st-pos-weight-btn {
   height: 24px;
   padding: 0 8px;

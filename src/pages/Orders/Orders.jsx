@@ -675,6 +675,7 @@ const Orders = () => {
 
   // Modals
   const [showWeightModal, setShowWeightModal] = useState(null);
+  const [editingCartItem, setEditingCartItem] = useState(null);
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -891,15 +892,27 @@ const Orders = () => {
   };
 
   const handleItemClick = (item) => {
+    setEditingCartItem(null);
+    setShowWeightModal(item);
     if (item.unit === 'Weight') {
-      setShowWeightModal(item);
       setWeightInput({ weight: '', amount: '', description: '' });
     } else {
-      addToCart(item, 1, item.price);
+      setWeightInput({ weight: '1', amount: item.price.toString(), description: '' });
     }
   };
 
   const handleWeightCalc = (type, value, price) => {
+    if (showWeightModal?.unit === 'Piece') {
+      if (type === 'weight') {
+        const qty = parseInt(value) || 0;
+        const amt = (qty * price).toFixed(2);
+        setWeightInput({ ...weightInput, weight: value, amount: isNaN(amt) ? '' : amt });
+      } else {
+        const qty = Math.round(parseFloat(value) / price) || 0;
+        setWeightInput({ ...weightInput, weight: isNaN(qty) ? '' : qty.toString(), amount: value });
+      }
+      return;
+    }
     if (type === 'weight') {
       const amt = (parseFloat(value) * price).toFixed(2);
       setWeightInput({ ...weightInput, weight: value, amount: isNaN(amt) ? '' : amt });
@@ -910,69 +923,107 @@ const Orders = () => {
   };
 
   const addToCart = (item, quantity, total, itemDescription = '') => {
-    const existingIndex = cart.findIndex(c => c.id === item.id);
-
-    if (existingIndex > -1) {
-      const newCart = [...cart];
-      if (item.unit !== 'Weight') {
-        newCart[existingIndex].quantity += Number(quantity);
-        newCart[existingIndex].total = newCart[existingIndex].quantity * item.price;
-      } else {
-        newCart[existingIndex].quantity = Number(quantity);
-        newCart[existingIndex].total = Number(total);
-        newCart[existingIndex].description = itemDescription;
-      }
-      setCart(newCart);
-    } else {
-      setCart([...cart, {
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        unit: item.unit,
-        quantity: Number(quantity),
-        total: Number(total),
-        description: itemDescription,
-        mUnitId: item.mUnitId,
-        status: 'preparation_started'
-      }]);
-    }
+    // Always add as a separate item in cart so multiple weights or items don't club
+    const newCartItem = {
+      cartItemId: `${item.id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      unit: item.unit,
+      quantity: Number(quantity),
+      total: Number(total),
+      description: itemDescription || '',
+      mUnitId: item.mUnitId,
+      status: 'preparation_started'
+    };
+    setCart(prev => [...prev, newCartItem]);
     toast.success(`${item.name} added`);
   };
 
-  const updateCartQuantity = (id, delta) => {
-    setCart(prev => prev.map(c => {
-      if (c.id === id) {
-        const newQty = c.quantity + delta;
-        if (newQty < 1) return c; // don't decrement below 1
-        return { ...c, quantity: newQty, total: newQty * c.price };
-      }
-      return c;
-    }));
-  };
-
-  const setCartQuantity = (id, qty) => {
-    setCart(prev => prev.map(c => {
-      if (c.id === id) {
-        return { ...c, quantity: qty, total: qty * c.price };
-      }
-      return c;
-    }));
-  };
-
-
-  const handleEditCartItem = (item) => {
-    const originalItem = items.find(i => i.id === item.id);
-    if (!originalItem) return;
+  const handleEditCartItem = (cartItem) => {
+    const originalItem = items.find(i => i.id === cartItem.id) || cartItem;
+    setEditingCartItem(cartItem);
     setShowWeightModal(originalItem);
     setWeightInput({
-      weight: item.quantity.toString(),
-      amount: item.total.toString(),
-      description: item.description || ''
+      weight: cartItem.quantity.toString(),
+      amount: cartItem.total.toString(),
+      description: cartItem.description || ''
     });
   };
 
-  const removeFromCart = (id) => {
-    setCart(cart.filter(c => c.id !== id));
+  const handleSaveModalItem = () => {
+    if (!showWeightModal) return;
+    if (showWeightModal.unit === 'Weight') {
+      if (!weightInput.weight || !weightInput.amount) {
+        toast.error("Please enter weight or amount");
+        return;
+      }
+    } else {
+      if (!weightInput.weight || Number(weightInput.weight) <= 0) {
+        toast.error("Please enter a valid quantity");
+        return;
+      }
+    }
+
+    if (editingCartItem) {
+      setCart(prev => prev.map(c => {
+        const matches = c.cartItemId ? c.cartItemId === editingCartItem.cartItemId : (c === editingCartItem || c.id === editingCartItem.id);
+        if (matches) {
+          const qty = Number(weightInput.weight);
+          const amt = Number(weightInput.amount);
+          return {
+            ...c,
+            quantity: qty,
+            total: amt,
+            description: weightInput.description || ''
+          };
+        }
+        return c;
+      }));
+      toast.success(`Updated ${editingCartItem.name}`);
+      setEditingCartItem(null);
+    } else {
+      addToCart(showWeightModal, weightInput.weight, weightInput.amount, weightInput.description);
+    }
+    setShowWeightModal(null);
+  };
+
+  const updateCartQuantity = (cartItemId, delta) => {
+    setCart(prev => prev.map(c => {
+      const isTarget = c.cartItemId ? c.cartItemId === cartItemId : c.id === cartItemId;
+      if (isTarget) {
+        const newQty = c.quantity + delta;
+        if (newQty < 1) return c;
+        return { ...c, quantity: newQty, total: Number((newQty * c.price).toFixed(2)) };
+      }
+      return c;
+    }));
+  };
+
+  const setCartQuantity = (cartItemId, qty) => {
+    setCart(prev => prev.map(c => {
+      const isTarget = c.cartItemId ? c.cartItemId === cartItemId : c.id === cartItemId;
+      if (isTarget) {
+        if (qty === '') {
+          return { ...c, quantity: '', total: 0 };
+        }
+        const numericQty = parseInt(qty);
+        if (isNaN(numericQty) || numericQty < 0) return c;
+        return { ...c, quantity: numericQty, total: Number((numericQty * c.price).toFixed(2)) };
+      }
+      return c;
+    }));
+  };
+
+  const handleBlurCartQuantity = (cartItemId, currentQty) => {
+    const numericQty = parseInt(currentQty);
+    if (isNaN(numericQty) || numericQty < 1) {
+      removeFromCart(cartItemId);
+    }
+  };
+
+  const removeFromCart = (cartItemId) => {
+    setCart(prev => prev.filter(c => (c.cartItemId ? c.cartItemId !== cartItemId : c.id !== cartItemId)));
   };
 
   const getNextOrderSequenceForDeliveryDate = async (storeId, deliveryDate) => {
@@ -1181,7 +1232,10 @@ const Orders = () => {
     setDiscount(order.discount !== undefined ? order.discount.toString() : '');
     setDeliveryDate(order.deliveryDate || '');
     setDeliveryTime(order.deliveryTime || '');
-    setCart(order.items || []);
+    setCart((order.items || []).map((it, idx) => ({
+      ...it,
+      cartItemId: it.cartItemId || `${it.id || 'item'}-${idx}-${Date.now()}`
+    })));
     setEditingOrderId(order.id);
     setActiveModalTab('items');
     setShowAddModal(true);
@@ -2346,8 +2400,9 @@ const Orders = () => {
                 <div className="ord-items-grid">
                   {filteredItemsForOrder.length > 0 ? (
                     filteredItemsForOrder.map(item => {
-                      const cartItem = cart.find(ci => ci.id === item.id);
-                      const isInCart = !!cartItem;
+                      const matchingCartItems = cart.filter(ci => ci.id === item.id);
+                      const totalCartQty = matchingCartItems.reduce((sum, ci) => sum + (Number(ci.quantity) || 0), 0);
+                      const isInCart = matchingCartItems.length > 0;
                       return (
                         <div key={item.id} className={`ord-selectable-card ${isInCart ? 'in-cart' : ''}`} onClick={() => handleItemClick(item)}>
                           <div className="ord-item-img-container">
@@ -2362,46 +2417,74 @@ const Orders = () => {
                             />
                             {isInCart && item.unit === 'Weight' && (
                               <div className="ord-card-cart-badge">
-                                {cartItem.quantity} kg
+                                {matchingCartItems.length > 1 ? `${matchingCartItems.length} items (${totalCartQty} kg)` : `${totalCartQty} kg`}
+                              </div>
+                            )}
+                            {isInCart && item.unit !== 'Weight' && (
+                              <div className="ord-card-cart-badge">
+                                {matchingCartItems.length > 1 ? `${matchingCartItems.length} items (${totalCartQty} pcs)` : `${totalCartQty} pcs`}
                               </div>
                             )}
                           </div>
                           <div className="ord-item-details">
                             <h4>{item.name}</h4>
-                            {isInCart && item.unit !== 'Weight' ? (
+                            {item.unit !== 'Weight' ? (
                               <div className="ord-card-qty-wrapper" onClick={(e) => e.stopPropagation()}>
-                                <button className="ord-card-qty-btn" onClick={() => updateCartQuantity(item.id, -1)} type="button">
+                                <button
+                                  className="ord-card-qty-btn"
+                                  onClick={() => {
+                                    if (matchingCartItems.length > 0) {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      updateCartQuantity(lastItem.cartItemId || lastItem.id, -1);
+                                    }
+                                  }}
+                                  type="button"
+                                >
                                   <Minus size={12} />
                                 </button>
                                 <input
                                   type="number"
+                                  min="1"
                                   className="ord-card-qty-input"
-                                  value={cartItem.quantity}
+                                  value={isInCart ? totalCartQty : ''}
+                                  placeholder="0"
                                   onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (!isNaN(val) && val >= 0) {
-                                      if (val === 0) {
-                                        removeFromCart(item.id);
-                                      } else {
-                                        setCartQuantity(item.id, val);
-                                      }
+                                    const val = e.target.value;
+                                    if (!isInCart) {
+                                      const num = parseInt(val);
+                                      if (num > 0) addToCart(item, num, item.price * num);
+                                    } else {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      setCartQuantity(lastItem.cartItemId || lastItem.id, val);
                                     }
                                   }}
-                                  onBlur={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (isNaN(val) || val < 1) {
-                                      setCartQuantity(item.id, 1);
+                                  onBlur={() => {
+                                    if (isInCart) {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      handleBlurCartQuantity(lastItem.cartItemId || lastItem.id, lastItem.quantity);
                                     }
                                   }}
+                                  onClick={(e) => e.stopPropagation()}
                                 />
-                                <button className="ord-card-qty-btn" onClick={() => updateCartQuantity(item.id, 1)} type="button">
+                                <button
+                                  className="ord-card-qty-btn"
+                                  onClick={() => {
+                                    if (isInCart) {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      updateCartQuantity(lastItem.cartItemId || lastItem.id, 1);
+                                    } else {
+                                      addToCart(item, 1, item.price);
+                                    }
+                                  }}
+                                  type="button"
+                                >
                                   <Plus size={12} />
                                 </button>
                               </div>
                             ) : (
                               <div className="ord-price-row">
                                 <span className="price">₹{item.price}</span>
-                                <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                                <span className="unit">/ kg</span>
                               </div>
                             )}
                           </div>
@@ -2423,52 +2506,77 @@ const Orders = () => {
 
                 <div className="ord-summary-list">
                   {cart.length > 0 ? cart.map((item, idx) => (
-                    <div key={idx} className="ord-summary-item">
+                    <div key={item.cartItemId || idx} className="ord-summary-item">
                       <div className="ord-item-info">
                         <h4>{item.name}</h4>
                         <p>{item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity} pcs`} @ ₹{item.price}</p>
                         {item.description && <p className="item-note">Note: {item.description}</p>}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {item.unit === 'Weight' ? (
-                          <button onClick={() => handleEditCartItem(item)} className="ord-edit-cart-btn" title="Edit Weight">
-                            <Edit size={14} />
-                          </button>
-                        ) : (
-                          <div className="ord-qty-controls">
-                            <button onClick={() => updateCartQuantity(item.id, -1)} type="button">
-                              <Minus size={12} />
-                            </button>
-                            <input
-                              type="number"
-                              className="ord-qty-input"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                if (!isNaN(val) && val >= 0) {
-                                  if (val === 0) {
-                                    removeFromCart(item.id);
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="ord-qty-controls">
+                              <input
+                                type="number"
+                                step="0.001"
+                                min="0.001"
+                                className="ord-qty-input"
+                                style={{ width: '56px' }}
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCart(prev => prev.map(c => ((c.cartItemId ? c.cartItemId === item.cartItemId : c === item) ? {
+                                    ...c,
+                                    quantity: val === '' ? '' : parseFloat(val) || 0,
+                                    total: val === '' ? 0 : Number(((parseFloat(val) || 0) * c.price).toFixed(2))
+                                  } : c)));
+                                }}
+                                onBlur={() => {
+                                  const wt = parseFloat(item.quantity);
+                                  if (isNaN(wt) || wt <= 0) {
+                                    removeFromCart(item.cartItemId || item.id);
                                   } else {
-                                    setCartQuantity(item.id, val);
+                                    setCart(prev => prev.map(c => ((c.cartItemId ? c.cartItemId === item.cartItemId : c === item) ? {
+                                      ...c,
+                                      quantity: wt,
+                                      total: Number((wt * c.price).toFixed(2))
+                                    } : c)));
                                   }
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const val = parseInt(e.target.value);
-                                if (isNaN(val) || val < 1) {
-                                  setCartQuantity(item.id, 1);
-                                }
-                              }}
-                            />
-                            <button onClick={() => updateCartQuantity(item.id, 1)} type="button">
-                              <Plus size={12} />
+                                }}
+                              />
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>kg</span>
+                            </div>
+                            <button onClick={() => handleEditCartItem(item)} className="ord-edit-cart-btn" title="Edit Weight & Note">
+                              <Edit size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="ord-qty-controls">
+                              <button onClick={() => updateCartQuantity(item.cartItemId || item.id, -1)} type="button">
+                                <Minus size={12} />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                className="ord-qty-input"
+                                value={item.quantity}
+                                onChange={(e) => setCartQuantity(item.cartItemId || item.id, e.target.value)}
+                                onBlur={() => handleBlurCartQuantity(item.cartItemId || item.id, item.quantity)}
+                              />
+                              <button onClick={() => updateCartQuantity(item.cartItemId || item.id, 1)} type="button">
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                            <button onClick={() => handleEditCartItem(item)} className="ord-edit-cart-btn" title="Edit Quantity & Note">
+                              <Edit size={14} />
                             </button>
                           </div>
                         )}
                         <div className="ord-item-price">
-                          <span className="amt">₹{item.total.toFixed(2)}</span>
+                          <span className="amt">₹{Number(item.total).toFixed(2)}</span>
                         </div>
-                        <button onClick={() => removeFromCart(item.id)} style={{ color: 'var(--error-color)', background: 'none' }} title="Remove Item">
+                        <button onClick={() => removeFromCart(item.cartItemId || item.id)} style={{ color: 'var(--error-color)', background: 'none', border: 'none', cursor: 'pointer' }} title="Remove Item">
                           <X size={16} />
                         </button>
                       </div>
@@ -2604,64 +2712,85 @@ const Orders = () => {
               exit={{ opacity: 0, scale: 0.9 }}
             >
               <div className="modal-icon-box" style={{ background: '#FEF3C7', color: '#D97706' }}>
-                <Scale size={32} />
+                {showWeightModal.unit === 'Weight' ? <Scale size={32} /> : <Package size={32} />}
               </div>
-              <h3 className="modal-title">Enter Quantity for {showWeightModal.name}</h3>
+              <h3 className="modal-title">
+                {editingCartItem ? 'Edit' : 'Enter Quantity for'} {showWeightModal.name}
+              </h3>
 
               <div className="ord-weight-form">
-                <div className="ord-weight-input-group">
-                  <label>Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    placeholder="0.000"
-                    value={weightInput.weight}
-                    onChange={(e) => handleWeightCalc('weight', e.target.value, showWeightModal.price)}
-                  />
-                </div>
-                <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5 }}>OR</div>
-                <div className="ord-weight-input-group">
-                  <label>Amount (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={weightInput.amount}
-                    onChange={(e) => handleWeightCalc('amount', e.target.value, showWeightModal.price)}
-                  />
-                </div>
+                {showWeightModal.unit === 'Weight' ? (
+                  <>
+                    <div className="ord-weight-input-group">
+                      <label>Weight (kg)</label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        placeholder="0.000"
+                        value={weightInput.weight}
+                        onChange={(e) => handleWeightCalc('weight', e.target.value, showWeightModal.price)}
+                      />
+                    </div>
+                    <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5 }}>OR</div>
+                    <div className="ord-weight-input-group">
+                      <label>Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={weightInput.amount}
+                        onChange={(e) => handleWeightCalc('amount', e.target.value, showWeightModal.price)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="ord-weight-input-group">
+                      <label>Quantity (Pieces)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 5"
+                        value={weightInput.weight}
+                        onChange={(e) => handleWeightCalc('weight', e.target.value, showWeightModal.price)}
+                      />
+                    </div>
+                    <div className="ord-weight-input-group">
+                      <label>Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={weightInput.amount}
+                        onChange={(e) => handleWeightCalc('amount', e.target.value, showWeightModal.price)}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="ord-weight-input-group">
-                  <label>Manufacturing description</label>
+                  <label>Manufacturing / Packing description</label>
                   <textarea
-                    placeholder="e.g. less sugar, extra packing..."
+                    placeholder="e.g. less sugar, extra packing, separate box..."
                     value={weightInput.description}
                     onChange={(e) => setWeightInput({ ...weightInput, description: e.target.value })}
                     style={{
                       height: '60px',
                       padding: '10px',
                       border: '1px solid var(--border-color)',
-                      border_radius: '10px',
-                      font_size: '14px',
+                      borderRadius: '10px',
+                      fontSize: '14px',
                       resize: 'none'
                     }}
                   />
                 </div>
 
                 <div className="modal-actions" style={{ marginTop: '10px' }}>
-                  <button className="modal-btn cancel" onClick={() => setShowWeightModal(null)}>Cancel</button>
+                  <button className="modal-btn cancel" onClick={() => { setShowWeightModal(null); setEditingCartItem(null); }}>Cancel</button>
                   <button
                     className="modal-btn confirm"
                     style={{ background: 'var(--primary-color)' }}
-                    onClick={() => {
-                      if (weightInput.weight && weightInput.amount) {
-                        addToCart(showWeightModal, weightInput.weight, weightInput.amount, weightInput.description);
-                        setShowWeightModal(null);
-                      } else {
-                        toast.error("Please enter weight or amount");
-                      }
-                    }}
+                    onClick={handleSaveModalItem}
                   >
-                    Add to Order
+                    {editingCartItem ? 'Update Item' : 'Add to Order'}
                   </button>
                 </div>
               </div>

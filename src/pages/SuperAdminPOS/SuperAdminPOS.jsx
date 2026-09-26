@@ -328,6 +328,67 @@ const SuperAdminPOS = () => {
     });
   };
 
+  const setDirectQuantity = (itemId, qty) => {
+    setCart(prev => prev.map(c => {
+      if (c.id === itemId) {
+        if (qty === '') {
+          return { ...c, quantity: '', total: 0 };
+        }
+        const numericQty = parseInt(qty);
+        if (isNaN(numericQty) || numericQty < 0) return c;
+        return {
+          ...c,
+          quantity: numericQty,
+          total: Number((numericQty * c.price).toFixed(2))
+        };
+      }
+      return c;
+    }));
+  };
+
+  const handleBlurQuantity = (itemId, currentQty) => {
+    const numericQty = parseInt(currentQty);
+    if (isNaN(numericQty) || numericQty < 1) {
+      setCart(prev => prev.filter(c => c.id !== itemId));
+    }
+  };
+
+  const setDirectWeight = (itemId, wt) => {
+    setCart(prev => prev.map(c => {
+      if (c.id === itemId) {
+        if (wt === '') {
+          return { ...c, quantity: '', total: 0 };
+        }
+        const numericWt = parseFloat(wt);
+        if (isNaN(numericWt) || numericWt < 0) return c;
+        return {
+          ...c,
+          quantity: wt,
+          total: Number((numericWt * c.price).toFixed(2))
+        };
+      }
+      return c;
+    }));
+  };
+
+  const handleBlurWeight = (itemId, currentWt) => {
+    const numericWt = parseFloat(currentWt);
+    if (isNaN(numericWt) || numericWt <= 0) {
+      setCart(prev => prev.filter(c => c.id !== itemId));
+    } else {
+      setCart(prev => prev.map(c => {
+        if (c.id === itemId) {
+          return {
+            ...c,
+            quantity: numericWt.toFixed(3),
+            total: Number((numericWt * c.price).toFixed(2))
+          };
+        }
+        return c;
+      }));
+    }
+  };
+
   // Create Customer Handler
   const handleSaveCustomer = async (e) => {
     e.preventDefault();
@@ -609,10 +670,28 @@ const SuperAdminPOS = () => {
                           <div className="st-pos-item-footer">
                             <span className="price">₹{item.price} <small>/{item.unit === 'Weight' ? 'kg' : 'pc'}</small></span>
                             {item.unit === 'Piece' ? (
-                              <div className="st-pos-qty-controls">
-                                <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }}><Minus size={12} /></button>
-                                <span>{inCart ? inCart.quantity : 0}</span>
-                                <button onClick={(e) => { e.stopPropagation(); inCart ? updateQuantity(item.id, 1) : handleItemClick(item); }}><Plus size={12} /></button>
+                              <div className="st-pos-qty-controls" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => updateQuantity(item.id, -1)}><Minus size={12} /></button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={inCart ? inCart.quantity : ''}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!inCart) {
+                                      const num = parseInt(val);
+                                      if (num > 0) addToCart(item, num, item.price * num);
+                                    } else {
+                                      setDirectQuantity(item.id, val);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (inCart) handleBlurQuantity(item.id, inCart.quantity);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <button type="button" onClick={() => inCart ? updateQuantity(item.id, 1) : handleItemClick(item)}><Plus size={12} /></button>
                               </div>
                             ) : (
                               <button className="st-pos-weight-btn" onClick={(e) => { e.stopPropagation(); handleItemClick(item); }}>
@@ -784,14 +863,29 @@ const SuperAdminPOS = () => {
                     <div className="st-summary-actions">
                       {item.unit === 'Weight' ? (
                         <div className="st-pos-qty-controls">
-                          <button onClick={() => handleItemClick(items.find(i => i.id === item.id))}><Scale size={12} /></button>
-                          <span>{item.quantity}kg</span>
+                          <button onClick={() => handleItemClick(items.find(i => i.id === item.id))} title="Adjust Weight"><Scale size={12} /></button>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0.001"
+                            value={item.quantity}
+                            onChange={(e) => setDirectWeight(item.id, e.target.value)}
+                            onBlur={() => handleBlurWeight(item.id, item.quantity)}
+                            style={{ width: '56px' }}
+                          />
+                          <span style={{ fontSize: '10px', color: '#64748b' }}>kg</span>
                         </div>
                       ) : (
                         <div className="st-pos-qty-controls">
-                          <button onClick={() => updateQuantity(item.id, -1)}><Minus size={12} /></button>
-                          <span>{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1)}><Plus size={12} /></button>
+                          <button type="button" onClick={() => updateQuantity(item.id, -1)}><Minus size={12} /></button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => setDirectQuantity(item.id, e.target.value)}
+                            onBlur={() => handleBlurQuantity(item.id, item.quantity)}
+                          />
+                          <button type="button" onClick={() => updateQuantity(item.id, 1)}><Plus size={12} /></button>
                         </div>
                       )}
                       <span className="total">₹{item.total.toFixed(2)}</span>
