@@ -35,6 +35,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import WalkInSales from './pages/WalkInSales/WalkInSales';
 import SuperAdminPOS from './pages/SuperAdminPOS/SuperAdminPOS';
 import BarcodeGenerator from './pages/BarcodeGenerator/BarcodeGenerator';
+import CustomBarcode from './pages/CustomBarcode/CustomBarcode';
 import BulkOrderCleanupModal from './components/BulkOrderCleanupModal/BulkOrderCleanupModal';
 import { Toaster } from 'react-hot-toast';
 
@@ -103,6 +104,8 @@ function App() {
           <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/pos-billing" element={<ProtectedRoute><Layout><SuperAdminPOS /></Layout></ProtectedRoute>} />
           <Route path="/barcode-generator" element={<ProtectedRoute><Layout><BarcodeGenerator /></Layout></ProtectedRoute>} />
+          <Route path="/custom-sticker" element={<ProtectedRoute><Layout><CustomBarcode /></Layout></ProtectedRoute>} />
+          <Route path="/custom-barcode" element={<Navigate to="/custom-sticker" replace />} />
           <Route path="/walkin-sales" element={<ProtectedRoute><Layout><WalkInSales /></Layout></ProtectedRoute>} />
           <Route path="/store-worksheet" element={<ProtectedRoute><Layout><StoreWorkSheet /></Layout></ProtectedRoute>} />
 

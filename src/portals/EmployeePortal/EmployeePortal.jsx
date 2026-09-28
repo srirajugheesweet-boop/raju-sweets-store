@@ -38,7 +38,8 @@ const EmployeePortal = () => {
   const links = [
     { label: 'Employees', icon: <Users size={20} />, path: '/employee-portal/employees' },
     { label: 'Timesheet', icon: <Clock size={20} />, path: '/employee-portal/timesheet' },
-    { label: 'Barcode Generator', icon: <Barcode size={20} />, path: '/barcode-generator' }
+    { label: 'Barcode Generator', icon: <Barcode size={20} />, path: '/barcode-generator' },
+    { label: 'Custom Sticker', icon: <Barcode size={20} />, path: '/custom-sticker' }
   ];
 
   // Common State

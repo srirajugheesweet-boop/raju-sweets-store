@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { 
   Barcode, 
   Printer, 
@@ -24,7 +25,8 @@ import {
   RotateCw,
   Move,
   Columns,
-  Hash
+  Hash,
+  Sparkles
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -900,6 +902,19 @@ TEXT ${240 + x2}, ${96 + y2}, "2", 0, 1, 1, "MRP: ${col2.mrp}/-"
             </div>
           ));
         })()}
+      </div>
+
+      {/* Navigation Switcher Tabs */}
+      <div className="barcode-mode-nav">
+        <button className="mode-tab-btn active" type="button">
+          <Barcode size={16} />
+          Catalog Barcode Generator
+        </button>
+        <Link to="/custom-sticker" className="mode-tab-btn">
+          <Sparkles size={16} />
+          Custom Sticker
+          <span className="mode-badge">New</span>
+        </Link>
       </div>
 
       {/* Screen UI Header */}

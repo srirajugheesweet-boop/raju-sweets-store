@@ -20,6 +20,7 @@ import {
   Settings,
   Receipt,
   Barcode,
+  Sparkles,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -32,6 +33,7 @@ export const menuItems = [
   { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing' },
   { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales' },
   { id: 'barcode-generator', label: 'Barcode Generator', icon: <Barcode />, path: '/barcode-generator' },
+  { id: 'custom-sticker', label: 'Custom Sticker', icon: <Sparkles />, path: '/custom-sticker' },
   { id: 'items', label: 'Products', icon: <Box />, path: '/items' },
   { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
