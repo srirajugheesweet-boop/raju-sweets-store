@@ -1,0 +1,339 @@
+/* ========================================================================== */
+/* GLOBAL DESIGN SYSTEM - SORA THEME OVERRIDES                               */
+/* 1. All text: Sora font only, maximum font-weight: 500                      */
+/* 2. All buttons, inputs, dropdowns, accordions: max-height 34px             */
+/* 3. All border-radius: maximum 6px only                                    */
+/* ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500&display=swap');
+
+/* -------------------------------------------------------------------------- */
+/* RULE 1: SORA FONT ONLY & MAXIMUM FONT-WEIGHT 500                           */
+/* -------------------------------------------------------------------------- */
+
+html, body, #root,
+*, *::before, *::after {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Cap all bold / heavy weights at 500 max */
+h1, h2, h3, h4, h5, h6,
+b, strong, th, label,
+button, [class*="btn"],
+.bold, [class*="bold"],
+[class*="title"], [class*="header"], [class*="heading"],
+[class*="metric"], [class*="badge"], [class*="tag"],
+[class*="price"], [class*="total"], [class*="count"],
+[class*="name"], [class*="summary"], [class*="label"],
+[class*="value"], [class*="pill"], [class*="chip"] {
+  font-weight: 500 !important;
+}
+
+/* Enforce max 500 on any elements with higher font weights */
+[style*="font-weight: 600"], [style*="font-weight:600"],
+[style*="font-weight: 700"], [style*="font-weight:700"],
+[style*="font-weight: 800"], [style*="font-weight:800"],
+[style*="font-weight: 900"], [style*="font-weight:900"],
+[style*="font-weight: bold"], [style*="font-weight:bold"],
+[style*="font-weight: bolder"], [style*="font-weight:bolder"] {
+  font-weight: 500 !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* RULE 2: BUTTONS, INPUTS, DROPDOWNS & ACCORDIONS - MAX-HEIGHT 34PX          */
+/* -------------------------------------------------------------------------- */
+
+/* Buttons */
+button:not(.sidebar-toggle):not(.portal-sidebar-item):not(.nav-toggle):not(.mobile-toggle):not(.ord-card-qty-btn):not(.ord-qty-btn):not(.ord-mobile-qty-btn):not([class*="qty-btn"]):not([class*="counter-btn"]):not(.ord-qty-controls button),
+.polaris-btn,
+.polaris-btn-primary,
+.polaris-btn-secondary,
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-compact,
+.action-btn,
+.action-btn-primary,
+.submit-btn,
+.modal-btn,
+.form-btn,
+.barcode-btn,
+.pos-btn,
+.ord-btn,
+.save-btn,
+.cancel-btn,
+.filter-btn,
+.print-btn,
+.toggle-btn,
+.mode-tab-btn,
+.date-chip-btn,
+.preset-btn,
+.quantity-counter button,
+[class*="btn"]:not([class*="btn-group"]):not([class*="btn-container"]):not([class*="btn-wrapper"]):not(.ord-card-qty-btn):not(.ord-qty-btn):not(.ord-mobile-qty-btn):not([class*="qty-btn"]):not([class*="counter-btn"]):not(.ord-qty-controls button) {
+  height: 34px !important;
+  max-height: 34px !important;
+  line-height: 32px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* Inputs */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.ord-card-qty-input):not(.ord-qty-input):not([class*="qty-input"]):not([class*="counter-input"]):not(.ord-qty-controls input),
+.polaris-table-search,
+.polaris-table-search input,
+.input-compact,
+.custom-input,
+.search-input,
+.form-control,
+.form-input,
+.custom-price-input-box,
+.custom-price-field,
+.custom-price-prefix,
+.quantity-counter,
+.quantity-counter input,
+.calibration-input,
+[class*="search-box"],
+[class*="search-input"],
+[class*="filter-input"],
+[class*="date-input"],
+[class*="form-input"],
+[class*="input-box"] {
+  height: 34px !important;
+  max-height: 34px !important;
+  line-height: 32px !important;
+  box-sizing: border-box !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* Dropdowns & Selects */
+select,
+.polaris-select,
+.custom-select,
+.dropdown-select,
+.dropdown-trigger,
+.dropdown-toggle,
+.filter-select,
+.catalog-prefill-bar,
+.catalog-prefill-select,
+.calibration-select,
+[class*="select"]:not([class*="selected"]):not([class*="select-container"]):not([class*="select-list"]):not([class*="select-card"]):not([class*="select-item"]):not([class*="select-info"]) {
+  height: 34px !important;
+  max-height: 34px !important;
+  line-height: 32px !important;
+  box-sizing: border-box !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* Accordions (Headers & Toggles) */
+.custom-accordion-toggle,
+.ord-mobile-card-header,
+.mu-btn-toggle,
+.accordion-header,
+.accordion-toggle,
+[class*="accordion-toggle"],
+[class*="accordion-header"],
+summary,
+details > summary {
+  height: 34px !important;
+  max-height: 34px !important;
+  line-height: 32px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* RULE 3: MAXIMUM BORDER-RADIUS 6PX ONLY EVERYWHERE                         */
+/* -------------------------------------------------------------------------- */
+
+/* Cards, Sections, Tables, Containers */
+.polaris-card,
+.polaris-metrics-card,
+.polaris-table-search,
+.polaris-badge,
+.glass,
+.card,
+.modal,
+.modal-content,
+.custom-modal,
+.dialog,
+.toast,
+.banner,
+.panel,
+.box,
+.pill,
+.chip,
+.dropdown-menu,
+.popover,
+.tooltip,
+.table-container,
+.queue-card,
+.preview-card,
+.form-section,
+.item-select-card,
+.sticker-preview-wrapper,
+.physical-clean-sticker,
+.physical-sticker-preview,
+.calibration-panel,
+.format-toggle-group,
+.quantity-counter,
+.custom-price-input-box,
+.custom-accordion-toggle,
+.custom-barcode-header-bar,
+.custom-barcode-usb-banner,
+.usb-printer-control-banner,
+.walkin-metric-card,
+.walkin-filter-card,
+.walkin-table-card,
+.pos-card,
+.pos-sidebar,
+.pos-cart,
+.pos-item-card,
+.st-card,
+.st-metric-card,
+.mu-card,
+.pu-card,
+.order-card,
+.customer-card,
+[class*="card"],
+[class*="modal"]:not([class*="modal-backdrop"]):not([class*="modal-overlay"]):not([class*="modal-icon-box"]),
+[class*="badge"],
+[class*="banner"],
+[class*="panel"],
+[class*="pill"],
+[class*="chip"],
+[class*="box"],
+[class*="container"]:not(.root-container),
+[class*="wrapper"]:not(.root-wrapper) {
+  border-radius: 6px !important;
+}
+
+/* All Buttons, Inputs, Dropdowns, Selects, Accordions */
+button,
+input,
+select,
+textarea,
+[class*="btn"],
+[class*="input"],
+[class*="select"],
+[class*="accordion"],
+summary,
+details {
+  border-radius: 6px !important;
+}
+
+/* Explicit overrides for high border-radius inline or classes */
+[style*="border-radius: 8px"], [style*="border-radius:8px"],
+[style*="border-radius: 10px"], [style*="border-radius:10px"],
+[style*="border-radius: 12px"], [style*="border-radius:12px"],
+[style*="border-radius: 14px"], [style*="border-radius:14px"],
+[style*="border-radius: 16px"], [style*="border-radius:16px"],
+[style*="border-radius: 18px"], [style*="border-radius:18px"],
+[style*="border-radius: 20px"], [style*="border-radius:20px"],
+[style*="border-radius: 24px"], [style*="border-radius:24px"],
+[style*="border-radius: 30px"], [style*="border-radius:30px"],
+[style*="border-radius: 9999px"], [style*="border-radius:9999px"] {
+  border-radius: 6px !important;
+}
+
+/* Preserve round 50% for tiny circular status dots or user avatars */
+.status-dot,
+[class*="status-dot"],
+.rounded-full,
+.avatar,
+.user-avatar,
+.polaris-avatar,
+.user-badge-circle {
+  border-radius: 50% !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* INLINE / CARD QUANTITY STEPPERS & MICRO CONTROLS                           */
+/* -------------------------------------------------------------------------- */
+.ord-card-qty-wrapper {
+  height: 28px !important;
+  max-height: 28px !important;
+  padding: 2px 4px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  border-radius: 6px !important;
+}
+
+.ord-card-qty-btn {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  line-height: 22px !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+.ord-card-qty-input {
+  width: 36px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  line-height: 22px !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.ord-qty-controls {
+  height: 28px !important;
+  max-height: 28px !important;
+  padding: 2px 4px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+}
+
+.ord-qty-controls button {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 24px !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+.ord-qty-controls input.ord-qty-input {
+  width: 32px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 24px !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  box-sizing: border-box !important;
+}
+

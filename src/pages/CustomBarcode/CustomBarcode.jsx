@@ -592,9 +592,8 @@ TEXT ${15 + x2}, ${135 + y2}, "3", 0, 1, 1, "PRICE: Rs.${col2.price}/-"
           <button 
             className="barcode-btn barcode-btn-primary" 
             onClick={handlePrint}
-            style={{ fontSize: '15px', padding: '12px 24px' }}
           >
-            <Printer size={18} />
+            <Printer size={16} />
             Print Stickers ({quantity})
           </button>
         </div>
@@ -800,14 +799,13 @@ TEXT ${15 + x2}, ${135 + y2}, "3", 0, 1, 1, "PRICE: Rs.${col2.price}/-"
           </div>
 
           {/* Big Direct Print Button */}
-          <div style={{ marginTop: '24px', display: 'flex', gap: '10px' }}>
+          <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
             <button 
               type="button"
               className="barcode-btn barcode-btn-primary flex-1"
-              style={{ padding: '14px', fontSize: '16px', fontWeight: '700' }}
               onClick={handlePrint}
             >
-              <Printer size={20} />
+              <Printer size={16} />
               Print Now ({quantity} Copies)
             </button>
 
@@ -817,19 +815,18 @@ TEXT ${15 + x2}, ${135 + y2}, "3", 0, 1, 1, "PRICE: Rs.${col2.price}/-"
               onClick={handleAddToQueue}
               title="Add this sticker to batch print queue"
             >
-              <Plus size={16} /> Add to Queue
+              <Plus size={15} /> Add to Queue
             </button>
           </div>
 
-          {/* Optional Printer Roll Settings Toggle */}
+          {/* Optional Printer Roll Settings Toggle (Accordion) */}
           <div 
-            className="card-section-header margin-top" 
-            style={{ cursor: 'pointer', marginBottom: 0 }} 
+            className="custom-accordion-toggle" 
             onClick={() => setShowSettings(!showSettings)}
           >
-            <Settings2 size={16} />
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Sticker Roll Format & Settings</span>
-            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#64748b' }}>
+            <Settings2 size={15} />
+            <span>Sticker Roll Format & Settings</span>
+            <span className="accordion-arrow">
               {showSettings ? '▲ Hide' : '▼ Expand'}
             </span>
           </div>
@@ -934,7 +931,6 @@ TEXT ${15 + x2}, ${135 + y2}, "3", 0, 1, 1, "PRICE: Rs.${col2.price}/-"
               <button 
                 className="barcode-btn barcode-btn-primary flex-1"
                 onClick={handlePrint}
-                style={{ padding: '12px' }}
               >
                 <Printer size={16} />
                 Print ({quantity} Copies)

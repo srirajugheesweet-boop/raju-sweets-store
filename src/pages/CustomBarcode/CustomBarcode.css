@@ -1,162 +1,183 @@
-/* Custom Barcode Generator Styling System */
+/* ======================================================== */
+/* CUSTOM STICKER GENERATOR - SORA DESIGN SYSTEM            */
+/* Font: Sora | Max font-weight: 500                        */
+/* Max-Height: 34px on buttons, inputs, dropdowns, accordion */
+/* Max border-radius: 6px everywhere                       */
+/* ======================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500&display=swap');
+
+/* Page Container */
+.custom-barcode-page,
+.custom-barcode-page * {
+  font-family: 'Sora', sans-serif !important;
+  font-weight: 500 !important;
+  box-sizing: border-box;
+}
 
 .custom-barcode-page {
-  padding: 24px;
+  padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #1a202c;
+  color: #1e293b;
   background-color: #f8fafc;
   min-height: 100vh;
 }
 
-/* Navigation Mode Tabs */
+/* -------------------------------------------------------- */
+/* Navigation Mode Tabs                                     */
+/* -------------------------------------------------------- */
 .barcode-mode-nav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 10px;
 }
 
 .mode-tab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 18px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #64748b;
+  gap: 6px;
+  height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #64748b !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   text-decoration: none;
+  line-height: 32px;
 }
 
 .mode-tab-btn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 .mode-tab-btn.active {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
-  font-weight: 700;
-  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.1);
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
 }
 
 .mode-badge {
-  font-size: 11px;
-  padding: 2px 7px;
-  border-radius: 12px;
-  background: #10b981;
-  color: #ffffff;
-  font-weight: 700;
+  font-size: 10px !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
   letter-spacing: 0.3px;
   text-transform: uppercase;
 }
 
-/* Page Header */
+/* -------------------------------------------------------- */
+/* Header Bar                                               */
+/* -------------------------------------------------------- */
 .custom-barcode-header-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   background: #ffffff;
-  padding: 20px 24px;
-  border-radius: 16px;
+  padding: 14px 18px;
+  border-radius: 6px !important;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .custom-barcode-title-group {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .custom-barcode-icon-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  width: 34px !important;
+  height: 34px !important;
+  max-height: 34px !important;
+  border-radius: 6px !important;
+  background: #0284c7;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  flex-shrink: 0;
 }
 
 .custom-barcode-page-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 17px !important;
+  font-weight: 500 !important;
   color: #0f172a;
   margin: 0;
-  letter-spacing: -0.5px;
+  line-height: 1.2;
 }
 
 .custom-barcode-page-subtitle {
-  font-size: 13px;
+  font-size: 12px !important;
+  font-weight: 400 !important;
   color: #64748b;
-  margin: 4px 0 0 0;
+  margin: 2px 0 0 0;
 }
 
 .custom-barcode-header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-/* USB Printer Control Banner */
+/* -------------------------------------------------------- */
+/* Connection Status Banner                                 */
+/* -------------------------------------------------------- */
 .custom-barcode-usb-banner {
   background: #ffffff;
-  border-radius: 14px;
+  border-radius: 6px !important;
   border: 1px solid #e2e8f0;
-  padding: 16px 20px;
-  margin-bottom: 24px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .custom-barcode-banner-info {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .custom-barcode-status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50% !important;
   flex-shrink: 0;
 }
 
 .custom-barcode-status-dot.active {
   background: #10b981;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
 }
 
 .custom-barcode-status-dot.inactive {
   background: #f59e0b;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
 }
 
 .custom-barcode-banner-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 13px !important;
+  font-weight: 500 !important;
   color: #0f172a;
   margin: 0;
 }
 
 .custom-barcode-banner-sub {
-  font-size: 13px;
+  font-size: 11px !important;
+  font-weight: 400 !important;
   color: #64748b;
   margin: 2px 0 0 0;
 }
@@ -164,7 +185,7 @@
 .custom-barcode-banner-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {
@@ -172,24 +193,28 @@
   .custom-barcode-header-bar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 14px;
   }
 }
 
-/* Buttons */
+/* -------------------------------------------------------- */
+/* Buttons - Max Height 34px, Radius 6px, Weight 500        */
+/* -------------------------------------------------------- */
 .barcode-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
-  white-space: nowrap;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  border: none !important;
+  white-space: nowrap !important;
+  line-height: 32px !important;
 }
 
 .barcode-btn:disabled {
@@ -198,64 +223,61 @@
 }
 
 .barcode-btn-primary {
-  background: #10b981;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  background: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.2);
 }
 
 .barcode-btn-primary:hover:not(:disabled) {
-  background: #059669;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+  background: #059669 !important;
 }
 
 .barcode-btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
 }
 
 .barcode-btn-secondary:hover:not(:disabled) {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
 .barcode-btn-webusb {
-  background: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  background: #2563eb !important;
+  color: #ffffff !important;
 }
 
 .barcode-btn-webusb:hover:not(:disabled) {
-  background: #1d4ed8;
-  transform: translateY(-1px);
+  background: #1d4ed8 !important;
 }
 
 .barcode-btn-outline {
-  background: #ffffff;
-  color: #475569;
-  border: 1.5px solid #cbd5e1;
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
 }
 
 .barcode-btn-outline:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #94a3b8;
-  color: #1e293b;
+  background: #f8fafc !important;
+  color: #0f172a !important;
 }
 
 .barcode-btn.full-width {
-  width: 100%;
+  width: 100% !important;
 }
 
 .barcode-btn.flex-1 {
-  flex: 1;
+  flex: 1 !important;
 }
 
-/* Main Grid Layout */
+/* -------------------------------------------------------- */
+/* Main Grid & Cards                                        */
+/* -------------------------------------------------------- */
 .custom-barcode-grid {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
-  gap: 24px;
+  gap: 16px;
 }
 
 @media (max-width: 1024px) {
@@ -264,33 +286,32 @@
   }
 }
 
-/* Cards */
 .barcode-card {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 6px !important;
   border: 1px solid #e2e8f0;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  margin-bottom: 24px;
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  margin-bottom: 16px;
 }
 
 .card-section-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 14px;
   color: #0f172a;
 }
 
 .card-section-header.margin-top {
-  margin-top: 24px;
-  padding-top: 20px;
+  margin-top: 16px;
+  padding-top: 14px;
   border-top: 1px dashed #e2e8f0;
 }
 
 .card-section-header h3 {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 14px !important;
+  font-weight: 500 !important;
   margin: 0;
 }
 
@@ -298,38 +319,47 @@
   color: #0284c7;
 }
 
-/* Quick Fill Selector Box */
+/* -------------------------------------------------------- */
+/* Dropdown / Catalog Prefill - Max Height 34px, Radius 6px */
+/* -------------------------------------------------------- */
 .catalog-prefill-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
-  padding: 10px 14px;
-  border-radius: 10px;
-  margin-bottom: 18px;
-  font-size: 13px;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  margin-bottom: 14px;
+  font-size: 12px !important;
+  font-weight: 500 !important;
   color: #166534;
+  height: 34px !important;
+  max-height: 34px !important;
 }
 
 .catalog-prefill-select {
   flex: 1;
-  padding: 6px 12px;
-  border-radius: 8px;
+  height: 28px !important;
+  max-height: 34px !important;
+  padding: 0 8px !important;
+  border-radius: 4px !important;
   border: 1px solid #86efac;
   background: #ffffff;
   color: #1e293b;
-  font-size: 13px;
+  font-size: 12px !important;
+  font-weight: 500 !important;
   outline: none;
-  font-weight: 600;
 }
 
-/* Form Groups & Inputs */
+/* -------------------------------------------------------- */
+/* Form Groups & Inputs - Max Height 34px, Radius 6px       */
+/* -------------------------------------------------------- */
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
 .form-group:last-child {
@@ -337,67 +367,161 @@
 }
 
 .form-group label {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px !important;
+  font-weight: 500 !important;
   color: #334155;
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-bottom: 2px;
 }
 
 .required-star {
   color: #ef4444;
-  font-weight: 700;
+  font-weight: 500 !important;
   margin-left: 2px;
 }
 
-.helper-tip {
-  font-size: 11px;
-  font-weight: 500;
-  color: #64748b;
-  margin-left: auto;
+.custom-input {
+  width: 100%;
+  height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #cbd5e1;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
 }
 
-/* Custom Price Input Box */
+.custom-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Quick Date Preset Chips */
+.quick-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.date-chip-btn {
+  height: 24px !important;
+  max-height: 34px !important;
+  padding: 0 7px !important;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #475569;
+  cursor: pointer;
+  line-height: 22px;
+  transition: all 0.15s ease;
+}
+
+.date-chip-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Input with icon */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 34px !important;
+  max-height: 34px !important;
+}
+
+.input-with-icon .input-icon-left {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.input-with-icon input {
+  width: 100%;
+  height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 10px 0 32px !important;
+  border-radius: 6px !important;
+  border: 1px solid #cbd5e1;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.input-with-icon input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+/* Custom Price Input Box - Max Height 34px, Radius 6px */
 .custom-price-input-box {
   display: flex;
   align-items: center;
-  height: 44px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  height: 34px !important;
+  max-height: 34px !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px !important;
   overflow: hidden;
   background: #ffffff;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
 .custom-price-input-box:focus-within {
   border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
 }
 
 .custom-price-prefix {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 100%;
+  width: 34px !important;
+  height: 34px !important;
+  max-height: 34px !important;
   background: #f8fafc;
-  border-right: 1.5px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
   color: #475569;
-  font-weight: 700;
-  font-size: 16px;
+  font-weight: 500 !important;
+  font-size: 13px !important;
   flex-shrink: 0;
   user-select: none;
 }
 
 .custom-price-field {
   flex: 1;
-  height: 100%;
+  height: 34px !important;
+  max-height: 34px !important;
   border: none !important;
-  padding: 0 14px;
-  font-size: 15px;
-  font-weight: 700;
+  padding: 0 10px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
   color: #0f172a;
   background: transparent !important;
   outline: none !important;
@@ -415,165 +539,35 @@
   -moz-appearance: textfield;
 }
 
-/* Input with icon (Store name, etc.) */
-.input-with-icon {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-with-icon .input-icon-left {
-  position: absolute;
-  left: 12px;
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.input-with-icon input {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px 0 38px;
-  border-radius: 10px;
-  border: 1.5px solid #cbd5e1;
-  font-size: 14px;
-  color: #0f172a;
-  background: #ffffff;
-  transition: all 0.2s;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.input-with-icon input:focus,
-.custom-input:focus {
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
-}
-
-.custom-input {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1.5px solid #cbd5e1;
-  font-size: 14px;
-  color: #0f172a;
-  background: #ffffff;
-  outline: none;
-  box-sizing: border-box;
-  transition: all 0.2s;
-}
-
-/* 2 Column Form Row */
-.form-row-2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-@media (max-width: 640px) {
-  .form-row-2col {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Quick Date Offset Chips */
-.quick-preset-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.date-chip-btn {
-  padding: 4px 10px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.date-chip-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.date-chip-btn.active {
-  background: #e0f2fe;
-  color: #0369a1;
-  border-color: #7dd3fc;
-  font-weight: 700;
-}
-
-/* Weight Presets Grid */
-.weight-presets-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-@media (max-width: 640px) {
-  .weight-presets-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-.preset-btn {
-  padding: 8px;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.preset-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.preset-btn.active {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1d4ed8;
-  font-weight: 700;
-}
-
-/* Quantity Counter */
+/* Quantity Counter - Max Height 34px, Radius 6px */
 .quantity-counter {
   display: flex;
   align-items: center;
-  height: 44px;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  height: 34px !important;
+  max-height: 34px !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px !important;
   overflow: hidden;
   background: #ffffff;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
 .quantity-counter:focus-within {
   border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
 }
 
 .quantity-counter button {
-  width: 44px;
-  height: 100%;
+  width: 34px !important;
+  height: 34px !important;
+  max-height: 34px !important;
   background: #f8fafc;
   border: none;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 15px !important;
+  font-weight: 500 !important;
   color: #475569;
   cursor: pointer;
-  transition: background 0.2s;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -581,11 +575,11 @@
 }
 
 .quantity-counter button:first-child {
-  border-right: 1.5px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
 }
 
 .quantity-counter button:last-child {
-  border-left: 1.5px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
 }
 
 .quantity-counter button:hover {
@@ -595,11 +589,12 @@
 
 .quantity-counter input {
   flex: 1;
-  height: 100%;
+  height: 34px !important;
+  max-height: 34px !important;
   border: none !important;
   text-align: center;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13px !important;
+  font-weight: 500 !important;
   color: #0f172a;
   outline: none !important;
   background: transparent !important;
@@ -615,102 +610,150 @@
   -moz-appearance: textfield;
 }
 
-/* Format Toggle Buttons */
+/* -------------------------------------------------------- */
+/* Accordion - Max Height 34px, Radius 6px                  */
+/* -------------------------------------------------------- */
+.custom-accordion-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 6px !important;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  margin-top: 14px;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #334155;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.custom-accordion-toggle:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.custom-accordion-toggle svg {
+  color: #0284c7;
+}
+
+.accordion-arrow {
+  margin-left: auto;
+  font-size: 11px !important;
+  color: #64748b;
+  font-weight: 500 !important;
+}
+
+.calibration-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px !important;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.calibration-input {
+  width: 100%;
+  height: 34px !important;
+  max-height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #cbd5e1;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
 .format-toggle-group {
   display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 10px;
-  gap: 4px;
+  background: #e2e8f0;
+  padding: 2px;
+  border-radius: 6px !important;
+  gap: 2px;
+  height: 34px !important;
+  max-height: 34px !important;
 }
 
 .toggle-btn {
   flex: 1;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
+  height: 30px !important;
+  max-height: 30px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
   border: none;
-  border-radius: 7px;
+  border-radius: 4px !important;
   background: transparent;
   color: #64748b;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   white-space: nowrap;
 }
 
 .toggle-btn.active {
   background: #ffffff;
   color: #0f172a;
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Calibration Panel */
-.calibration-panel {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 12px;
-}
-
-.calibration-input,
-.calibration-select {
-  width: 100%;
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  font-size: 13px;
-  background: #ffffff;
-  box-sizing: border-box;
-}
-
-/* ======================================================== */
-/* THERMAL STICKER LIVE PREVIEW SECTION                     */
-/* ======================================================== */
-
+/* -------------------------------------------------------- */
+/* Live Sticker Preview Card                                */
+/* -------------------------------------------------------- */
 .preview-card {
   background: #ffffff;
 }
 
 .live-tag {
   margin-left: auto;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px !important;
+  font-weight: 500 !important;
   color: #059669;
   background: #ecfdf5;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: 4px !important;
   border: 1px solid #a7f3d0;
   text-transform: uppercase;
 }
 
 .sticker-preview-wrapper {
   background: #0f172a;
-  padding: 24px 16px;
-  border-radius: 14px;
+  padding: 18px 12px;
+  border-radius: 6px !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+  min-height: 190px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25);
   overflow-x: auto;
 }
 
-/* Clean Physical Sticker Mockup Card (Only Store Name, Name, MFD, EXP, Price) */
+.preview-row-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+/* Clean Physical Sticker Mockup Card */
 .physical-clean-sticker {
   position: relative;
   background: #ffffff;
   color: #000000;
-  font-family: Arial, Helvetica, sans-serif;
-  width: 240px;
-  min-width: 220px;
-  height: 125px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  font-family: 'Sora', sans-serif !important;
+  font-weight: 500 !important;
+  width: 220px;
+  min-width: 200px;
+  height: 115px;
+  padding: 8px 10px;
+  border-radius: 4px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -720,110 +763,54 @@
 
 .clean-sticker-store {
   text-align: center;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
   color: #000000;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-bottom: 4px;
-  border-bottom: 1.5px solid #000000;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #000000;
 }
 
 .clean-sticker-name {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12px !important;
+  font-weight: 500 !important;
   color: #000000;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 .clean-sticker-dates {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 9px !important;
+  font-weight: 500 !important;
   color: #1e293b;
   margin: 2px 0;
 }
 
 .clean-sticker-price {
-  font-size: 14px;
-  font-weight: 900;
+  font-size: 13px !important;
+  font-weight: 500 !important;
   color: #000000;
   line-height: 1.1;
-  padding-top: 4px;
-  border-top: 1.5px solid #000000;
+  padding-top: 3px;
+  border-top: 1px solid #000000;
 }
 
-.preview-mrp {
-  font-weight: 800;
-  font-size: 10.5px;
-}
-
-/* Fifth Line: MFD & EXP DATES ROW */
-.preview-dates-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 8.5px;
-  font-weight: 700;
-  color: #1e293b;
-  border-top: 1px dotted #cbd5e1;
-  padding-top: 2px;
-  margin-top: 1px;
-}
-
-.preview-date-item {
-  white-space: nowrap;
-}
-
-/* Info Box below preview */
-.preview-info-box {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin: 16px 0;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.info-label {
-  font-size: 11px;
-  color: #64748b;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.info-val {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.info-val.monospace {
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.5px;
-}
-
-/* Batch Print Queue */
+/* -------------------------------------------------------- */
+/* Print Queue Table                                        */
+/* -------------------------------------------------------- */
 .queue-card {
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .clear-queue-btn {
@@ -831,47 +818,46 @@
   background: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 0 8px;
+  height: 26px !important;
+  max-height: 34px !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.clear-queue-btn:hover {
-  background: #fee2e2;
+  line-height: 24px;
 }
 
 .queue-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
-  margin-top: 10px;
+  font-size: 12px !important;
+  margin-top: 8px;
 }
 
 .queue-table th {
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: #f8fafc;
   color: #64748b;
-  font-weight: 700;
-  border-bottom: 1.5px solid #e2e8f0;
+  font-weight: 500 !important;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .queue-table td {
-  padding: 10px;
+  padding: 8px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
+  font-weight: 500 !important;
 }
 
 .queue-qty {
   display: inline-block;
   background: #eff6ff;
   color: #2563eb;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
 }
 
 .remove-queue-btn {
@@ -880,8 +866,9 @@
   color: #94a3b8;
   cursor: pointer;
   padding: 4px;
-  border-radius: 4px;
-  transition: color 0.2s;
+  border-radius: 4px !important;
+  height: 26px !important;
+  max-height: 34px !important;
 }
 
 .remove-queue-btn:hover {
@@ -889,47 +876,21 @@
 }
 
 .queue-footer {
-  margin-top: 16px;
-  padding-top: 14px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
-.queue-total-summary {
-  font-size: 13px;
-  color: #334155;
+/* -------------------------------------------------------- */
+/* Modals - Max Radius 6px, Weight 500                      */
+/* -------------------------------------------------------- */
+.custom-modal {
+  border-radius: 6px !important;
 }
 
-.empty-queue-state {
-  text-align: center;
-  padding: 30px 16px;
-  color: #94a3b8;
-}
-
-.empty-queue-icon {
-  margin-bottom: 8px;
-  opacity: 0.5;
-}
-
-.empty-queue-state p {
-  font-size: 14px;
-  font-weight: 600;
-  color: #475569;
-  margin: 0;
-}
-
-.empty-queue-state small {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
-  display: block;
-}
-
-/* ======================================================== */
-/* HIDDEN PRINTABLE CONTAINER FOR BROWSER / WINDOWS DRIVER */
-/* ======================================================== */
+/* -------------------------------------------------------- */
+/* Printable Hidden Container for Browser Print             */
+/* -------------------------------------------------------- */
 .printable-stickers-area {
   display: none;
 }
@@ -941,6 +902,8 @@
   .printable-stickers-area,
   .printable-stickers-area * {
     visibility: visible !important;
+    font-family: 'Sora', sans-serif !important;
+    font-weight: 500 !important;
   }
   .printable-stickers-area {
     display: block !important;

@@ -330,11 +330,11 @@ tr.row-expanded > td {
 
 /* Right Panel: Summary & Form */
 .ord-summary-panel {
-  width: 340px;
+  width: 440px;
   border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 18px;
+  padding: 18px 20px;
   background: white;
   flex-shrink: 0;
 }
@@ -593,7 +593,7 @@ tr.row-expanded > td {
 
 .ord-selectable-card {
   background: white;
-  border-radius: 14px;
+  border-radius: 6px;
   border: 1.5px solid var(--border-color);
   overflow: hidden;
   cursor: pointer;
@@ -603,8 +603,8 @@ tr.row-expanded > td {
   width: 100%;
   min-width: 125px;
   max-width: 165px;
-  min-height: 155px;
-  max-height: 165px;
+  min-height: 175px;
+  height: 175px;
   box-sizing: border-box;
 }
 
@@ -664,11 +664,13 @@ tr.row-expanded > td {
   flex-direction: column;
   justify-content: space-between;
   min-height: 0;
+  box-sizing: border-box;
+  gap: 4px;
 }
 
 .ord-item-details h4 {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
   display: -webkit-box;
@@ -676,7 +678,10 @@ tr.row-expanded > td {
   -webkit-box-orient: vertical;
   overflow: hidden;
   height: 32px; /* Aligns all cards symmetrically */
+  min-height: 32px;
+  max-height: 32px;
   line-height: 1.35;
+  flex-shrink: 0;
 }
 
 @keyframes popIn {
@@ -688,11 +693,16 @@ tr.row-expanded > td {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 6px;
+  margin-top: auto;
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .ord-price-row .price {
-  font-weight: 700;
+  font-weight: 500;
   font-size: 13px;
   color: var(--primary-color);
 }
@@ -1615,11 +1625,11 @@ tr.row-expanded > td {
     width: 100% !important;
     min-width: 110px !important;
     max-width: 145px !important;
-    min-height: 135px !important;
-    max-height: 145px !important;
+    min-height: 150px !important;
+    height: 150px !important;
     background: #ffffff !important;
     border: 1.5px solid var(--border-color) !important;
-    border-radius: 10px !important;
+    border-radius: 6px !important;
     overflow: hidden !important;
     text-align: left !important;
     box-shadow: var(--shadow-sm);
@@ -1659,7 +1669,7 @@ tr.row-expanded > td {
   .ord-item-details h4 {
     font-size: 10px !important; /* Cozy, legible size */
     color: var(--text-primary) !important;
-    font-weight: 800 !important;
+    font-weight: 500 !important;
     margin: 0 !important;
     line-height: 1.3 !important;
     white-space: normal !important;
@@ -1668,6 +1678,9 @@ tr.row-expanded > td {
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
     height: 26px !important; /* Aligns all cards symmetrically */
+    min-height: 26px !important;
+    max-height: 26px !important;
+    flex-shrink: 0 !important;
   }
 
   .ord-price-row {
@@ -1747,47 +1760,61 @@ tr.row-expanded > td {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   background: #DCFCE7;
-  padding: 4px;
-  border-radius: 8px;
-  margin-top: 6px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  margin-top: auto;
   border: 1px solid #10B981;
   width: 100%;
+  height: 28px;
+  min-height: 28px;
+  max-height: 28px;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .ord-card-qty-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: none;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #065F46;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  line-height: 22px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  background: white !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  color: #065F46 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08) !important;
   transition: background 0.2s;
-  padding: 0;
+  padding: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .ord-card-qty-btn:hover {
-  background: #E8F5E9;
+  background: #E8F5E9 !important;
 }
 
 .ord-card-qty-input {
-  width: 40px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: #065F46;
-  outline: none;
-  padding: 0;
+  width: 36px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  max-height: 22px !important;
+  line-height: 22px !important;
+  border: none !important;
+  background: transparent !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #065F46 !important;
+  outline: none !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
 }
 
 /* Hide spin buttons for Chrome, Safari, Edge, Opera */
@@ -1807,15 +1834,20 @@ tr.row-expanded > td {
 
 /* Order Summary Quantity Controls Input */
 .ord-qty-controls input.ord-qty-input {
-  width: 32px;
-  border: none;
-  background: transparent;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 700;
-  outline: none;
-  padding: 0;
-  color: var(--text-primary);
+  width: 32px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 24px !important;
+  border: none !important;
+  background: transparent !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  padding: 0 !important;
+  color: var(--text-primary) !important;
+  box-sizing: border-box !important;
 }
 
 /* ========================================== */
