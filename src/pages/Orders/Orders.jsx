@@ -31,6 +31,7 @@ import {
 import { uploadToImageKit } from '../../config/imagekit';
 import { usePrinter } from '../../context/PrinterContext';
 import { generateOrderReceiptHTML } from '../../utils/printReceiptHelper';
+import { SplitPaymentSelector, validateSplitPayment, formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 import logo from '../../assets/logo.png';
 import { generateGSTInvoice } from '../../utils/invoice';
 import { db } from '../../config/firebase';
@@ -410,7 +411,7 @@ const AccordionPaymentSection = ({ order, isMobile = false }) => {
                   <div className="ord-inst-right">
                     <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
                     <div>
-                      <span className="ord-inst-mode" style={{ fontSize: '9px', padding: '1px 3px' }}>{inst.paymentMode || 'UPI'}</span>
+                      <span className="ord-inst-mode" style={{ fontSize: '9px', padding: '1px 3px' }}>{formatPaymentModeDisplay(inst)}</span>
                     </div>
                   </div>
                 </div>
@@ -576,7 +577,7 @@ const AccordionPaymentSection = ({ order, isMobile = false }) => {
                 <div className="ord-inst-right">
                   <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
                   <div>
-                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{inst.paymentMode || 'UPI'}</span>
+                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{formatPaymentModeDisplay(inst)}</span>
                   </div>
                 </div>
               </div>
@@ -666,6 +667,7 @@ const Orders = () => {
     setOrderImageUrl('');
   };
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const [splitPayments, setSplitPayments] = useState({ Cash: '', UPI: '', Card: '' });
   const [receivedAmount, setReceivedAmount] = useState('');
   const [discount, setDiscount] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -1122,6 +1124,15 @@ const Orders = () => {
         }
       }
 
+      if (paymentMode === 'Split') {
+        const splitVal = validateSplitPayment('Split', splitPayments, recAmtVal);
+        if (!splitVal.valid) {
+          toast.error(splitVal.error);
+          setSaving(false);
+          return;
+        }
+      }
+
       const orderData = {
         orderId,
         serialNumber,
@@ -1153,6 +1164,11 @@ const Orders = () => {
         receivedAmount: recAmtVal,
         paymentStatus: payStatus,
         paymentMode,
+        splitPayments: paymentMode === 'Split' ? {
+          Cash: parseFloat(splitPayments?.Cash) || 0,
+          UPI: parseFloat(splitPayments?.UPI) || 0,
+          Card: parseFloat(splitPayments?.Card) || 0
+        } : null,
         deliveryDate,
         deliveryTime,
         status: calculateOverallOrderStatus(cart), // new, In Progress, Delivered, etc.
@@ -1172,6 +1188,11 @@ const Orders = () => {
           await addDoc(collection(db, 'orders', orderRef.id, 'installments'), {
             amount: recAmtVal,
             paymentMode: paymentMode,
+            splitPayments: paymentMode === 'Split' ? {
+              Cash: parseFloat(splitPayments?.Cash) || 0,
+              UPI: parseFloat(splitPayments?.UPI) || 0,
+              Card: parseFloat(splitPayments?.Card) || 0
+            } : null,
             notes: 'Initial Down Payment',
             createdAt: serverTimestamp()
           });
@@ -1206,6 +1227,7 @@ const Orders = () => {
     setImagePreviewUrl('');
     setCart([]);
     setPaymentMode('Cash');
+    setSplitPayments({ Cash: '', UPI: '', Card: '' });
     setReceivedAmount('');
     setDiscount('');
     setDeliveryDate('');
@@ -1228,6 +1250,7 @@ const Orders = () => {
     setSelectedImageFile(null);
     setImagePreviewUrl(order.imageUrl || '');
     setPaymentMode(order.paymentMode || 'Cash');
+    setSplitPayments(order.splitPayments || { Cash: '', UPI: '', Card: '' });
     setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
     setDiscount(order.discount !== undefined ? order.discount.toString() : '');
     setDeliveryDate(order.deliveryDate || '');
@@ -2643,20 +2666,19 @@ const Orders = () => {
                         />
                       </div>
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
-                        <div className="ord-payment-modes" style={{ marginTop: '0', display: 'flex', gap: '5px', height: '38px' }}>
-                          {['Cash', 'UPI', 'Card'].map(mode => (
-                            <button
-                              type="button"
-                              key={mode}
-                              className={`ord-mode-btn ${paymentMode === mode ? 'active' : ''}`}
-                              onClick={() => setPaymentMode(mode)}
-                              style={{ flex: 1, height: '100%', padding: 0 }}
-                            >
-                              {mode}
-                            </button>
-                          ))}
-                        </div>
+                        <SplitPaymentSelector
+                          label="Payment Mode"
+                          paymentMode={paymentMode}
+                          setPaymentMode={setPaymentMode}
+                          splitPayments={splitPayments}
+                          setSplitPayments={setSplitPayments}
+                          totalAmount={parseFloat(receivedAmount) || 0}
+                          availableModes={['Cash', 'UPI', 'Card', 'Split']}
+                          splitMethods={['Cash', 'UPI', 'Card']}
+                          onSplitTotalChange={(newTotal) => {
+                            setReceivedAmount(newTotal > 0 ? newTotal.toString() : '');
+                          }}
+                        />
                       </div>
                     </div>
 
@@ -3153,7 +3175,7 @@ const Orders = () => {
                                 <div className="ord-inst-right">
                                   <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
                                   <div>
-                                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{inst.paymentMode || 'UPI'}</span>
+                                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{formatPaymentModeDisplay(inst)}</span>
                                   </div>
                                 </div>
                               </div>

@@ -198,7 +198,7 @@ export const generateReceiptHTML = (bill = {}) => {
 
         <div class="info-row">
           <span>Counter : 1</span>
-          <span><b>${bill.paymentMode || 'CASH'}-${totalVal.toFixed(0)}</b></span>
+          <span><b>${bill.paymentMode === 'Split' && bill.splitPayments ? `SPLIT (${Object.entries(bill.splitPayments).filter(([_, v]) => Number(v) > 0).map(([k, v]) => `${k}: Rs.${Number(v).toFixed(0)}`).join(', ')})` : (bill.paymentMode || 'CASH')}-${totalVal.toFixed(0)}</b></span>
         </div>
         <div class="info-row">
           <span>User : ${bill.storeName || 'admin'}</span>
@@ -365,7 +365,7 @@ export const generateOrderReceiptHTML = (order = {}) => {
         <div class="solid-divider"></div>
 
         <div class="info-row">
-          <span>Payment: <b>${order.paymentMode || order.paymentType || 'CASH'}</b></span>
+          <span>Payment: <b>${order.paymentMode === 'Split' && order.splitPayments ? `SPLIT (${Object.entries(order.splitPayments).filter(([_, v]) => Number(v) > 0).map(([k, v]) => `${k}: Rs.${Number(v).toFixed(0)}`).join(', ')})` : (order.paymentMode || order.paymentType || 'CASH')}</b></span>
           <span>Outlet: ${order.storeName || 'Vijayawada'}</span>
         </div>
         <div class="divider"></div>
@@ -487,7 +487,10 @@ export const buildReceiptESCPOS = (bill = {}) => {
   push(txt(DIV));
 
   // --- Payment & Footer ---
-  push(txt(`Payment: ${bill?.paymentMode || 'CASH'}\n`));
+  const payStr = bill?.paymentMode === 'Split' && bill?.splitPayments
+    ? `SPLIT (${Object.entries(bill.splitPayments).filter(([_, v]) => Number(v) > 0).map(([k, v]) => `${k}:${Number(v).toFixed(0)}`).join(',')})`
+    : (bill?.paymentMode || 'CASH');
+  push(txt(`Payment: ${payStr}\n`));
   push(txt(DIV));
   push(CENTER);
   push(txt('*** Thank You & Visit Again ***\n\n\n'));

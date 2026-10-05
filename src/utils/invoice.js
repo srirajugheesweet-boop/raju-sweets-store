@@ -386,7 +386,7 @@ export function getInvoiceHtml(order) {
                   <strong>Invoice No:</strong> ${invoiceNo}<br/>
                   <strong>Date:</strong> ${invoiceDate} &nbsp; <strong>Time:</strong> ${invoiceTime}<br/>
                   <strong>Seller State Code:</strong> 37 (Andhra Pradesh)<br/>
-                  <strong>Payment Mode:</strong> ${order.paymentMode || 'N/A'}
+                  <strong>Payment Mode:</strong> ${order.paymentMode === 'Split' && order.splitPayments ? `Split (${Object.entries(order.splitPayments).filter(([_, v]) => Number(v) > 0).map(([k, v]) => `${k}: Rs.${Number(v).toFixed(0)}`).join(', ')})` : (order.paymentMode || 'N/A')}
                 </div>
               </td>
             </tr>

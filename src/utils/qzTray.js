@@ -419,7 +419,10 @@ export const buildBillESCPOS = (bill, charsPerLine = 48) => {
   bytes.push(...encoder.encode(solidLine));
 
   // Footer Counters
-  bytes.push(...encoder.encode(justifyLR('Counter : 1', `${bill.paymentMode || 'CASH'}-${totalVal.toFixed(0)}`)));
+  const billPayStr = bill.paymentMode === 'Split' && bill.splitPayments
+    ? `SPLIT-${totalVal.toFixed(0)}`
+    : `${bill.paymentMode || 'CASH'}-${totalVal.toFixed(0)}`;
+  bytes.push(...encoder.encode(justifyLR('Counter : 1', billPayStr)));
   bytes.push(...encoder.encode(justifyLR('User : admin', `Tot Qty : ${totalUnits}`)));
   bytes.push(...encoder.encode(dashedLine));
 

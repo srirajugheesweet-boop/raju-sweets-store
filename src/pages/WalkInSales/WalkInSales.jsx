@@ -19,6 +19,7 @@ import {
 import { db } from '../../config/firebase';
 import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
+import { formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 import logo from '../../assets/logo.png';
 import { usePrinter } from '../../context/PrinterContext';
 import './WalkInSales.css';
@@ -305,7 +306,7 @@ const WalkInSales = () => {
                         <td style={{ fontWeight: '700', fontSize: '14px' }}>₹{Number(bill.totalAmount || 0).toFixed(2)}</td>
                         <td>
                           <span className="polaris-badge" style={{ background: '#f3f4f6', color: '#1f2937', fontWeight: '700' }}>
-                            {bill.paymentMode || 'Cash'}
+                            {formatPaymentModeDisplay(bill)}
                           </span>
                         </td>
                         <td>
@@ -467,7 +468,7 @@ const WalkInSales = () => {
                   <b>Customer GSTIN:</b> {previewBill.customerGst || previewBill.gstNumber}
                 </div>
               )}
-              <div><b>Payment Mode:</b> {previewBill.paymentMode || 'Cash'}</div>
+              <div><b>Payment Mode:</b> {formatPaymentModeDisplay(previewBill)}</div>
 
               <div>
                 <b>Bill Status:</b>{' '}

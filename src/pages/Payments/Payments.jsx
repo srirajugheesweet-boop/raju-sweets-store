@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SplitPaymentSelector, validateSplitPayment, formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 import './Payments.css';
 
 // --- Sub-component to fetch and render installments history in accordion row ---
@@ -68,7 +69,7 @@ const PaymentHistoryAccordion = ({ order }) => {
                 <div className="timeline-dot"></div>
                 <div className="timeline-info">
                   <div className="timeline-meta">
-                    <span className="mode">{inst.paymentMode}</span>
+                    <span className="mode">{formatPaymentModeDisplay(inst)}</span>
                     <span className="date">{date} {time}</span>
                   </div>
                   <div className="timeline-amt">₹{inst.amount.toFixed(2)}</div>
@@ -107,6 +108,7 @@ const Payments = ({ storeId = null }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [payAmount, setPayAmount] = useState('');
   const [payMode, setPayMode] = useState('UPI');
+  const [paySplits, setPaySplits] = useState({ Cash: '', UPI: '', Card: '' });
   const [payNotes, setPayNotes] = useState('');
   const [installments, setInstallments] = useState([]);
   const [installmentsLoading, setInstallmentsLoading] = useState(false);
@@ -167,6 +169,7 @@ const Payments = ({ storeId = null }) => {
     const remaining = order.totalAmount - (order.receivedAmount || 0);
     setPayAmount(remaining.toFixed(2));
     setPayMode('UPI');
+    setPaySplits({ Cash: '', UPI: '', Card: '' });
     setPayNotes('');
     setShowPayModal(true);
   };
@@ -176,6 +179,7 @@ const Payments = ({ storeId = null }) => {
     setShowPayModal(false);
     setSelectedOrder(null);
     setPayAmount('');
+    setPaySplits({ Cash: '', UPI: '', Card: '' });
     setPayNotes('');
   };
 
@@ -194,6 +198,13 @@ const Payments = ({ storeId = null }) => {
       return toast.error(`Payment amount cannot exceed the remaining balance of ₹${remaining.toFixed(2)}`);
     }
 
+    if (payMode === 'Split') {
+      const splitVal = validateSplitPayment('Split', paySplits, amountVal);
+      if (!splitVal.valid) {
+        return toast.error(splitVal.error);
+      }
+    }
+
     setSavingPayment(true);
     try {
       const orderRef = doc(db, 'orders', selectedOrder.id);
@@ -209,6 +220,11 @@ const Payments = ({ storeId = null }) => {
       await addDoc(collection(db, 'orders', selectedOrder.id, 'installments'), {
         amount: amountVal,
         paymentMode: payMode,
+        splitPayments: payMode === 'Split' ? {
+          Cash: parseFloat(paySplits?.Cash) || 0,
+          UPI: parseFloat(paySplits?.UPI) || 0,
+          Card: parseFloat(paySplits?.Card) || 0
+        } : null,
         notes: payNotes || 'Subsequent Installment',
         createdAt: serverTimestamp()
       });
@@ -530,20 +546,20 @@ const Payments = ({ storeId = null }) => {
                       />
                     </div>
 
-                    <div className="pay-group">
-                      <label>Payment Mode</label>
-                      <div className="pay-mode-selector">
-                        {['UPI', 'Cash', 'Card', 'NetBanking'].map(mode => (
-                          <button
-                            key={mode}
-                            type="button"
-                            className={`mode-btn ${payMode === mode ? 'active' : ''}`}
-                            onClick={() => setPayMode(mode)}
-                          >
-                            {mode}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="pay-group" style={{ flex: 1.5 }}>
+                      <SplitPaymentSelector
+                        label="Payment Mode"
+                        paymentMode={payMode}
+                        setPaymentMode={setPayMode}
+                        splitPayments={paySplits}
+                        setSplitPayments={setPaySplits}
+                        totalAmount={parseFloat(payAmount) || 0}
+                        availableModes={['UPI', 'Cash', 'Card', 'NetBanking', 'Split']}
+                        splitMethods={['UPI', 'Cash', 'Card']}
+                        onSplitTotalChange={(newTotal) => {
+                          setPayAmount(newTotal > 0 ? newTotal.toString() : '');
+                        }}
+                      />
                     </div>
                   </div>
 
@@ -582,7 +598,7 @@ const Payments = ({ storeId = null }) => {
                               <div className="timeline-badge"></div>
                               <div className="timeline-body">
                                 <div className="timeline-header">
-                                  <span className="mode">{inst.paymentMode}</span>
+                                  <span className="mode">{formatPaymentModeDisplay(inst)}</span>
                                   <span className="amt">₹{inst.amount.toFixed(2)}</span>
                                 </div>
                                 <p className="notes">{inst.notes}</p>

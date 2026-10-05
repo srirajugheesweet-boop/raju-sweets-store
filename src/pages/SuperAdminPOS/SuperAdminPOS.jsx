@@ -31,6 +31,7 @@ import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
+import { SplitPaymentSelector, validateSplitPayment, formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 import './SuperAdminPOS.css';
 import '../../portals/StorePortal/StorePortal.css';
 
@@ -119,7 +120,8 @@ const SuperAdminPOS = () => {
   const [cart, setCart] = useState([]);
   const [posDiscount, setPosDiscount] = useState('');
   const [discountType, setDiscountType] = useState('percent'); // 'percent' (%) or 'amount' (₹)
-  const [paymentMode, setPaymentMode] = useState('Cash'); // 'UPI', 'Cash', 'Card'
+  const [paymentMode, setPaymentMode] = useState('Cash'); // 'UPI', 'Cash', 'Card', 'Split'
+  const [splitPayments, setSplitPayments] = useState({ Cash: '', UPI: '', Card: '' });
 
   const [submittingBill, setSubmittingBill] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
@@ -570,6 +572,15 @@ const SuperAdminPOS = () => {
       const selectedBillDate = billDate || getTodayDateString();
       const formattedDate = formatDateForBill(selectedBillDate);
 
+      if (paymentMode === 'Split') {
+        const splitVal = validateSplitPayment('Split', splitPayments, totalAmt);
+        if (!splitVal.valid) {
+          toast.error(splitVal.error);
+          setSubmittingBill(false);
+          return;
+        }
+      }
+
       const billData = {
         billId,
         storeId: selectedStoreId,
@@ -591,6 +602,11 @@ const SuperAdminPOS = () => {
         discount: discountVal,
         totalAmount: totalAmt,
         paymentMode,
+        splitPayments: paymentMode === 'Split' ? {
+          Cash: parseFloat(splitPayments?.Cash) || 0,
+          UPI: parseFloat(splitPayments?.UPI) || 0,
+          Card: parseFloat(splitPayments?.Card) || 0
+        } : null,
         status: billStatus, // 'settled' or 'saved'
         date: formattedDate,
         billDate: selectedBillDate,
@@ -619,6 +635,8 @@ const SuperAdminPOS = () => {
       setEditingBillId(null);
       setSelectedCustomerId('');
       setBillDate(getTodayDateString());
+      setPaymentMode('Cash');
+      setSplitPayments({ Cash: '', UPI: '', Card: '' });
     } catch (err) {
       console.error("Save/Settle Bill Error:", err);
       toast.error("Failed to process bill");
@@ -643,6 +661,7 @@ const SuperAdminPOS = () => {
     setCart(bill.items || []);
     setPosDiscount(bill.discount ? bill.discount.toString() : '');
     setPaymentMode(bill.paymentMode || 'Cash');
+    setSplitPayments(bill.splitPayments || { Cash: '', UPI: '', Card: '' });
     setBillDate(bill.billDate || convertToInputDateFormat(bill.date));
     setActiveTab('pos');
     toast.success(`Loaded saved bill #${bill.billId}! You can now modify and settle it.`);
@@ -1089,26 +1108,28 @@ const SuperAdminPOS = () => {
                   const finalGrandTotal = Math.max(0, cartSubtotal - calculatedDisc);
 
                   return (
-                    <div className="total-display" style={{ marginBottom: '12px' }}>
-                      <span>Grand Total (Incl. Tax)</span>
-                      <span className="amt">₹{finalGrandTotal.toFixed(2)}</span>
-                    </div>
+                    <>
+                      <div className="total-display" style={{ marginBottom: '12px' }}>
+                        <span>Grand Total (Incl. Tax)</span>
+                        <span className="amt">₹{finalGrandTotal.toFixed(2)}</span>
+                      </div>
+
+                      {/* Payment Methods with Split */}
+                      <div style={{ marginBottom: '12px' }}>
+                        <SplitPaymentSelector
+                          paymentMode={paymentMode}
+                          setPaymentMode={setPaymentMode}
+                          splitPayments={splitPayments}
+                          setSplitPayments={setSplitPayments}
+                          totalAmount={finalGrandTotal}
+                          availableModes={['UPI', 'Cash', 'Card', 'Split']}
+                          splitMethods={['UPI', 'Cash', 'Card']}
+                          compact={true}
+                        />
+                      </div>
+                    </>
                   );
                 })()}
-
-
-                {/* Payment Methods */}
-                <div className="payment-select" style={{ marginBottom: '12px' }}>
-                  {['UPI', 'Cash', 'Card'].map(mode => (
-                    <button
-                      key={mode}
-                      className={`pay-mode-btn ${paymentMode === mode ? 'active' : ''}`}
-                      onClick={() => setPaymentMode(mode)}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
 
                 {/* Action Buttons: Save (Park) vs Settle */}
                 <div style={{ display: 'flex', gap: '8px' }}>

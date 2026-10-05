@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import logo from '../../assets/logo.png';
+import { SplitPaymentSelector, validateSplitPayment, formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 const DEFAULT_ITEM_IMAGE = logo;
 
 
@@ -95,6 +96,7 @@ const StoreDetails = () => {
   const [billingSearch, setBillingSearch] = useState('');
   const [cart, setCart] = useState([]);
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const [splitPayments, setSplitPayments] = useState({ Cash: '', UPI: '', Card: '' });
   const [showWeightModal, setShowWeightModal] = useState(null); 
   const [weightInput, setWeightInput] = useState({ weight: '', amount: '' });
   const [bills, setBills] = useState([]);
@@ -298,6 +300,15 @@ const StoreDetails = () => {
       const selectedBillDate = billDate || getTodayDateString();
       const formattedDate = formatDateForBill(selectedBillDate);
 
+      if (paymentMode === 'Split') {
+        const splitVal = validateSplitPayment('Split', splitPayments, totalAmt);
+        if (!splitVal.valid) {
+          toast.error(splitVal.error);
+          setSubmittingAccess(false);
+          return;
+        }
+      }
+
       const billData = {
         billId,
         storeId: id,
@@ -312,6 +323,11 @@ const StoreDetails = () => {
         discount: discountVal,
         totalAmount: totalAmt,
         paymentMode,
+        splitPayments: paymentMode === 'Split' ? {
+          Cash: parseFloat(splitPayments?.Cash) || 0,
+          UPI: parseFloat(splitPayments?.UPI) || 0,
+          Card: parseFloat(splitPayments?.Card) || 0
+        } : null,
         createdAt: serverTimestamp(),
         date: formattedDate,
         billDate: selectedBillDate
@@ -321,6 +337,8 @@ const StoreDetails = () => {
       setCart([]);
       setPosDiscount('');
       setBillDate(getTodayDateString());
+      setPaymentMode('Cash');
+      setSplitPayments({ Cash: '', UPI: '', Card: '' });
     } catch (error) {
       toast.error("Failed to settle bill");
     } finally {
@@ -624,7 +642,7 @@ const StoreDetails = () => {
                       <td>{bill.billId}</td>
                       <td>{bill.date}</td>
                       <td>₹{bill.totalAmount.toFixed(2)}</td>
-                      <td>{bill.paymentMode}</td>
+                      <td>{formatPaymentModeDisplay(bill)}</td>
                       <td>{bill.items.length} items</td>
                       <td>
                         <button className="store-mini-btn" onClick={() => handlePrint(bill)} title="Print Bill">
@@ -910,7 +928,8 @@ const StoreDetails = () => {
                     const gstVal = totalAmt - subtotalVal;
 
                     return (
-                      <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed var(--border-color)', marginBottom: '15px' }}>
+                      <>
+                        <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed var(--border-color)', marginBottom: '15px' }}>
                         {discountVal > 0 && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
                             <span>Cart Total</span>
@@ -936,10 +955,23 @@ const StoreDetails = () => {
                           <span style={{ color: 'var(--primary-color)' }}>₹{totalAmt.toFixed(2)}</span>
                         </div>
                       </div>
-                    );
-                  })()}
-                  <div className="payment-modes">{['Cash', 'UPI', 'Card'].map(mode => <button key={mode} className={`mode-btn ${paymentMode === mode ? 'active' : ''}`} onClick={() => setPaymentMode(mode)}>{mode}</button>)}</div>
-                  <button className="stores-btn-save" style={{ width: '100%', height: '54px', marginTop: '20px' }} onClick={settleBill} disabled={submittingAccess}>
+
+                      <div style={{ marginBottom: '15px' }}>
+                        <SplitPaymentSelector
+                          paymentMode={paymentMode}
+                          setPaymentMode={setPaymentMode}
+                          splitPayments={splitPayments}
+                          setSplitPayments={setSplitPayments}
+                          totalAmount={totalAmt}
+                          availableModes={['Cash', 'UPI', 'Card', 'Split']}
+                          splitMethods={['Cash', 'UPI', 'Card']}
+                          compact={true}
+                        />
+                      </div>
+                    </>
+                  );
+                })()}
+                <button className="stores-btn-save" style={{ width: '100%', height: '54px', marginTop: '10px' }} onClick={settleBill} disabled={submittingAccess}>
                     {submittingAccess ? <div className="loader"></div> : 'Settle Bill'}
                   </button>
 

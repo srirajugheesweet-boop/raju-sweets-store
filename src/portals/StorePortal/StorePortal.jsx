@@ -3,6 +3,7 @@ import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import PortalLayout from '../Shared/PortalLayout';
 import { generateReceiptHTML, generateOrderReceiptHTML } from '../../utils/printReceiptHelper';
 import { usePrinter } from '../../context/PrinterContext';
+import { SplitPaymentSelector, validateSplitPayment, formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 
 
 
@@ -426,7 +427,7 @@ const AccordionPaymentSection = ({ order, isMobile = false }) => {
                   <div className="ord-inst-right">
                     <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
                     <div>
-                      <span className="ord-inst-mode" style={{ fontSize: '9px', padding: '1px 3px' }}>{inst.paymentMode || 'UPI'}</span>
+                      <span className="ord-inst-mode" style={{ fontSize: '9px', padding: '1px 3px' }}>{formatPaymentModeDisplay(inst)}</span>
                     </div>
                   </div>
                 </div>
@@ -592,7 +593,7 @@ const AccordionPaymentSection = ({ order, isMobile = false }) => {
                 <div className="ord-inst-right">
                   <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
                   <div>
-                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{inst.paymentMode || 'UPI'}</span>
+                    <span className="ord-inst-mode" style={{ fontSize: '10px', padding: '2px 4px' }}>{formatPaymentModeDisplay(inst)}</span>
                   </div>
                 </div>
               </div>
@@ -754,6 +755,7 @@ const StorePortal = () => {
   const [bills, setBills] = useState([]);
   const [cart, setCart] = useState([]);
   const [paymentMode, setPaymentMode] = useState('UPI');
+  const [splitPayments, setSplitPayments] = useState({ Cash: '', UPI: '', Card: '' });
   const [posDiscount, setPosDiscount] = useState('');
   const [discountType, setDiscountType] = useState('percent'); // 'percent' (%) or 'amount' (₹)
 
@@ -880,6 +882,7 @@ const StorePortal = () => {
     setOrderImageUrl('');
   };
   const [orderPaymentMode, setOrderPaymentMode] = useState('Cash');
+  const [orderSplitPayments, setOrderSplitPayments] = useState({ Cash: '', UPI: '', Card: '' });
   const [receivedAmount, setReceivedAmount] = useState('');
   const [orderDiscount, setOrderDiscount] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
@@ -1815,6 +1818,7 @@ const StorePortal = () => {
     setImagePreviewUrl('');
     setOrderCart([]);
     setOrderPaymentMode('Cash');
+    setOrderSplitPayments({ Cash: '', UPI: '', Card: '' });
     setReceivedAmount('');
     setOrderDiscount('');
     setDeliveryDate('');
@@ -1882,6 +1886,15 @@ const StorePortal = () => {
         }
       }
 
+      if (orderPaymentMode === 'Split') {
+        const splitVal = validateSplitPayment('Split', orderSplitPayments, recAmtVal);
+        if (!splitVal.valid) {
+          toast.error(splitVal.error);
+          setSavingOrder(false);
+          return;
+        }
+      }
+
       const orderData = {
         orderId,
         serialNumber,
@@ -1907,6 +1920,11 @@ const StorePortal = () => {
         receivedAmount: recAmtVal,
         paymentStatus: payStatus,
         paymentMode: orderPaymentMode,
+        splitPayments: orderPaymentMode === 'Split' ? {
+          Cash: parseFloat(orderSplitPayments?.Cash) || 0,
+          UPI: parseFloat(orderSplitPayments?.UPI) || 0,
+          Card: parseFloat(orderSplitPayments?.Card) || 0
+        } : null,
         deliveryDate,
         deliveryTime,
         status: calculateOverallOrderStatus(orderCart),
@@ -1926,6 +1944,11 @@ const StorePortal = () => {
           await addDoc(collection(db, 'orders', orderRef.id, 'installments'), {
             amount: recAmtVal,
             paymentMode: orderPaymentMode,
+            splitPayments: orderPaymentMode === 'Split' ? {
+              Cash: parseFloat(orderSplitPayments?.Cash) || 0,
+              UPI: parseFloat(orderSplitPayments?.UPI) || 0,
+              Card: parseFloat(orderSplitPayments?.Card) || 0
+            } : null,
             notes: 'Initial Down Payment',
             createdAt: serverTimestamp()
           });
@@ -2031,6 +2054,7 @@ const StorePortal = () => {
     setSelectedImageFile(null);
     setImagePreviewUrl(order.imageUrl || '');
     setOrderPaymentMode(order.paymentMode || 'Cash');
+    setOrderSplitPayments(order.splitPayments || { Cash: '', UPI: '', Card: '' });
     setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
     setOrderDiscount(order.discount !== undefined ? order.discount.toString() : '');
     setDeliveryDate(order.deliveryDate || '');
@@ -2345,6 +2369,14 @@ const StorePortal = () => {
       const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
       const totalAmt = Math.max(0, cartTotal - discountVal);
 
+      if (paymentMode === 'Split') {
+        const splitVal = validateSplitPayment('Split', splitPayments, totalAmt);
+        if (!splitVal.valid) {
+          toast.error(splitVal.error);
+          setSubmittingBill(false);
+          return;
+        }
+      }
 
       const selectedBillDate = posBillDate || new Date().toISOString().split('T')[0];
       const dateParts = selectedBillDate.split('-');
@@ -2372,6 +2404,11 @@ const StorePortal = () => {
         discount: discountVal,
         totalAmount: totalAmt,
         paymentMode,
+        splitPayments: paymentMode === 'Split' ? {
+          Cash: parseFloat(splitPayments?.Cash) || 0,
+          UPI: parseFloat(splitPayments?.UPI) || 0,
+          Card: parseFloat(splitPayments?.Card) || 0
+        } : null,
         status: 'settled',
         createdAt: serverTimestamp(),
         date: formattedDate,
@@ -2386,6 +2423,8 @@ const StorePortal = () => {
       setPosDiscount('');
       setSelectedCustomerId('');
       setPosBillDate(new Date().toISOString().split('T')[0]);
+      setPaymentMode('UPI');
+      setSplitPayments({ Cash: '', UPI: '', Card: '' });
       setSelectedReceiptBill(billData);
 
       // Auto-print receipt via USB/Bluetooth thermal printer or system dialog
@@ -3959,25 +3998,27 @@ const StorePortal = () => {
                               </div>
                             </div>
 
-                            <div className="total-display" style={{ marginBottom: '15px' }}>
+                            <div className="total-display" style={{ marginBottom: '12px' }}>
                               <span>Grand Total (Incl. Tax)</span>
                               <span className="amt">₹{totalAmt.toFixed(2)}</span>
+                            </div>
+
+                            {/* Payment Methods with Split */}
+                            <div style={{ marginBottom: '15px' }}>
+                              <SplitPaymentSelector
+                                paymentMode={paymentMode}
+                                setPaymentMode={setPaymentMode}
+                                splitPayments={splitPayments}
+                                setSplitPayments={setSplitPayments}
+                                totalAmount={totalAmt}
+                                availableModes={['UPI', 'Cash', 'Card', 'Split']}
+                                splitMethods={['UPI', 'Cash', 'Card']}
+                                compact={true}
+                              />
                             </div>
                           </>
                         );
                       })()}
-
-                      <div className="payment-select">
-                        {['UPI', 'Cash', 'Card'].map(mode => (
-                          <button
-                            key={mode}
-                            className={`pay-mode-btn ${paymentMode === mode ? 'active' : ''}`}
-                            onClick={() => setPaymentMode(mode)}
-                          >
-                            {mode}
-                          </button>
-                        ))}
-                      </div>
 
                       <button
                         className="st-settle-btn"
@@ -4038,7 +4079,7 @@ const StorePortal = () => {
                           <td style={{ fontWeight: '700' }}>₹{bill.totalAmount.toFixed(2)}</td>
                           <td>
                             <span className={`payment-mode-badge ${bill.paymentMode}`}>
-                              {bill.paymentMode}
+                              {formatPaymentModeDisplay(bill)}
                             </span>
                           </td>
                           <td>{bill.items.length} items</td>
@@ -4791,7 +4832,7 @@ const StorePortal = () => {
                   </div>
                   <div>
                     <span className="label">Payment Mode</span>
-                    <span className="value">{selectedReceiptBill.paymentMode}</span>
+                    <span className="value">{formatPaymentModeDisplay(selectedReceiptBill)}</span>
                   </div>
                   <div>
                     <span className="label">Payment Status</span>
@@ -5300,19 +5341,19 @@ const StorePortal = () => {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Payment Mode</label>
-                      <div className="ord-payment-modes" style={{ marginTop: '0' }}>
-                        {['Cash', 'UPI', 'Card'].map(mode => (
-                          <button
-                            type="button"
-                            key={mode}
-                            className={`ord-mode-btn ${orderPaymentMode === mode ? 'active' : ''}`}
-                            onClick={() => setOrderPaymentMode(mode)}
-                          >
-                            {mode}
-                          </button>
-                        ))}
-                      </div>
+                      <SplitPaymentSelector
+                        label="Payment Mode"
+                        paymentMode={orderPaymentMode}
+                        setPaymentMode={setOrderPaymentMode}
+                        splitPayments={orderSplitPayments}
+                        setSplitPayments={setOrderSplitPayments}
+                        totalAmount={parseFloat(receivedAmount) || 0}
+                        availableModes={['Cash', 'UPI', 'Card', 'Split']}
+                        splitMethods={['Cash', 'UPI', 'Card']}
+                        onSplitTotalChange={(newTotal) => {
+                          setReceivedAmount(newTotal > 0 ? newTotal.toString() : '');
+                        }}
+                      />
                     </div>
 
                     <div style={{ display: 'flex', gap: '15px' }}>
@@ -5917,7 +5958,7 @@ const StorePortal = () => {
                                 <div className="ord-inst-right">
                                   <span className="ord-inst-amount">₹{Number(inst.amount).toFixed(2)}</span>
                                   <div>
-                                    <span className="ord-inst-mode">{inst.paymentMode || 'Cash'}</span>
+                                    <span className="ord-inst-mode">{formatPaymentModeDisplay(inst)}</span>
                                   </div>
                                 </div>
                               </div>
