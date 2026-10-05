@@ -32,6 +32,7 @@ import { collection, addDoc, getDocs, doc, updateDoc, query, orderBy, onSnapshot
 import toast from 'react-hot-toast';
 import logo from '../../assets/logo.png';
 import './SuperAdminPOS.css';
+import '../../portals/StorePortal/StorePortal.css';
 
 const DEFAULT_ITEM_IMAGE = logo;
 

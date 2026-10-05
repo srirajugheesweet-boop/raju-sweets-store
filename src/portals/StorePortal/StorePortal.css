@@ -237,20 +237,19 @@
   border: 1px solid #bfdbfe;
 }
 
-/* Billing & POS Split Layout */
 .st-pos-layout {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 25px;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  align-items: start;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .st-pos-layout {
     grid-template-columns: 1fr;
   }
 }
 
-/* POS Catalogue Panel */
 .st-pos-catalogue {
   border: 1.5px solid #e2e8f0;
   border-radius: 16px;
@@ -276,7 +275,7 @@
 
 .st-pos-search {
   position: relative;
-  width: 200px;
+  width: 220px;
 }
 
 .st-pos-search svg {
@@ -305,20 +304,40 @@
 
 .st-catalogue-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 16px;
-  max-height: 480px;
-  overflow-y: auto;
-  padding-right: 4px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1440px) {
+  .st-catalogue-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .st-catalogue-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .st-catalogue-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .st-catalogue-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* POS Scrollbar widths */
-.st-catalogue-grid::-webkit-scrollbar,
 .st-summary-items::-webkit-scrollbar {
   width: 4px;
 }
 
-.st-catalogue-grid::-webkit-scrollbar-thumb,
 .st-summary-items::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 4px;
@@ -479,8 +498,9 @@
   background: white;
   display: flex;
   flex-direction: column;
-  min-height: 680px;
-  max-height: calc(100vh - 160px);
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
   overflow: hidden;
 }
 
