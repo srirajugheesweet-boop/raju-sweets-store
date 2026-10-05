@@ -2066,26 +2066,91 @@ const StorePortal = () => {
     if (item.unit === 'Weight') {
       setShowWeightModal(item);
       if (existing) {
-        setWeightInput({ weight: existing.quantity, amount: existing.total });
+        setWeightInput({ 
+          weight: existing.quantity, 
+          amount: existing.total,
+          isRounded: existing.isRounded || false,
+          rawWeight: existing.rawWeight || ''
+        });
       } else {
-        setWeightInput({ weight: '', amount: '' });
+        setWeightInput({ weight: '', amount: '', isRounded: false, rawWeight: '' });
       }
     } else {
       addToCart(item, 1, item.price);
     }
   };
 
-  const addToCart = (item, quantity, amount) => {
+  const resolveItemWeight = (item, qty, currentStore = id) => {
+    const rules = Array.isArray(item?.weightRoundOffRules) ? item.weightRoundOffRules : [];
+    const targetStores = Array.isArray(item?.weightRoundOffStores) ? item.weightRoundOffStores : null;
+
+    // If specific stores are configured and this store is not in the list, skip roundoff
+    if (targetStores && targetStores.length > 0 && currentStore) {
+      if (!targetStores.includes(currentStore)) {
+        return {
+          weight: !isNaN(parseFloat(qty)) ? parseFloat(qty).toFixed(3) : qty,
+          isRounded: false,
+          rawWeight: null,
+          targetValue: null
+        };
+      }
+    }
+
+    const numWt = parseFloat(qty);
+    if (!isNaN(numWt) && numWt > 0 && rules.length > 0) {
+      const matched = rules.find(r => numWt >= r.from && numWt <= r.to);
+      if (matched && matched.roundOffValue) {
+        return {
+          weight: parseFloat(matched.roundOffValue).toFixed(3),
+          isRounded: true,
+          rawWeight: numWt.toFixed(3),
+          targetValue: matched.roundOffValue
+        };
+      }
+    }
+    return {
+      weight: !isNaN(numWt) ? numWt.toFixed(3) : qty,
+      isRounded: false,
+      rawWeight: null,
+      targetValue: null
+    };
+  };
+
+  const addToCart = (item, quantity, amount, roundInfo = {}) => {
+    let finalQty = quantity;
+    let finalAmount = amount;
+    let isRounded = Boolean(roundInfo.isRounded);
+    let rawWeight = roundInfo.rawWeight || null;
+
+    if (item.unit === 'Weight') {
+      const resolved = resolveItemWeight(item, quantity);
+      if (resolved.isRounded) {
+        finalQty = resolved.weight;
+        finalAmount = (parseFloat(resolved.weight) * item.price).toFixed(2);
+        isRounded = true;
+        rawWeight = resolved.rawWeight;
+      }
+    }
+
     const existingIndex = cart.findIndex(c => c.id === item.id);
     if (existingIndex > -1) {
       setCart(prev => prev.map((c, i) => {
         if (i === existingIndex) {
           if (item.unit === 'Weight') {
-            const newWeight = (parseFloat(c.quantity) + parseFloat(quantity)).toFixed(3);
+            const rawCombined = (parseFloat(c.quantity) + parseFloat(finalQty)).toFixed(3);
+            const resolvedCombined = resolveItemWeight(item, rawCombined);
+            const newWeight = resolvedCombined.isRounded ? resolvedCombined.weight : rawCombined;
             const newTotal = parseFloat(newWeight) * c.price;
-            return { ...c, quantity: newWeight, total: newTotal };
+            return { 
+              ...c, 
+              quantity: newWeight, 
+              total: newTotal,
+              isRounded: resolvedCombined.isRounded || isRounded,
+              rawWeight: resolvedCombined.rawWeight || rawWeight,
+              weightRoundOffRules: item.weightRoundOffRules || c.weightRoundOffRules || []
+            };
           } else {
-            const newQty = parseInt(c.quantity) + parseInt(quantity);
+            const newQty = parseInt(c.quantity) + parseInt(finalQty);
             const newTotal = newQty * c.price;
             return { ...c, quantity: newQty, total: newTotal };
           }
@@ -2098,8 +2163,11 @@ const StorePortal = () => {
         name: item.name,
         price: item.price,
         unit: item.unit,
-        quantity: item.unit === 'Weight' ? parseFloat(quantity).toFixed(3) : parseInt(quantity),
-        total: parseFloat(amount)
+        quantity: item.unit === 'Weight' ? parseFloat(finalQty).toFixed(3) : parseInt(finalQty),
+        total: parseFloat(finalAmount),
+        isRounded: isRounded,
+        rawWeight: rawWeight,
+        weightRoundOffRules: item.weightRoundOffRules || []
       }]);
     }
     toast.success(`${item.name} updated in cart`);
@@ -2176,10 +2244,14 @@ const StorePortal = () => {
     } else {
       setCart(prev => prev.map(c => {
         if (c.id === itemId) {
+          const resolved = resolveItemWeight(c, numericWt);
+          const finalWt = resolved.isRounded ? parseFloat(resolved.weight) : numericWt;
           return {
             ...c,
-            quantity: numericWt.toFixed(3),
-            total: Number((numericWt * c.price).toFixed(2))
+            quantity: finalWt.toFixed(3),
+            total: Number((finalWt * c.price).toFixed(2)),
+            isRounded: resolved.isRounded,
+            rawWeight: resolved.rawWeight
           };
         }
         return c;
@@ -2191,16 +2263,68 @@ const StorePortal = () => {
     const price = showWeightModal.price;
     if (type === 'weight') {
       const amt = (parseFloat(value) * price).toFixed(2);
-      setWeightInput({ weight: value, amount: amt });
+      const resolved = resolveItemWeight(showWeightModal, value);
+      const valStr = String(value).trim();
+      const hasThreeDecimals = valStr.includes('.') && valStr.split('.')[1].length >= 3;
+
+      if (resolved.isRounded && hasThreeDecimals) {
+        const roundedAmt = (parseFloat(resolved.weight) * price).toFixed(2);
+        setWeightInput({
+          weight: resolved.weight,
+          amount: roundedAmt,
+          isRounded: true,
+          rawWeight: resolved.rawWeight
+        });
+        toast.success(`⚡ Round-off applied: ${resolved.weight} kg`);
+        return;
+      }
+
+      setWeightInput(prev => ({
+        ...prev,
+        weight: value,
+        amount: isNaN(amt) ? '' : amt,
+        isRounded: resolved.isRounded,
+        rawWeight: resolved.isRounded ? resolved.rawWeight : ''
+      }));
     } else {
       const wt = (parseFloat(value) / price).toFixed(3);
-      setWeightInput({ weight: wt, amount: value });
+      const resolved = resolveItemWeight(showWeightModal, wt);
+      const finalWt = resolved.isRounded ? resolved.weight : wt;
+      setWeightInput(prev => ({
+        ...prev,
+        weight: isNaN(finalWt) ? '' : finalWt,
+        amount: value,
+        isRounded: resolved.isRounded,
+        rawWeight: resolved.rawWeight || ''
+      }));
+    }
+  };
+
+  const handleWeightBlur = () => {
+    if (!showWeightModal) return;
+    const resolved = resolveItemWeight(showWeightModal, weightInput.weight);
+    if (resolved.isRounded && resolved.weight !== weightInput.weight) {
+      const roundedAmt = (parseFloat(resolved.weight) * showWeightModal.price).toFixed(2);
+      setWeightInput({
+        weight: resolved.weight,
+        amount: roundedAmt,
+        isRounded: true,
+        rawWeight: resolved.rawWeight
+      });
+      toast.success(`⚡ Round-off applied: ${resolved.weight} kg`);
     }
   };
 
   const confirmWeightAdd = () => {
-    if (!weightInput.weight || !weightInput.amount) return;
-    addToCart(showWeightModal, weightInput.weight, weightInput.amount);
+    if (!weightInput.weight) return;
+    const resolved = resolveItemWeight(showWeightModal, weightInput.weight);
+    const finalWeight = resolved.isRounded ? resolved.weight : weightInput.weight;
+    const finalAmount = (parseFloat(finalWeight) * showWeightModal.price).toFixed(2);
+
+    addToCart(showWeightModal, finalWeight, finalAmount, {
+      isRounded: resolved.isRounded || weightInput.isRounded,
+      rawWeight: resolved.rawWeight || weightInput.rawWeight
+    });
     setShowWeightModal(null);
   };
 
@@ -3693,7 +3817,14 @@ const StorePortal = () => {
                       {cart.map((item, idx) => (
                         <div key={idx} className="st-summary-row">
                           <div className="st-summary-details">
-                            <span className="name">{item.name}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span className="name">{item.name}</span>
+                              {item.isRounded && (
+                                <span style={{ fontSize: '9px', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.3px' }} title={`Rounded from ${item.rawWeight || ''} kg`}>
+                                  ⚡ Roundoff
+                                </span>
+                              )}
+                            </div>
                             <span className="price-sub">₹{item.price} / {item.unit === 'Weight' ? 'kg' : 'pc'}</span>
                           </div>
                           <div className="st-summary-actions">
@@ -4164,23 +4295,128 @@ const StorePortal = () => {
 
       {/* Weight Modal */}
       <AnimatePresence>
-        {showWeightModal && (
-          <div className="modal-overlay" style={{ zIndex: 3000 }}>
-            <motion.div className="custom-modal" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
-              <div className="modal-icon-box" style={{ background: '#FEF3C7', color: '#D97706' }}><Scale size={32} /></div>
-              <h3 className="modal-title">Calculate Weight Item</h3>
-              <div className="access-modal-form">
-                <div><label>Weight (kg)</label><input type="number" step="0.001" value={weightInput.weight} onChange={(e) => handleWeightCalc('weight', e.target.value)} /></div>
-                <div style={{ textAlign: 'center', fontWeight: 'bold', color: '#64748b', fontSize: '12px' }}>OR</div>
-                <div><label>Budget Amount (₹)</label><input type="number" value={weightInput.amount} onChange={(e) => handleWeightCalc('amount', e.target.value)} /></div>
-                <div className="modal-actions">
-                  <button type="button" className="modal-btn cancel" onClick={() => setShowWeightModal(null)}>Cancel</button>
-                  <button type="button" className="modal-btn confirm" style={{ background: 'var(--primary-color)' }} onClick={confirmWeightAdd}>Confirm Add</button>
+        {showWeightModal && (() => {
+          const targetStores = Array.isArray(showWeightModal.weightRoundOffStores) ? showWeightModal.weightRoundOffStores : null;
+          const isStoreApplicable = !targetStores || targetStores.length === 0 || !id || targetStores.includes(id);
+          const itemRules = isStoreApplicable && Array.isArray(showWeightModal.weightRoundOffRules) ? showWeightModal.weightRoundOffRules : [];
+          const currentWt = parseFloat(weightInput.weight);
+          const matchedRule = !isNaN(currentWt) && currentWt > 0
+            ? itemRules.find(r => currentWt >= r.from && currentWt <= r.to)
+            : null;
+
+          return (
+            <div className="modal-overlay" style={{ zIndex: 3000 }}>
+              <motion.div className="custom-modal" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} style={{ maxWidth: '420px', borderRadius: '16px' }}>
+                <div className="modal-icon-box" style={{ background: '#FEF3C7', color: '#D97706' }}><Scale size={32} /></div>
+                <h3 className="modal-title">{showWeightModal.name}</h3>
+                <p style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', margin: '-8px 0 12px' }}>₹{showWeightModal.price} / kg</p>
+
+                {/* Auto-Applied Roundoff Badge (Directly Applied, No asking) */}
+                {weightInput.isRounded && (
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '1.5px solid #86efac',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    margin: '0 0 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textAlign: 'left'
+                  }}>
+                    <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                    <div style={{ fontSize: '11.5px', color: '#166534', lineHeight: 1.3 }}>
+                      <strong>Round-off directly applied:</strong> {weightInput.weight} kg
+                      {weightInput.rawWeight && (
+                        <span style={{ color: '#4b5563', marginLeft: '6px' }}>
+                          (Input: {weightInput.rawWeight} kg)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Configured Round-Off Presets */}
+                {itemRules.length > 0 && (
+                  <div style={{ margin: '0 0 12px', textAlign: 'left' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Scale size={12} color="var(--primary-color)" /> Standard Round-Off Weights:
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {itemRules.map((r, i) => {
+                        const isSelected = parseFloat(weightInput.weight) === r.roundOffValue;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              const raw = weightInput.weight || r.roundOffValue.toString();
+                              handleWeightCalc('weight', r.roundOffValue.toString());
+                              setWeightInput(p => ({ ...p, isRounded: true, rawWeight: raw }));
+                            }}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              border: isSelected ? '1.5px solid var(--primary-color)' : '1px solid #cbd5e1',
+                              background: isSelected ? '#e6f4ea' : '#f8fafc',
+                              color: isSelected ? 'var(--primary-color)' : '#334155',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {r.roundOffValue} kg
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="access-modal-form">
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label style={{ margin: 0 }}>Weight (kg)</label>
+                      {weightInput.isRounded && (
+                        <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: '700' }}>
+                          ✓ Rounded ({weightInput.rawWeight} kg)
+                        </span>
+                      )}
+                    </div>
+                    <input 
+                      type="number" 
+                      step="0.001" 
+                      value={weightInput.weight} 
+                      onChange={(e) => {
+                        setWeightInput(p => ({ ...p, isRounded: false, rawWeight: '' }));
+                        handleWeightCalc('weight', e.target.value);
+                      }} 
+                      onBlur={handleWeightBlur}
+                      placeholder="e.g. 0.500"
+                    />
+                  </div>
+                  <div style={{ textAlign: 'center', fontWeight: 'bold', color: '#64748b', fontSize: '12px' }}>OR</div>
+                  <div>
+                    <label>Budget Amount (₹)</label>
+                    <input 
+                      type="number" 
+                      value={weightInput.amount} 
+                      onChange={(e) => {
+                        setWeightInput(p => ({ ...p, isRounded: false, rawWeight: '' }));
+                        handleWeightCalc('amount', e.target.value);
+                      }} 
+                      placeholder="e.g. 350"
+                    />
+                  </div>
+                  <div className="modal-actions">
+                    <button type="button" className="modal-btn cancel" onClick={() => setShowWeightModal(null)}>Cancel</button>
+                    <button type="button" className="modal-btn confirm" style={{ background: 'var(--primary-color)' }} onClick={confirmWeightAdd}>Confirm Add (₹{weightInput.amount || 0})</button>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Store Worksheet Preview Modal */}

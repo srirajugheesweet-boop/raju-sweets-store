@@ -251,17 +251,77 @@ const SuperAdminPOS = () => {
     if (barcodeInputRef.current) barcodeInputRef.current.focus();
   };
 
-  const addToCart = (item, quantity, amount) => {
+  const resolveItemWeight = (item, qty, currentStore = selectedStoreId) => {
+    const rules = Array.isArray(item?.weightRoundOffRules) ? item.weightRoundOffRules : [];
+    const targetStores = Array.isArray(item?.weightRoundOffStores) ? item.weightRoundOffStores : null;
+
+    // If specific stores are configured and current store is not in the list, skip roundoff
+    if (targetStores && targetStores.length > 0 && currentStore) {
+      if (!targetStores.includes(currentStore)) {
+        return {
+          weight: !isNaN(parseFloat(qty)) ? parseFloat(qty).toFixed(3) : qty,
+          isRounded: false,
+          rawWeight: null,
+          targetValue: null
+        };
+      }
+    }
+
+    const numWt = parseFloat(qty);
+    if (!isNaN(numWt) && numWt > 0 && rules.length > 0) {
+      const matched = rules.find(r => numWt >= r.from && numWt <= r.to);
+      if (matched && matched.roundOffValue) {
+        return {
+          weight: parseFloat(matched.roundOffValue).toFixed(3),
+          isRounded: true,
+          rawWeight: numWt.toFixed(3),
+          targetValue: matched.roundOffValue
+        };
+      }
+    }
+    return {
+      weight: !isNaN(numWt) ? numWt.toFixed(3) : qty,
+      isRounded: false,
+      rawWeight: null,
+      targetValue: null
+    };
+  };
+
+  const addToCart = (item, quantity, amount, roundInfo = {}) => {
+    let finalQty = quantity;
+    let finalAmount = amount;
+    let isRounded = Boolean(roundInfo.isRounded);
+    let rawWeight = roundInfo.rawWeight || null;
+
+    if (item.unit === 'Weight') {
+      const resolved = resolveItemWeight(item, quantity);
+      if (resolved.isRounded) {
+        finalQty = resolved.weight;
+        finalAmount = (parseFloat(resolved.weight) * item.price).toFixed(2);
+        isRounded = true;
+        rawWeight = resolved.rawWeight;
+      }
+    }
+
     const existingIndex = cart.findIndex(c => c.id === item.id);
     if (existingIndex > -1) {
       setCart(prev => prev.map((c, i) => {
         if (i === existingIndex) {
           if (item.unit === 'Weight') {
-            const newWeight = (parseFloat(c.quantity) + parseFloat(quantity)).toFixed(3);
+            const rawCombined = (parseFloat(c.quantity) + parseFloat(finalQty)).toFixed(3);
+            const resolvedCombined = resolveItemWeight(item, rawCombined);
+            const newWeight = resolvedCombined.isRounded ? resolvedCombined.weight : rawCombined;
             const newTotal = parseFloat(newWeight) * c.price;
-            return { ...c, quantity: newWeight, total: newTotal };
+            return { 
+              ...c, 
+              quantity: newWeight, 
+              total: newTotal,
+              isRounded: resolvedCombined.isRounded || isRounded,
+              rawWeight: resolvedCombined.rawWeight || rawWeight,
+              weightRoundOffRules: item.weightRoundOffRules || c.weightRoundOffRules || []
+            };
           } else {
-            const newQty = parseInt(c.quantity) + parseInt(quantity);
+            const newQty = parseInt(c.quantity) + parseInt(finalQty);
             const newTotal = newQty * c.price;
             return { ...c, quantity: newQty, total: newTotal };
           }
@@ -274,8 +334,11 @@ const SuperAdminPOS = () => {
         name: item.name,
         price: item.price,
         unit: item.unit,
-        quantity: item.unit === 'Weight' ? parseFloat(quantity).toFixed(3) : parseInt(quantity),
-        total: parseFloat(amount)
+        quantity: item.unit === 'Weight' ? parseFloat(finalQty).toFixed(3) : parseInt(finalQty),
+        total: parseFloat(finalAmount),
+        isRounded: isRounded,
+        rawWeight: rawWeight,
+        weightRoundOffRules: item.weightRoundOffRules || []
       }]);
     }
   };
@@ -285,9 +348,13 @@ const SuperAdminPOS = () => {
     if (item.unit === 'Weight') {
       setShowWeightModal(item);
       const existing = cart.find(c => c.id === item.id);
+      const rawInitial = existing ? existing.quantity.toString() : '';
+      const resolved = resolveItemWeight(item, rawInitial);
       setWeightInput({
-        weight: existing ? existing.quantity.toString() : '',
-        amount: existing ? existing.total.toString() : ''
+        weight: resolved.isRounded ? resolved.weight : rawInitial,
+        amount: existing ? existing.total.toString() : (resolved.isRounded ? (parseFloat(resolved.weight) * item.price).toFixed(2) : ''),
+        isRounded: resolved.isRounded || existing?.isRounded || false,
+        rawWeight: resolved.rawWeight || existing?.rawWeight || ''
       });
     } else {
       addToCart(item, 1, item.price);
@@ -298,16 +365,68 @@ const SuperAdminPOS = () => {
     const price = showWeightModal.price;
     if (type === 'weight') {
       const amt = (parseFloat(val) * price).toFixed(2);
-      setWeightInput({ weight: val, amount: isNaN(amt) ? '' : amt });
+      const resolved = resolveItemWeight(showWeightModal, val);
+      const valStr = String(val).trim();
+      const hasThreeDecimals = valStr.includes('.') && valStr.split('.')[1].length >= 3;
+
+      if (resolved.isRounded && hasThreeDecimals) {
+        const roundedAmt = (parseFloat(resolved.weight) * price).toFixed(2);
+        setWeightInput({
+          weight: resolved.weight,
+          amount: roundedAmt,
+          isRounded: true,
+          rawWeight: resolved.rawWeight
+        });
+        toast.success(`⚡ Round-off applied: ${resolved.weight} kg`);
+        return;
+      }
+
+      setWeightInput(prev => ({
+        ...prev,
+        weight: val,
+        amount: isNaN(amt) ? '' : amt,
+        isRounded: resolved.isRounded,
+        rawWeight: resolved.isRounded ? resolved.rawWeight : ''
+      }));
     } else {
       const wt = (parseFloat(val) / price).toFixed(3);
-      setWeightInput({ weight: isNaN(wt) ? '' : wt, amount: val });
+      const resolved = resolveItemWeight(showWeightModal, wt);
+      const finalWt = resolved.isRounded ? resolved.weight : wt;
+      setWeightInput(prev => ({
+        ...prev,
+        weight: isNaN(finalWt) ? '' : finalWt,
+        amount: val,
+        isRounded: resolved.isRounded,
+        rawWeight: resolved.rawWeight || ''
+      }));
+    }
+  };
+
+  const handleWeightBlur = () => {
+    if (!showWeightModal) return;
+    const resolved = resolveItemWeight(showWeightModal, weightInput.weight);
+    if (resolved.isRounded && resolved.weight !== weightInput.weight) {
+      const roundedAmt = (parseFloat(resolved.weight) * showWeightModal.price).toFixed(2);
+      setWeightInput({
+        weight: resolved.weight,
+        amount: roundedAmt,
+        isRounded: true,
+        rawWeight: resolved.rawWeight
+      });
+      toast.success(`⚡ Round-off applied: ${resolved.weight} kg`);
     }
   };
 
   const confirmWeightAdd = () => {
-    if (!weightInput.weight || !weightInput.amount) return;
-    addToCart(showWeightModal, weightInput.weight, weightInput.amount);
+    if (!weightInput.weight) return;
+    const resolved = resolveItemWeight(showWeightModal, weightInput.weight);
+    const finalWeight = resolved.isRounded ? resolved.weight : weightInput.weight;
+    const finalAmount = (parseFloat(finalWeight) * showWeightModal.price).toFixed(2);
+
+    addToCart(showWeightModal, finalWeight, finalAmount, {
+      isRounded: resolved.isRounded || weightInput.isRounded,
+      rawWeight: resolved.rawWeight || weightInput.rawWeight
+    });
     setShowWeightModal(null);
   };
 
@@ -378,10 +497,14 @@ const SuperAdminPOS = () => {
     } else {
       setCart(prev => prev.map(c => {
         if (c.id === itemId) {
+          const resolved = resolveItemWeight(c, numericWt);
+          const finalWt = resolved.isRounded ? parseFloat(resolved.weight) : numericWt;
           return {
             ...c,
-            quantity: numericWt.toFixed(3),
-            total: Number((numericWt * c.price).toFixed(2))
+            quantity: finalWt.toFixed(3),
+            total: Number((finalWt * c.price).toFixed(2)),
+            isRounded: resolved.isRounded,
+            rawWeight: resolved.rawWeight
           };
         }
         return c;
@@ -857,7 +980,14 @@ const SuperAdminPOS = () => {
                 {cart.map((item, idx) => (
                   <div key={idx} className="st-summary-row">
                     <div className="st-summary-details">
-                      <span className="name">{item.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span className="name">{item.name}</span>
+                        {item.isRounded && (
+                          <span style={{ fontSize: '9px', fontWeight: '800', background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px', letterSpacing: '0.3px' }} title={`Rounded from ${item.rawWeight || ''} kg`}>
+                            ⚡ Roundoff
+                          </span>
+                        )}
+                      </div>
                       <span className="price-sub">₹{item.price} / {item.unit === 'Weight' ? 'kg' : 'pc'}</span>
                     </div>
                     <div className="st-summary-actions">
@@ -1122,31 +1252,155 @@ const SuperAdminPOS = () => {
       )}
 
 
-      {/* Weight Modal */}
-      {showWeightModal && (
-        <div className="walkin-modal-overlay">
-          <div className="walkin-modal-card" style={{ maxWidth: '360px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>{showWeightModal.name}</h3>
-              <button onClick={() => setShowWeightModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-            </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px' }}>Price: ₹{showWeightModal.price} / kg</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div className="items-input-group">
-                <label>Weight (in kg)</label>
-                <input type="number" step="0.001" value={weightInput.weight} onChange={(e) => handleWeightCalc('weight', e.target.value)} placeholder="e.g. 0.500 for 500g" />
+      {/* Weight Modal with Roundoff Logic */}
+      {showWeightModal && (() => {
+        const targetStores = Array.isArray(showWeightModal.weightRoundOffStores) ? showWeightModal.weightRoundOffStores : null;
+        const isStoreApplicable = !targetStores || targetStores.length === 0 || !selectedStoreId || targetStores.includes(selectedStoreId);
+        const itemRules = isStoreApplicable && Array.isArray(showWeightModal.weightRoundOffRules) ? showWeightModal.weightRoundOffRules : [];
+        const currentWt = parseFloat(weightInput.weight);
+        const matchedRule = !isNaN(currentWt) && currentWt > 0
+          ? itemRules.find(r => currentWt >= r.from && currentWt <= r.to)
+          : null;
+
+        return (
+          <div className="walkin-modal-overlay">
+            <div className="walkin-modal-card" style={{ maxWidth: '420px', borderRadius: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Scale size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>{showWeightModal.name}</h3>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Rate: ₹{showWeightModal.price} / kg</span>
+                  </div>
+                </div>
+                <button onClick={() => setShowWeightModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
               </div>
-              <div className="items-input-group">
-                <label>Total Amount (₹)</label>
-                <input type="number" step="1" value={weightInput.amount} onChange={(e) => handleWeightCalc('amount', e.target.value)} placeholder="e.g. 350" />
+
+              {/* Auto-Applied Roundoff Badge (Directly Applied, No asking) */}
+              {weightInput.isRounded && (
+                <div style={{
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: '10px',
+                  padding: '8px 12px',
+                  margin: '8px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                  <div style={{ fontSize: '11.5px', color: '#166534', lineHeight: 1.3 }}>
+                    <strong>Round-off directly applied:</strong> {weightInput.weight} kg
+                    {weightInput.rawWeight && (
+                      <span style={{ color: '#4b5563', marginLeft: '6px' }}>
+                        (Actual: {weightInput.rawWeight} kg)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Configured Round-Off Presets for this product */}
+              {itemRules.length > 0 && (
+                <div style={{ margin: '8px 0 12px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Scale size={12} color="var(--primary-color)" /> Standard Round-Off Weights:
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {itemRules.map((r, i) => {
+                      const isSelected = parseFloat(weightInput.weight) === r.roundOffValue;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            const raw = weightInput.weight || r.roundOffValue.toString();
+                            handleWeightCalc('weight', r.roundOffValue.toString());
+                            setWeightInput(p => ({ ...p, isRounded: true, rawWeight: raw }));
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            border: isSelected ? '1.5px solid var(--primary-color)' : '1px solid #cbd5e1',
+                            background: isSelected ? '#e6f4ea' : '#f8fafc',
+                            color: isSelected ? 'var(--primary-color)' : '#334155',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {r.roundOffValue} kg
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="items-input-group">
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Weight (in kg)</span>
+                    {weightInput.isRounded && (
+                      <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '700' }}>
+                        ✓ Round-off Applied (Raw: {weightInput.rawWeight} kg)
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={weightInput.weight}
+                    onChange={(e) => {
+                      setWeightInput(p => ({ ...p, isRounded: false, rawWeight: '' }));
+                      handleWeightCalc('weight', e.target.value);
+                    }}
+                    onBlur={handleWeightBlur}
+                    placeholder="e.g. 0.500 for 500g"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="items-input-group">
+                  <label>Total Amount (₹)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={weightInput.amount}
+                    onChange={(e) => {
+                      setWeightInput(p => ({ ...p, isRounded: false, rawWeight: '' }));
+                      handleWeightCalc('amount', e.target.value);
+                    }}
+                    placeholder="e.g. 350"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    className="polaris-btn polaris-btn-secondary"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => setShowWeightModal(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="polaris-btn polaris-btn-primary"
+                    style={{ flex: 1.5, justifyContent: 'center' }}
+                    onClick={confirmWeightAdd}
+                  >
+                    Add to Cart (₹{weightInput.amount || '0'})
+                  </button>
+                </div>
               </div>
-              <button type="button" className="polaris-btn polaris-btn-primary" style={{ justifyContent: 'center' }} onClick={confirmWeightAdd}>
-                Add to Cart
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

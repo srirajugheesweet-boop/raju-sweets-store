@@ -445,4 +445,22 @@ button:not(.polaris-header-logo):not(.sidebar-item):not(.portal-sidebar-item) {
   border-radius: 8px !important;
 }
 
+/* ==========================================================================
+   Global Number Input Customization (Remove arrows/spinners)
+   ========================================================================== */
+
+/* Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+
 

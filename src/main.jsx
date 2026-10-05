@@ -55,6 +55,15 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Globally prevent mousewheel from changing number input values
+window.addEventListener('wheel', (e) => {
+  if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'number') {
+    e.preventDefault();
+  } else if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: false });
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <DescopeProvider projectId={descopeProjectId}>
