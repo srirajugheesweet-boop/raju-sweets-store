@@ -143,6 +143,14 @@ const Items = () => {
   const [stores, setStores] = useState([]);
   const [savingRoundOff, setSavingRoundOff] = useState(false);
 
+  // Bulk Weight Roundoff Modal State
+  const [showBulkRoundOffModal, setShowBulkRoundOffModal] = useState(false);
+  const [bulkSearchQuery, setBulkSearchQuery] = useState('');
+  const [bulkSearchResults, setBulkSearchResults] = useState([]);
+  const [bulkHasSearched, setBulkHasSearched] = useState(false);
+  const [bulkSelectedProduct, setBulkSelectedProduct] = useState(null);
+  const [isUpdatingBulk, setIsUpdatingBulk] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     barcode: '',
@@ -443,6 +451,97 @@ const Items = () => {
       toast.error("Failed to save roundoff rules");
     } finally {
       setSavingRoundOff(false);
+    }
+  };
+
+  // Bulk Round Off Helper Functions
+  const handleBulkSearch = () => {
+    const q = (bulkSearchQuery || '').trim().toLowerCase();
+    if (!q) {
+      toast.error('Please enter product ID, name, or barcode ID to search');
+      setBulkSearchResults([]);
+      setBulkHasSearched(false);
+      return;
+    }
+
+    const matched = items.filter(it => {
+      const matchId = (it.id || '').toLowerCase().includes(q);
+      const matchName = (it.name || '').toLowerCase().includes(q);
+      const matchBarcode = (it.barcode || it.barcodeId || '').toLowerCase().includes(q);
+      return matchId || matchName || matchBarcode;
+    });
+
+    setBulkSearchResults(matched);
+    setBulkHasSearched(true);
+    if (matched.length === 0) {
+      toast.error('No matching products found');
+    }
+  };
+
+  const handleSelectBulkProduct = (product) => {
+    setBulkSelectedProduct(product);
+  };
+
+  const handleResetBulkModal = () => {
+    setShowBulkRoundOffModal(false);
+    setBulkSearchQuery('');
+    setBulkSearchResults([]);
+    setBulkHasSearched(false);
+    setBulkSelectedProduct(null);
+    setIsUpdatingBulk(false);
+  };
+
+  const handleApplyBulkRoundOff = async () => {
+    if (!bulkSelectedProduct) {
+      toast.error('Please select a product first');
+      return;
+    }
+
+    const rules = bulkSelectedProduct.weightRoundOffRules;
+    if (!rules || !Array.isArray(rules) || rules.length === 0) {
+      toast.error('Selected product has no weight round-off rules to apply');
+      return;
+    }
+
+    const targetProducts = items.filter(
+      it => it.unit === 'Weight' && it.id !== bulkSelectedProduct.id
+    );
+
+    if (targetProducts.length === 0) {
+      toast.error('No other weight-unit products found to update');
+      return;
+    }
+
+    const storesConfig = Array.isArray(bulkSelectedProduct.weightRoundOffStores)
+      ? bulkSelectedProduct.weightRoundOffStores
+      : stores.map(s => s.id);
+
+    setIsUpdatingBulk(true);
+    try {
+      const batchSize = 400;
+      for (let i = 0; i < targetProducts.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = targetProducts.slice(i, i + batchSize);
+        chunk.forEach(p => {
+          const docRef = doc(db, 'items', p.id);
+          batch.update(docRef, {
+            weightRoundOffRules: rules,
+            weightRoundOffStores: storesConfig,
+            updatedAt: serverTimestamp()
+          });
+        });
+        await batch.commit();
+      }
+
+      toast.success(
+        `Applied round-off rules (${rules.length} ranges) & store settings to all ${targetProducts.length} remaining weight products!`
+      );
+      handleResetBulkModal();
+    } catch (err) {
+      console.error('Failed to bulk apply round-off:', err);
+      toast.error('Bulk update failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsUpdatingBulk(false);
     }
   };
 
@@ -803,6 +902,18 @@ const Items = () => {
           <h1 className="polaris-page-title">Products</h1>
         </div>
         <div className="polaris-header-actions">
+          <button
+            type="button"
+            className="polaris-btn polaris-btn-secondary"
+            onClick={() => {
+              handleResetBulkModal();
+              setShowBulkRoundOffModal(true);
+            }}
+            title="Bulk copy weight roundoff configuration to all weight products"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Scale size={14} color="#0A2A1B" /> Bulk Round-Off Update
+          </button>
           <button className="polaris-btn polaris-btn-secondary" onClick={downloadTemplate}>
             <Download size={14} /> Export
           </button>
@@ -855,6 +966,20 @@ const Items = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+              </div>
+              <div className="polaris-table-toolbar-actions">
+                <button
+                  type="button"
+                  className="polaris-btn polaris-btn-secondary"
+                  onClick={() => {
+                    handleResetBulkModal();
+                    setShowBulkRoundOffModal(true);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}
+                  title="Bulk copy weight roundoff configuration to all weight products"
+                >
+                  <Scale size={14} color="#0A2A1B" /> Bulk Round-Off Update
+                </button>
               </div>
             </div>
 
@@ -1541,6 +1666,334 @@ const Items = () => {
                   <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', borderRightColor: '#fff' }}></div>
                 ) : (
                   'Save Roundoff Rules'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Weight Round-Off Update Modal */}
+      {showBulkRoundOffModal && (
+        <div className="bulk-roundoff-modal-overlay" onClick={handleResetBulkModal}>
+          <div className="bulk-roundoff-modal-card" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bulk-roundoff-modal-header">
+              <div className="bulk-roundoff-modal-header-left">
+                <div className="bulk-roundoff-modal-icon">
+                  <Scale size={18} />
+                </div>
+                <div>
+                  <h3 className="bulk-roundoff-modal-title">Bulk Round-Off Update</h3>
+                  <p className="bulk-roundoff-modal-subtitle">
+                    Select a source product to replicate its weight round-off & store configurations to all remaining weight products
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetBulkModal}
+                className="bulk-roundoff-modal-close"
+                aria-label="Close modal"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="bulk-roundoff-modal-body">
+              {/* Search Section */}
+              <div className="bulk-roundoff-search-section">
+                <label className="bulk-roundoff-label">
+                  Search Source Product (Product ID, Name, or Barcode)
+                </label>
+                <div className="bulk-roundoff-search-box">
+                  <div className="bulk-roundoff-input-wrap">
+                    <Search size={15} className="bulk-roundoff-search-icon" />
+                    <input
+                      type="text"
+                      className="bulk-roundoff-search-input"
+                      placeholder="Enter product ID, name, or barcode ID..."
+                      value={bulkSearchQuery}
+                      onChange={(e) => {
+                        setBulkSearchQuery(e.target.value);
+                        if (bulkHasSearched) {
+                          setBulkHasSearched(false);
+                          setBulkSearchResults([]);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleBulkSearch();
+                        }
+                      }}
+                    />
+                    {bulkSearchQuery && (
+                      <button
+                        type="button"
+                        className="bulk-roundoff-clear-btn"
+                        onClick={() => {
+                          setBulkSearchQuery('');
+                          setBulkSearchResults([]);
+                          setBulkHasSearched(false);
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBulkSearch}
+                    className="polaris-btn polaris-btn-primary bulk-roundoff-search-btn"
+                  >
+                    <Search size={14} /> Search
+                  </button>
+                </div>
+
+                {/* Dropdown Results - Only displayed after entering & searching */}
+                {bulkHasSearched && (
+                  <div className="bulk-roundoff-dropdown">
+                    {bulkSearchResults.length === 0 ? (
+                      <div className="bulk-roundoff-no-results">
+                        <AlertCircle size={16} color="#DC2626" />
+                        <span>No products found matching "{bulkSearchQuery}"</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bulk-roundoff-dropdown-header">
+                          Found {bulkSearchResults.length} matching product{bulkSearchResults.length > 1 ? 's' : ''}. Select one below:
+                        </div>
+                        <div className="bulk-roundoff-dropdown-list">
+                          {bulkSearchResults.map((prod) => {
+                            const isSelected = bulkSelectedProduct?.id === prod.id;
+                            const rulesCount = prod.weightRoundOffRules?.length || 0;
+                            const prodImg = (!prod.image || prod.image.trim() === '' || prod.image === 'none' || prod.image === 'null' || prod.image.includes('unsplash')) ? DEFAULT_ITEM_IMAGE : prod.image;
+                            const barcodeVal = prod.barcode || prod.barcodeId;
+
+                            return (
+                              <div
+                                key={prod.id}
+                                className={`bulk-roundoff-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                onClick={() => handleSelectBulkProduct(prod)}
+                              >
+                                <img
+                                  src={prodImg}
+                                  alt={prod.name}
+                                  className="bulk-dropdown-item-img"
+                                  onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_ITEM_IMAGE; }}
+                                />
+                                <div className="bulk-dropdown-item-info">
+                                  <div className="bulk-dropdown-item-title-row">
+                                    <span className="bulk-dropdown-item-name">{prod.name}</span>
+                                    <span className={`bulk-dropdown-unit-badge ${prod.unit === 'Weight' ? 'weight' : 'piece'}`}>
+                                      {prod.unit}
+                                    </span>
+                                  </div>
+                                  <div className="bulk-dropdown-item-meta">
+                                    {barcodeVal && (
+                                      <span className="bulk-meta-barcode">Barcode: {barcodeVal}</span>
+                                    )}
+                                    <span className="bulk-meta-price">₹{prod.price}</span>
+                                    <span className={`bulk-meta-rules ${rulesCount > 0 ? 'has-rules' : 'no-rules'}`}>
+                                      {rulesCount > 0 ? `${rulesCount} round-off range(s)` : 'No round-off rules'}
+                                    </span>
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <div className="bulk-dropdown-item-check">
+                                    <Check size={16} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected Product Card and Configurations */}
+              {bulkSelectedProduct ? (
+                <div className="bulk-roundoff-details-card">
+                  {/* Selected Item Summary Header */}
+                  <div className="bulk-selected-item-bar">
+                    <div className="bulk-selected-item-left">
+                      <span className="bulk-selected-tag">Selected Product</span>
+                      <h4 className="bulk-selected-name">{bulkSelectedProduct.name}</h4>
+                      <div className="bulk-selected-chips">
+                        <span className="bulk-chip">Unit: {bulkSelectedProduct.unit}</span>
+                        <span className="bulk-chip">Price: ₹{bulkSelectedProduct.price}</span>
+                        {(bulkSelectedProduct.barcode || bulkSelectedProduct.barcodeId) && (
+                          <span className="bulk-chip">Barcode: {bulkSelectedProduct.barcode || bulkSelectedProduct.barcodeId}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* READ ONLY Configuration Display */}
+                  <div className="bulk-config-display-section">
+                    <div className="bulk-config-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Scale size={14} color="var(--primary-color)" />
+                        <span className="bulk-config-title">
+                          Weight Round-Off Configurations
+                        </span>
+                      </div>
+                      <span className="bulk-readonly-badge">View Only (No Edit)</span>
+                    </div>
+
+                    {/* Weight Ranges Table */}
+                    {bulkSelectedProduct.weightRoundOffRules && bulkSelectedProduct.weightRoundOffRules.length > 0 ? (
+                      <>
+                        <div className="bulk-roundoff-table-wrapper">
+                          <table className="bulk-roundoff-table">
+                            <thead>
+                              <tr>
+                                <th>From Weight</th>
+                                <th>To Weight</th>
+                                <th>Round-Off Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bulkSelectedProduct.weightRoundOffRules.map((rule, idx) => {
+                                const fromNum = parseFloat(rule.from);
+                                const toNum = parseFloat(rule.to);
+                                const roundNum = parseFloat(rule.roundOffValue);
+                                const formatWeight = (val, num) => (!isNaN(num) ? num.toFixed(3) : val);
+
+                                return (
+                                  <tr key={rule.id || idx}>
+                                    <td><strong>{formatWeight(rule.from, fromNum)} kg</strong></td>
+                                    <td><strong>{formatWeight(rule.to, toNum)} kg</strong></td>
+                                    <td>
+                                      <span className="bulk-round-chip">
+                                        ⚡ {formatWeight(rule.roundOffValue, roundNum)} kg
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Applicable Stores Configuration Display */}
+                        <div className="bulk-stores-view-box">
+                          <div className="bulk-stores-view-header">
+                            <Store size={13} color="var(--primary-color)" />
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                              Store Configuration:
+                            </span>
+                            <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>
+                              {Array.isArray(bulkSelectedProduct.weightRoundOffStores)
+                                ? `${bulkSelectedProduct.weightRoundOffStores.length}/${stores.length} stores active`
+                                : `All stores (${stores.length}) active`}
+                            </span>
+                          </div>
+
+                          <div className="bulk-stores-chips-wrap">
+                            {(!bulkSelectedProduct.weightRoundOffStores || bulkSelectedProduct.weightRoundOffStores.length === stores.length) ? (
+                              <span className="bulk-store-chip all">
+                                ✓ Active in All Stores ({stores.length})
+                              </span>
+                            ) : bulkSelectedProduct.weightRoundOffStores.length === 0 ? (
+                              <span className="bulk-store-chip none">
+                                ⚠️ No stores enabled for round-off
+                              </span>
+                            ) : (
+                              stores
+                                .filter(st => bulkSelectedProduct.weightRoundOffStores.includes(st.id))
+                                .map(st => (
+                                  <span key={st.id} className="bulk-store-chip active">
+                                    ✓ {st.name}
+                                  </span>
+                                ))
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Informative Target Banner */}
+                        <div className="bulk-target-info-box">
+                          <Info size={15} className="bulk-target-icon" />
+                          <div className="bulk-target-text">
+                            <strong>Impact:</strong> This will copy the above{' '}
+                            <strong>{bulkSelectedProduct.weightRoundOffRules.length} weight round-off ranges</strong> and store configurations to all{' '}
+                            <strong>
+                              {items.filter(it => it.unit === 'Weight' && it.id !== bulkSelectedProduct.id).length} remaining weight products
+                            </strong>.
+                            <div style={{ fontSize: '11px', marginTop: '3px', color: '#64748B' }}>
+                              * Only weight round-off rules and store configurations will be updated. Names, barcodes, prices, units, and categories will not be changed.
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="bulk-no-rules-alert">
+                        <AlertCircle size={20} color="#D97706" />
+                        <div>
+                          <strong>No round-off rules configured for this product</strong>
+                          <p>
+                            "{bulkSelectedProduct.name}" does not have any round-off rules yet.
+                            Please select a product that has configured round-off rules, or configure this product first.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                !bulkHasSearched && (
+                  <div className="bulk-roundoff-empty-hint">
+                    <Scale size={32} color="#94A3B8" />
+                    <h4>No Product Selected</h4>
+                    <p>Enter a product ID, name, or barcode above and click <strong>Search</strong> to choose a product.</p>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bulk-roundoff-modal-footer">
+              <button
+                type="button"
+                onClick={handleResetBulkModal}
+                className="polaris-btn polaris-btn-secondary"
+                disabled={isUpdatingBulk}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBulkRoundOff}
+                className="polaris-btn polaris-btn-primary bulk-apply-btn"
+                disabled={
+                  isUpdatingBulk ||
+                  !bulkSelectedProduct ||
+                  !bulkSelectedProduct.weightRoundOffRules ||
+                  bulkSelectedProduct.weightRoundOffRules.length === 0 ||
+                  items.filter(it => it.unit === 'Weight' && it.id !== bulkSelectedProduct?.id).length === 0
+                }
+              >
+                {isUpdatingBulk ? (
+                  <>
+                    <div className="loader" style={{ width: '14px', height: '14px', borderTopColor: '#fff', borderRightColor: '#fff' }}></div>
+                    <span>Updating Weight Products...</span>
+                  </>
+                ) : (
+                  <>
+                    <Scale size={14} />
+                    <span>
+                      Update to All Remaining Weight Products (
+                      {bulkSelectedProduct
+                        ? items.filter(it => it.unit === 'Weight' && it.id !== bulkSelectedProduct.id).length
+                        : items.filter(it => it.unit === 'Weight').length}
+                      )
+                    </span>
+                  </>
                 )}
               </button>
             </div>
