@@ -65,7 +65,8 @@ import {
   Camera,
   Upload,
   Barcode,
-  UserCheck
+  UserCheck,
+  UserPlus
 } from 'lucide-react';
 
 import toast from 'react-hot-toast';
@@ -1492,13 +1493,16 @@ const StorePortal = () => {
     }
   }, [tab]);
 
-  // Fetch Customers List (Read-Only)
+  // Fetch Customers List (Read-Only & for POS Billing)
   useEffect(() => {
-    if (tab === 'customers') {
+    if (tab === 'customers' || tab === 'billing') {
       setCustomersLoading(true);
       const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         setCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setCustomersLoading(false);
+      }, (error) => {
+        console.error("Firestore customers subscription error in StorePortal:", error);
         setCustomersLoading(false);
       });
       return () => unsubscribe();
@@ -2011,8 +2015,8 @@ const StorePortal = () => {
 
   const handleSaveCustomer = async (e) => {
     e.preventDefault();
-    if (!customerFormData.firstName || !customerFormData.lastName || !customerFormData.mobileNumber) {
-      toast.error("Please fill in all required fields");
+    if (!customerFormData.firstName || !customerFormData.mobileNumber) {
+      toast.error("Please fill in first name and mobile number");
       return;
     }
     if (customerFormData.isB2B && (!customerFormData.businessName || !customerFormData.gstNumber)) {
@@ -2031,11 +2035,25 @@ const StorePortal = () => {
         ...customerFormData
       };
 
-      setOrderCustomers(prev => [newCust, ...prev].sort((a, b) => a.firstName.localeCompare(b.firstName)));
+      setOrderCustomers(prev => [newCust, ...prev].sort((a, b) => (a.firstName || '').localeCompare(b.firstName || '')));
+      setCustomers(prev => [newCust, ...prev.filter(c => c.id !== docRef.id)]);
       setSelectedCustomer(docRef.id);
+      setSelectedCustomerId(docRef.id);
+      setCustomerSearch(`${newCust.firstName} ${newCust.lastName || ''}`.trim());
 
       toast.success("Customer created and selected!");
       setShowCreateCustomerModal(false);
+      setCustomerFormData({
+        firstName: '',
+        lastName: '',
+        mobileNumber: '',
+        address: '',
+        city: '',
+        state: '',
+        isB2B: false,
+        businessName: '',
+        gstNumber: ''
+      });
     } catch (error) {
       console.error("Failed to save customer:", error);
       toast.error("Error creating customer");
@@ -2398,7 +2416,7 @@ const StorePortal = () => {
         customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Walk-in Customer',
         customerPhone: selectedCustomerObj ? selectedCustomerObj.mobileNumber : '',
         isB2B: selectedCustomerObj ? (selectedCustomerObj.isB2B || false) : false,
-        companyName: selectedCustomerObj ? (selectedCustomerObj.companyName || '') : '',
+        companyName: selectedCustomerObj ? (selectedCustomerObj.companyName || selectedCustomerObj.businessName || '') : '',
         customerGst: selectedCustomerObj ? (selectedCustomerObj.gstNumber || selectedCustomerObj.gst || '') : '',
         items: cart,
         discount: discountVal,
@@ -3189,14 +3207,37 @@ const StorePortal = () => {
                 <h2>Customer Directory</h2>
                 <p className="st-view-desc">View and search our registered customer contacts</p>
               </div>
-              <div className="st-search-wrapper">
-                <Search size={18} className="st-search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search customers..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                />
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="st-search-wrapper">
+                  <Search size={18} className="st-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search customers..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerFormData({
+                      firstName: '',
+                      lastName: '',
+                      mobileNumber: '',
+                      address: '',
+                      city: '',
+                      state: '',
+                      isB2B: false,
+                      businessName: '',
+                      gstNumber: ''
+                    });
+                    setShowCreateCustomerModal(true);
+                  }}
+                  className="st-print-invoice-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '40px', padding: '0 16px', whiteSpace: 'nowrap' }}
+                >
+                  <UserPlus size={16} /> Add Customer
+                </button>
               </div>
             </div>
 
@@ -3749,17 +3790,37 @@ const StorePortal = () => {
                     </div> */}
 
                     {/* Customer Auto-Suggest Selector (Optional) */}
-                    <div style={{ padding: '10px 15px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '5px', margin: 0 }}>
                           <UserCheck size={14} /> Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '10px' }}>(Optional)</span>
                         </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomerFormData({
+                              firstName: /^\d+$/.test(customerSearch) ? '' : customerSearch,
+                              lastName: '',
+                              mobileNumber: /^\d+$/.test(customerSearch) ? customerSearch : '',
+                              address: '',
+                              city: '',
+                              state: '',
+                              isB2B: false,
+                              businessName: '',
+                              gstNumber: ''
+                            });
+                            setShowCreateCustomerModal(true);
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px' }}
+                        >
+                          <UserPlus size={13} /> + New Customer
+                        </button>
                       </div>
 
                       {(() => {
                         const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
                         const filteredCusts = customers.filter(c => {
-                          const q = customerSearch.toLowerCase();
+                          const q = (customerSearch || '').toLowerCase();
                           return (c.firstName || '').toLowerCase().includes(q) ||
                             (c.lastName || '').toLowerCase().includes(q) ||
                             (c.mobileNumber || '').includes(q);
@@ -3772,11 +3833,16 @@ const StorePortal = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <UserCheck size={14} color="#065f46" />
                                   <div>
-                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#065f46' }}>
+                                    <div style={{ fontSize: '12px', fontWeight: '700', color: '#065f46', lineHeight: 1.2 }}>
                                       {selectedCustomerObj.firstName} {selectedCustomerObj.lastName || ''}
                                     </div>
-                                    <div style={{ fontSize: '10px', color: '#047857' }}>
+                                    <div style={{ fontSize: '10px', color: '#047857', lineHeight: 1.2, marginTop: '2px' }}>
                                       📱 {selectedCustomerObj.mobileNumber}
+                                      {selectedCustomerObj.isB2B && (
+                                        <span style={{ marginLeft: '6px', fontSize: '9px', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
+                                          B2B: {selectedCustomerObj.companyName || selectedCustomerObj.businessName || ''}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -3811,7 +3877,7 @@ const StorePortal = () => {
                                           key={c.id}
                                           onClick={() => {
                                             setSelectedCustomerId(c.id);
-                                            setCustomerSearch(`${c.firstName} ${c.lastName || ''}`);
+                                            setCustomerSearch(`${c.firstName} ${c.lastName || ''}`.trim());
                                             setShowCustDropdown(false);
                                           }}
                                           style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -3824,11 +3890,29 @@ const StorePortal = () => {
                                             </div>
                                             <div style={{ fontSize: '10px', color: '#64748b' }}>📱 {c.mobileNumber}</div>
                                           </div>
+                                          {c.isB2B && <span style={{ fontSize: '9px', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>B2B</span>}
                                         </div>
                                       ))
                                     ) : (
-                                      <div style={{ padding: '10px', color: '#94a3b8', fontSize: '11px', textAlign: 'center' }}>
-                                        No customer matches "{customerSearch}"
+                                      <div
+                                        onClick={() => {
+                                          setCustomerFormData({
+                                            firstName: /^\d+$/.test(customerSearch) ? '' : customerSearch,
+                                            lastName: '',
+                                            mobileNumber: /^\d+$/.test(customerSearch) ? customerSearch : '',
+                                            address: '',
+                                            city: '',
+                                            state: '',
+                                            isB2B: false,
+                                            businessName: '',
+                                            gstNumber: ''
+                                          });
+                                          setShowCreateCustomerModal(true);
+                                          setShowCustDropdown(false);
+                                        }}
+                                        style={{ padding: '10px', color: '#0284c7', fontSize: '12px', fontWeight: '700', textAlign: 'center', cursor: 'pointer', background: '#f0f9ff' }}
+                                      >
+                                        + Add "{customerSearch || 'New Customer'}"
                                       </div>
                                     )}
                                   </div>
@@ -3841,7 +3925,7 @@ const StorePortal = () => {
                     </div>
 
                     {/* Items Count Header Bar */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
                       <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155' }}>
                         Total Items: <strong style={{ color: 'var(--primary-color)' }}>{cart.length}</strong>
                       </span>
@@ -3907,8 +3991,8 @@ const StorePortal = () => {
                       )}
                     </div>
 
-                    <div className="st-summary-settle">
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '15px' }}>
+                    <div className="st-summary-settle" style={{ flexShrink: 0 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>
                             Discount ({discountType === 'percent' ? '%' : '₹'})
@@ -3952,11 +4036,11 @@ const StorePortal = () => {
                           value={posDiscount}
                           onChange={(e) => setPosDiscount(e.target.value)}
                           style={{
-                            height: '38px',
-                            padding: '0 12px',
+                            height: '34px',
+                            padding: '0 10px',
                             border: '1px solid var(--border-color)',
                             borderRadius: '8px',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             fontWeight: '700',
                             width: '100%',
                             boxSizing: 'border-box'
@@ -3975,7 +4059,7 @@ const StorePortal = () => {
 
                         return (
                           <>
-                            <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 10px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '10px' }}>
+                            <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 0 8px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '8px' }}>
                               {discountVal > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
                                   <span>Cart Total</span>
@@ -3998,13 +4082,13 @@ const StorePortal = () => {
                               </div>
                             </div>
 
-                            <div className="total-display" style={{ marginBottom: '12px' }}>
+                            <div className="total-display" style={{ marginBottom: '10px' }}>
                               <span>Grand Total (Incl. Tax)</span>
                               <span className="amt">₹{totalAmt.toFixed(2)}</span>
                             </div>
 
                             {/* Payment Methods with Split */}
-                            <div style={{ marginBottom: '15px' }}>
+                            <div style={{ marginBottom: '12px' }}>
                               <SplitPaymentSelector
                                 paymentMode={paymentMode}
                                 setPaymentMode={setPaymentMode}
@@ -5518,10 +5602,9 @@ const StorePortal = () => {
                     />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: '700' }}>Last Name *</label>
+                    <label style={{ fontSize: '11px', fontWeight: '700' }}>Last Name</label>
                     <input
                       type="text"
-                      required
                       value={customerFormData.lastName}
                       onChange={(e) => setCustomerFormData(prev => ({ ...prev, lastName: e.target.value }))}
                       style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}

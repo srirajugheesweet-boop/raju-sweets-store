@@ -472,6 +472,8 @@
   padding: 20px;
   background: white;
   flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 100%;
 }
 
 

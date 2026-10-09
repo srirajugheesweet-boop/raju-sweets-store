@@ -878,15 +878,27 @@ const SuperAdminPOS = () => {
               </div> */}
 
               {/* Mandatory Customer Selector */}
-              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px 14px', borderRadius: '10px', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 12px', borderRadius: '10px', marginBottom: '8px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <UserCheck size={15} /> Select Customer <span style={{ color: '#64748b', fontWeight: '500', fontSize: '11px' }}>(Optional)</span>
                   </label>
 
                   <button
                     type="button"
-                    onClick={() => setShowCreateCustomerModal(true)}
+                    onClick={() => {
+                      setCustForm({
+                        firstName: /^\d+$/.test(customerSearch) ? '' : customerSearch,
+                        lastName: '',
+                        mobileNumber: /^\d+$/.test(customerSearch) ? customerSearch : '',
+                        address: '',
+                        city: '',
+                        isB2B: false,
+                        companyName: '',
+                        gstNumber: ''
+                      });
+                      setShowCreateCustomerModal(true);
+                    }}
                     style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
                     <UserPlus size={13} /> + New Customer
@@ -898,25 +910,30 @@ const SuperAdminPOS = () => {
                   return (
                     <div style={{ position: 'relative' }} ref={custDropdownRef}>
                       {selectedCustomerObj ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#e6f4ea', border: '1px solid #a7f3d0', padding: '8px 12px', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#e6f4ea', border: '1px solid #a7f3d0', padding: '6px 10px', borderRadius: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <UserCheck size={16} color="#065f46" />
+                            <UserCheck size={15} color="#065f46" />
                             <div>
-                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#065f46' }}>
+                              <div style={{ fontSize: '12px', fontWeight: '700', color: '#065f46', lineHeight: 1.2 }}>
                                 {selectedCustomerObj.firstName} {selectedCustomerObj.lastName || ''}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#047857' }}>
+                              <div style={{ fontSize: '10px', color: '#047857', lineHeight: 1.2, marginTop: '2px' }}>
                                 📱 {selectedCustomerObj.mobileNumber}
+                                {selectedCustomerObj.isB2B && (
+                                  <span style={{ marginLeft: '6px', fontSize: '9px', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>
+                                    B2B
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); }}
-                            style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '4px' }}
+                            style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}
                             title="Clear selected customer"
                           >
-                            <X size={16} />
+                            <X size={15} />
                           </button>
                         </div>
                       ) : (
@@ -930,11 +947,11 @@ const SuperAdminPOS = () => {
                               setCustomerSearch(e.target.value);
                               setShowCustDropdown(true);
                             }}
-                            style={{ height: '36px', padding: '0 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '13px', width: '100%', boxSizing: 'border-box' }}
+                            style={{ height: '34px', padding: '0 10px', borderRadius: '8px', border: '1.5px solid #cbd5e1', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
                           />
 
                           {showCustDropdown && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '220px', overflowY: 'auto', marginTop: '4px' }}>
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)', zIndex: 100, maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
                               {filteredCustomers.length > 0 ? (
                                 filteredCustomers.map(c => (
                                   <div
@@ -944,17 +961,17 @@ const SuperAdminPOS = () => {
                                       setCustomerSearch(`${c.firstName} ${c.lastName || ''}`);
                                       setShowCustDropdown(false);
                                     }}
-                                    style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
+                                    style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
                                     onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
                                     onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
                                   >
                                     <div>
-                                      <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
                                         {c.firstName} {c.lastName || ''}
                                       </div>
-                                      <div style={{ fontSize: '11px', color: '#64748b' }}>📱 {c.mobileNumber}</div>
+                                      <div style={{ fontSize: '10px', color: '#64748b' }}>📱 {c.mobileNumber}</div>
                                     </div>
-                                    {c.isB2B && <span style={{ fontSize: '10px', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>B2B</span>}
+                                    {c.isB2B && <span style={{ fontSize: '9px', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: '700' }}>B2B</span>}
                                   </div>
                                 ))
                               ) : (
@@ -968,7 +985,7 @@ const SuperAdminPOS = () => {
                                     setShowCreateCustomerModal(true);
                                     setShowCustDropdown(false);
                                   }}
-                                  style={{ padding: '12px', cursor: 'pointer', color: '#0284c7', fontSize: '13px', fontWeight: '700', textAlign: 'center', background: '#f0f9ff' }}
+                                  style={{ padding: '10px', cursor: 'pointer', color: '#0284c7', fontSize: '12px', fontWeight: '700', textAlign: 'center', background: '#f0f9ff' }}
                                 >
                                   + Create customer for "{customerSearch}"
                                 </div>
@@ -984,7 +1001,7 @@ const SuperAdminPOS = () => {
               </div>
 
               {/* Items Count Header Bar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '6px', flexShrink: 0 }}>
                 <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
                   Total Items: <strong style={{ color: 'var(--primary-color)' }}>{cart.length}</strong>
                 </span>
@@ -994,7 +1011,7 @@ const SuperAdminPOS = () => {
               </div>
 
               {/* Cart Items List */}
-              <div className="st-summary-items" style={{ minHeight: '260px', maxHeight: '380px', overflowY: 'auto' }}>
+              <div className="st-summary-items" style={{ flex: '1 1 auto', minHeight: '80px', maxHeight: '300px', overflowY: 'auto' }}>
 
 
                 {cart.map((item, idx) => (
@@ -1053,7 +1070,7 @@ const SuperAdminPOS = () => {
               </div>
 
               {/* Breakdown & Discount */}
-              <div className="st-summary-settle">
+              <div className="st-summary-settle" style={{ flexShrink: 0 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>
