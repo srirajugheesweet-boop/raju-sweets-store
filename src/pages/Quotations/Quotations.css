@@ -490,24 +490,42 @@
   color: #ffffff;
 }
 
-/* Product Cards Grid */
+/* Product Cards Grid - 4 items in a row */
 .qt-products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
-  max-height: 600px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-height: 650px;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+@media (max-width: 1100px) {
+  .qt-products-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .qt-products-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .qt-products-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .qt-product-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   transition: all 0.15s ease;
   position: relative;
 }
@@ -524,7 +542,7 @@
 
 .qt-card-thumb-wrap {
   width: 100%;
-  height: 100px;
+  height: 85px;
   border-radius: 8px;
   overflow: hidden;
   background: #f8fafc;
@@ -540,7 +558,7 @@
 }
 
 .qt-product-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #1e293b;
   margin: 0;
@@ -549,7 +567,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.3;
-  min-height: 34px;
+  min-height: 31px;
 }
 
 .qt-price-badge-row {
@@ -559,13 +577,13 @@
 }
 
 .qt-price-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #0A2A1B;
 }
 
 .qt-unit-pill {
-  font-size: 11px;
+  font-size: 10.5px;
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 600;
@@ -578,22 +596,20 @@
   color: #92400e;
 }
 
-/* Product Card Actions */
 .qt-btn-add-item {
   width: 100%;
-  padding: 8px;
+  padding: 7px 6px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
   transition: all 0.15s ease;
   border: 1px solid #cbd5e1;
   background: #f8fafc;
-  color: #334155;
 }
 
 .qt-btn-add-item:hover {
