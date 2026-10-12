@@ -133,44 +133,22 @@ export const formatQuotationWhatsAppMessage = (quotation, cloudinaryUrl) => {
   const customerName = quotation.toName || quotation.customerName || 'Valued Customer';
   const businessName = quotation.businessName ? ` (${quotation.businessName})` : '';
   const quotationNo = quotation.quotationNo || quotation.id || 'QT-NEW';
+  const productCount = Array.isArray(quotation.items) ? quotation.items.length : (quotation.itemCount || 0);
   const grandTotal = Number(quotation.grandTotal || 0).toFixed(2);
-  const subtotal = Number(quotation.subtotal || 0).toFixed(2);
-  const discount = Number(quotation.discountAmount || 0);
 
-  const itemsText = (quotation.items || []).map((it, idx) => {
-    const qtyText = it.unit === 'Weight' ? `${it.quantity} kg` : `${it.quantity} pcs`;
-    const rateText = `₹${it.price}/${it.unit === 'Weight' ? 'kg' : 'pc'}`;
-    return `  ${idx + 1}. *${it.name}* - ${qtyText} @ ${rateText} = ₹${Number(it.total || 0).toFixed(2)}`;
-  }).join('\n');
+  const message = `Hello *${customerName}*${businessName} 👋,
 
-  let discountText = '';
-  if (discount > 0) {
-    const label = quotation.discountType === 'percent' ? ` (${quotation.discountValue}%)` : '';
-    discountText = `\n🏷️ *Discount${label}:* -₹${discount.toFixed(2)}`;
-  }
+Greetings from *Raju Ghee Sweets*!
 
-  const message = `✨ *OFFICIAL ESTIMATE & QUOTATION* ✨
-*RAJU GHEE SWEETS*
-━━━━━━━━━━━━━━━━━━━━
-Dear *${customerName}*${businessName},
-Thank you for your inquiry! Here are the quotation details requested:
+📄 *Quotation ID:* #${quotationNo}
+📦 *Product Count:* ${productCount}
+💰 *Total Amount:* ₹${grandTotal}
 
-📋 *Quotation #:* ${quotationNo}
-📅 *Date:* ${quotation.quotationDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+🔗 *Quotation Link:*
+${cloudinaryUrl || 'Link will be available shortly'}
 
-🛍️ *Products:*
-${itemsText}
-━━━━━━━━━━━━━━━━━━━━
-💰 *Subtotal:* ₹${subtotal}${discountText}
-✨ *Total Amount:* ₹${grandTotal}
-━━━━━━━━━━━━━━━━━━━━
-📄 *View / Download Quotation:*
-${cloudinaryUrl || 'Available on request'}
-
-_This quotation is valid for 15 days. Subject to market price fluctuations._
-
-📞 *Raju Ghee Sweets* — Pure Ghee Delicacies & Sweets
-━━━━━━━━━━━━━━━━━━━━`;
+Warm Regards,
+*Raju Ghee Sweets*`;
 
   return message;
 };
