@@ -499,19 +499,20 @@
   color: #ffffff;
 }
 
-/* Product Cards Grid - dynamically fits columns cleanly */
+/* Product Cards Grid - beautifully balanced 4-column flow */
 .qt-products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 14px;
   max-height: 650px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 440px) {
   .qt-products-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 }
 
@@ -519,12 +520,15 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
   transition: all 0.15s ease;
   position: relative;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .qt-product-card:hover {
@@ -534,58 +538,65 @@
 
 .qt-product-card.selected-in-cart {
   border-color: #0A2A1B;
-  background: #fcfefc;
+  background: #fbfdfb;
+  box-shadow: 0 0 0 1px #0A2A1B;
 }
 
 .qt-card-thumb-wrap {
   width: 100%;
-  height: 85px;
+  height: 90px;
   border-radius: 8px;
   overflow: hidden;
   background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 6px;
+  box-sizing: border-box;
 }
 
 .qt-card-thumb-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .qt-product-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: #1e293b;
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.3;
-  min-height: 31px;
+  line-height: 1.35;
+  min-height: 35px;
+  word-break: break-word;
 }
 
 .qt-price-badge-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
 }
 
 .qt-price-label {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: #0A2A1B;
+  white-space: nowrap;
 }
 
 .qt-unit-pill {
-  font-size: 10.5px;
-  padding: 2px 6px;
+  font-size: 11px;
+  padding: 2px 7px;
   border-radius: 4px;
   font-weight: 600;
   background: #f1f5f9;
   color: #475569;
+  white-space: nowrap;
 }
 
 .qt-unit-pill.weight {
@@ -595,18 +606,22 @@
 
 .qt-btn-add-item {
   width: 100%;
-  padding: 7px 6px;
+  height: 32px;
+  padding: 0 8px;
   border-radius: 8px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
   border: 1px solid #cbd5e1;
   background: #f8fafc;
+  color: #1e293b;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .qt-btn-add-item:hover {
@@ -630,13 +645,16 @@
 .qt-qty-counter {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   width: 100%;
+  box-sizing: border-box;
+  height: 32px;
 }
 
 .qt-counter-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 32px;
+  flex: 0 0 30px;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -645,6 +663,8 @@
   border: 1px solid #cbd5e1;
   color: #334155;
   cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
 }
 
 .qt-counter-btn:hover {
@@ -654,14 +674,32 @@
 }
 
 .qt-counter-input {
-  flex: 1;
-  height: 28px;
+  flex: 1 1 0;
+  min-width: 0 !important;
+  width: 0;
+  height: 32px;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   outline: none;
+  background: #ffffff;
+  color: #0f172a;
+  box-sizing: border-box;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+
+.qt-counter-input::-webkit-outer-spin-button,
+.qt-counter-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qt-counter-input:focus {
+  border-color: #0A2A1B;
+  box-shadow: 0 0 0 2px rgba(10, 42, 27, 0.1);
 }
 
 /* ==========================================================================
