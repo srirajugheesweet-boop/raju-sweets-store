@@ -1091,7 +1091,7 @@ const Quotations = () => {
             </div>
 
             {/* Right: Selected Items Summary & Financials */}
-            <div className="qt-summary-card">
+            <div className="qt-summary-card" id="quotation-summary-card">
               <div className="qt-summary-header">
                 <h3 className="qt-summary-title">
                   <ShoppingBag size={18} color="var(--accent-color)" />
@@ -1275,6 +1275,28 @@ const Quotations = () => {
             </div>
 
           </div>
+
+          {/* Mobile / Tablet Quick-View Sticky Summary Bar */}
+          {selectedItems.length > 0 && (
+            <div className="qt-mobile-summary-bar">
+              <div className="qt-mobile-summary-info">
+                <span className="qt-mobile-items-badge">
+                  {selectedItems.length} {selectedItems.length === 1 ? 'item' : 'items'}
+                </span>
+                <span className="qt-mobile-total-val">₹{grandTotal.toFixed(2)}</span>
+              </div>
+              <button
+                type="button"
+                className="qt-mobile-view-summary-btn"
+                onClick={() => {
+                  const el = document.getElementById('quotation-summary-card');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                View Summary & Save ↓
+              </button>
+            </div>
+          )}
         </div>
       )}
 

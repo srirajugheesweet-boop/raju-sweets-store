@@ -426,14 +426,22 @@
 /* Main Split View: Products on Left, Summary on Right */
 .qt-workspace-split {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1200px) {
+  .qt-workspace-split {
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
   .qt-workspace-split {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
 
@@ -444,6 +452,7 @@
   border-radius: 14px;
   padding: 20px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  min-width: 0;
 }
 
 .qt-catalog-toolbar {
@@ -490,31 +499,19 @@
   color: #ffffff;
 }
 
-/* Product Cards Grid - 4 items in a row */
+/* Product Cards Grid - dynamically fits columns cleanly */
 .qt-products-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
   gap: 12px;
   max-height: 650px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
-@media (max-width: 1100px) {
-  .qt-products-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .qt-products-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 480px) {
   .qt-products-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -675,13 +672,26 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  padding: 20px;
+  padding: 18px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   position: sticky;
-  top: 20px;
+  top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .qt-summary-card {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    margin-bottom: 70px; /* Space for mobile sticky action bar */
+  }
 }
 
 .qt-summary-header {
@@ -712,12 +722,13 @@
 }
 
 .qt-summary-items-list {
-  max-height: 300px;
+  max-height: 240px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding-right: 2px;
+  scrollbar-width: thin;
 }
 
 .qt-summary-item-row {
@@ -1111,4 +1122,79 @@
 .qt-modal-btn:hover {
   background: #f8fafc;
   color: #0f172a;
+}
+
+/* Mobile & Tablet Quick-View Sticky Summary Bar */
+.qt-mobile-summary-bar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .qt-mobile-summary-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0A2A1B;
+    color: #ffffff;
+    padding: 12px 18px;
+    z-index: 99;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.2);
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    animation: slideUpSummary 0.25s ease-out;
+  }
+
+  .qt-mobile-summary-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .qt-mobile-items-badge {
+    background: rgba(255, 255, 255, 0.18);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .qt-mobile-total-val {
+    font-size: 16px;
+    font-weight: 800;
+    color: #ffd700;
+  }
+
+  .qt-mobile-view-summary-btn {
+    background: #ffffff;
+    color: #0A2A1B;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    transition: transform 0.15s ease;
+  }
+
+  .qt-mobile-view-summary-btn:active {
+    transform: scale(0.97);
+  }
+}
+
+@keyframes slideUpSummary {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
