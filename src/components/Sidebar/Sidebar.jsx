@@ -21,30 +21,33 @@ import {
   Receipt,
   Barcode,
   Sparkles,
+  FileText,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './Sidebar.css';
 
 export const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard' },
-  { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders' },
+  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard', section: 'core' },
+  { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', section: 'core' },
+  { id: 'quotations', label: 'Quotations', icon: <FileText />, path: '/quotations', section: 'core' },
+  { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing', section: 'core' },
+  { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales', section: 'core' },
 
-  { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing' },
-  { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales' },
-  { id: 'barcode-generator', label: 'Barcode Generator', icon: <Barcode />, path: '/barcode-generator' },
-  { id: 'custom-sticker', label: 'Custom Sticker', icon: <Sparkles />, path: '/custom-sticker' },
-  { id: 'items', label: 'Products', icon: <Box />, path: '/items' },
-  { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories' },
-  { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments' },
-  { id: 'store-worksheet', label: 'Work Sheet', icon: <ClipboardList />, path: '/store-worksheet' },
-  { id: 'stores', label: 'Stores', icon: <Store />, path: '/stores' },
-  { id: 'manufacturing', label: 'Manufacturing', icon: <Factory />, path: '/manufacturing' },
-  { id: 'packing', label: 'Packing Units', icon: <Package />, path: '/packing' },
-  { id: 'users', label: 'Users & Roles', icon: <UserCog />, path: '/users' },
-  { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees' },
-  { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet' },
-  { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support' },
+  { id: 'barcode-generator', label: 'Barcode Generator', icon: <Barcode />, path: '/barcode-generator', section: 'operations' },
+  { id: 'custom-sticker', label: 'Custom Sticker', icon: <Sparkles />, path: '/custom-sticker', section: 'operations' },
+  { id: 'items', label: 'Products', icon: <Box />, path: '/items', section: 'operations' },
+  { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories', section: 'operations' },
+  { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments', section: 'operations' },
+  { id: 'store-worksheet', label: 'Work Sheet', icon: <ClipboardList />, path: '/store-worksheet', section: 'operations' },
+  { id: 'stores', label: 'Stores', icon: <Store />, path: '/stores', section: 'operations' },
+  { id: 'manufacturing', label: 'Manufacturing', icon: <Factory />, path: '/manufacturing', section: 'operations' },
+  { id: 'packing', label: 'Packing Units', icon: <Package />, path: '/packing', section: 'operations' },
+
+  { id: 'users', label: 'Users & Roles', icon: <UserCog />, path: '/users', section: 'admin' },
+  { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees', section: 'admin' },
+  { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet', section: 'admin' },
+  { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support', section: 'admin' },
 ];
 
 
@@ -96,7 +99,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         onScroll={handleScroll}
       >
         <div className="sidebar-section-title">Core Modules</div>
-        {menuItems.slice(0, 4).map((item) => (
+        {menuItems.filter(item => item.section === 'core').map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
@@ -110,7 +113,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         ))}
 
         <div className="sidebar-section-title">Operations</div>
-        {menuItems.slice(4, 12).map((item) => (
+        {menuItems.filter(item => item.section === 'operations').map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
@@ -123,8 +126,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         ))}
 
         <div className="sidebar-section-title">Admin & Staff</div>
-        {menuItems.slice(12).map((item) => (
-
+        {menuItems.filter(item => item.section === 'admin').map((item) => (
           <Link 
             key={item.id} 
             to={item.path} 
