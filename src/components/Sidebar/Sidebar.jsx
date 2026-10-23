@@ -22,6 +22,7 @@ import {
   Barcode,
   Sparkles,
   FileText,
+  TrendingUp,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -29,6 +30,7 @@ import './Sidebar.css';
 
 export const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard', section: 'core' },
+  { id: 'sales-dashboard', label: 'Sales Dashboard', icon: <TrendingUp />, path: '/sales-dashboard', section: 'core' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', section: 'core' },
   { id: 'quotations', label: 'Quotations', icon: <FileText />, path: '/quotations', section: 'core' },
   { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing', section: 'core' },

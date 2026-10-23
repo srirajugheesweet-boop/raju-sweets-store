@@ -33,6 +33,7 @@ import StoreWorkSheet from './pages/StoreWorkSheet/StoreWorkSheet';
 import ScanBox from './pages/ScanBox/ScanBox';
 import Dashboard from './pages/Dashboard/Dashboard';
 import WalkInSales from './pages/WalkInSales/WalkInSales';
+import SalesDashboard from './pages/SalesDashboard/SalesDashboard';
 import SuperAdminPOS from './pages/SuperAdminPOS/SuperAdminPOS';
 import BarcodeGenerator from './pages/BarcodeGenerator/BarcodeGenerator';
 import CustomBarcode from './pages/CustomBarcode/CustomBarcode';
@@ -102,6 +103,7 @@ function App() {
 
           {/* Super Admin Module Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+          <Route path="/sales-dashboard" element={<ProtectedRoute><Layout><SalesDashboard /></Layout></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/quotations" element={<ProtectedRoute><Layout><Quotations /></Layout></ProtectedRoute>} />
           <Route path="/pos-billing" element={<ProtectedRoute><Layout><SuperAdminPOS /></Layout></ProtectedRoute>} />

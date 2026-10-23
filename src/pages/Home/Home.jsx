@@ -14,13 +14,15 @@ import {
   Clock, 
   CreditCard, 
   ArrowRight,
-  LifeBuoy
+  LifeBuoy,
+  TrendingUp
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import './Home.css';
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard />, path: '/dashboard', color: 'purple' },
+  { id: 'sales-dashboard', label: 'Sales Dashboard', icon: <TrendingUp />, path: '/sales-dashboard', color: 'green' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments', color: 'pink' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', color: 'pink' },
   { id: 'store-worksheet', label: 'Store Work Sheet', icon: <ClipboardList />, path: '/store-worksheet', color: 'teal' },
