@@ -38,6 +38,7 @@ import SuperAdminPOS from './pages/SuperAdminPOS/SuperAdminPOS';
 import BarcodeGenerator from './pages/BarcodeGenerator/BarcodeGenerator';
 import CustomBarcode from './pages/CustomBarcode/CustomBarcode';
 import Quotations from './pages/Quotations/Quotations';
+import B2BInvoices from './pages/B2BInvoices/B2BInvoices';
 import BulkOrderCleanupModal from './components/BulkOrderCleanupModal/BulkOrderCleanupModal';
 import { Toaster } from 'react-hot-toast';
 
@@ -106,6 +107,7 @@ function App() {
           <Route path="/sales-dashboard" element={<ProtectedRoute><Layout><SalesDashboard /></Layout></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
           <Route path="/quotations" element={<ProtectedRoute><Layout><Quotations /></Layout></ProtectedRoute>} />
+          <Route path="/b2b-invoices" element={<ProtectedRoute><Layout><B2BInvoices /></Layout></ProtectedRoute>} />
           <Route path="/pos-billing" element={<ProtectedRoute><Layout><SuperAdminPOS /></Layout></ProtectedRoute>} />
           <Route path="/barcode-generator" element={<ProtectedRoute><Layout><BarcodeGenerator /></Layout></ProtectedRoute>} />
           <Route path="/custom-sticker" element={<ProtectedRoute><Layout><CustomBarcode /></Layout></ProtectedRoute>} />

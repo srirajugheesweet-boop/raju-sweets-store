@@ -23,6 +23,7 @@ import {
   Sparkles,
   FileText,
   TrendingUp,
+  Building2,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -33,6 +34,7 @@ export const menuItems = [
   { id: 'sales-dashboard', label: 'Sales Dashboard', icon: <TrendingUp />, path: '/sales-dashboard', section: 'core' },
   { id: 'orders', label: 'Orders', icon: <ShoppingBag />, path: '/orders', section: 'core' },
   { id: 'quotations', label: 'Quotations', icon: <FileText />, path: '/quotations', section: 'core' },
+  { id: 'b2b-invoices', label: 'B2B Invoices', icon: <Building2 />, path: '/b2b-invoices', section: 'core' },
   { id: 'pos-billing', label: 'Billing & POS', icon: <CreditCard />, path: '/pos-billing', section: 'core' },
   { id: 'walkin-sales', label: 'Walk-In Sales', icon: <Receipt />, path: '/walkin-sales', section: 'core' },
 
