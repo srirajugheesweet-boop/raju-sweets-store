@@ -182,7 +182,7 @@
   border: none;
   background: transparent;
   color: #64748b;
-  padding: 0 14px !important;
+  padding: 0 12px !important;
   border-radius: 4px;
   cursor: pointer;
   display: inline-flex !important;
@@ -190,6 +190,7 @@
   gap: 8px;
   font-size: 13px !important;
   transition: all 0.15s ease;
+  line-height: 1 !important;
 }
 
 .b2b-tab-btn:hover {
@@ -203,11 +204,22 @@
 }
 
 .b2b-tab-counter {
+  height: 18px !important;
+  min-width: 18px !important;
+  max-height: 18px !important;
+  line-height: 18px !important;
+  padding: 0 6px !important;
+  border-radius: 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
   background-color: #e2e8f0;
   color: #334155;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 10px;
+  margin-left: 2px;
 }
 
 .b2b-tab-btn.active .b2b-tab-counter {
@@ -349,6 +361,301 @@
 .b2b-select:focus {
   border-color: #2563eb;
   outline: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Custom Searchable Customer Dropdown                                        */
+/* -------------------------------------------------------------------------- */
+
+.b2b-cust-dd-container {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 250px;
+}
+
+.b2b-cust-dd-trigger {
+  height: 34px !important;
+  max-height: 34px !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.b2b-cust-dd-trigger:hover {
+  border-color: #94a3b8;
+}
+
+.b2b-cust-dd-trigger.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+.b2b-cust-dd-trigger.has-selection {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.b2b-cust-dd-trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.b2b-cust-dd-icon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.b2b-cust-dd-label {
+  font-size: 13px;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.b2b-cust-dd-selected-biz {
+  font-weight: 500;
+  color: #1e40af;
+}
+
+.b2b-cust-dd-selected-phone {
+  font-size: 12px;
+  color: #3b82f6;
+}
+
+.b2b-cust-dd-trigger-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.b2b-cust-dd-clear-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #dbeafe;
+  color: #1e40af;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.b2b-cust-dd-clear-btn:hover {
+  background-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.b2b-cust-dd-chevron {
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.b2b-cust-dd-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Popover */
+.b2b-cust-dd-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 320px;
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+  z-index: 1050;
+  overflow: hidden;
+  animation: b2b-dropdown-in 0.15s ease-out;
+}
+
+@keyframes b2b-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.b2b-cust-dd-search-header {
+  position: relative;
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  background-color: #f8fafc;
+  display: flex;
+  align-items: center;
+}
+
+.b2b-cust-dd-search-icon {
+  position: absolute;
+  left: 18px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.b2b-cust-dd-search-input {
+  width: 100%;
+  height: 30px !important;
+  max-height: 30px !important;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 0 28px 0 28px !important;
+  font-size: 12px !important;
+  background: #ffffff;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.b2b-cust-dd-search-input:focus {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+.b2b-cust-dd-search-clear {
+  position: absolute;
+  right: 16px;
+  height: 18px !important;
+  width: 18px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.b2b-cust-dd-search-clear:hover {
+  color: #0f172a;
+}
+
+/* Items List */
+.b2b-cust-dd-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.b2b-cust-dd-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.b2b-cust-dd-item:hover {
+  background-color: #f1f5f9;
+}
+
+.b2b-cust-dd-item.selected {
+  background-color: #eff6ff;
+}
+
+.b2b-cust-dd-item.all-option {
+  padding: 8px 10px;
+}
+
+.b2b-cust-dd-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+  margin: 4px 6px;
+}
+
+.b2b-cust-dd-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.b2b-cust-dd-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.b2b-cust-dd-name {
+  font-size: 13px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.b2b-cust-dd-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.b2b-cust-dd-item-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.b2b-cust-dd-phone-highlight {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.b2b-cust-dd-gst {
+  font-family: monospace;
+  color: #475569;
+}
+
+.b2b-cust-dd-phone {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.b2b-cust-dd-check {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.b2b-cust-dd-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 /* Custom Date Row */

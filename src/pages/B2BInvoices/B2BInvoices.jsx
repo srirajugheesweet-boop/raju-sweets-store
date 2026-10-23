@@ -20,6 +20,7 @@ import {
   AlertCircle, 
   CreditCard, 
   X, 
+  Check,
   ExternalLink,
   DollarSign,
   ArrowUpDown,
@@ -120,6 +121,225 @@ const formatDisplayTime = (record) => {
     minute: '2-digit',
     hour12: true
   });
+};
+
+// Custom Searchable Dropdown for B2B Customers
+const CustomerSearchDropdown = ({ 
+  customers, 
+  selectedCustomerId, 
+  onSelectCustomer, 
+  onClearCustomer 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Close on click outside or Escape key
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 50);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const selectedCustomer = useMemo(() => {
+    if (selectedCustomerId === 'all') return null;
+    return customers.find(c => c.id === selectedCustomerId) || null;
+  }, [selectedCustomerId, customers]);
+
+  // Filter options by search term (name, phone, business, gst)
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm.trim()) return customers;
+    const q = searchTerm.toLowerCase().trim();
+    const qDigits = q.replace(/\D/g, '');
+
+    return customers.filter(c => {
+      const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+      const biz = (c.businessName || c.companyName || '').toLowerCase();
+      const phone = String(c.mobileNumber || c.phone || '').toLowerCase();
+      const gst = String(c.gstNumber || c.gst || '').toLowerCase();
+
+      return (
+        name.includes(q) ||
+        biz.includes(q) ||
+        gst.includes(q) ||
+        phone.includes(q) ||
+        (qDigits && phone.replace(/\D/g, '').includes(qDigits))
+      );
+    });
+  }, [customers, searchTerm]);
+
+  return (
+    <div className="b2b-cust-dd-container" ref={dropdownRef}>
+      {/* Trigger Button */}
+      <div 
+        className={`b2b-cust-dd-trigger ${isOpen ? 'active' : ''} ${selectedCustomer ? 'has-selection' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+        title="Select B2B Customer"
+      >
+        <div className="b2b-cust-dd-trigger-left">
+          <Building2 size={14} className="b2b-cust-dd-icon" />
+          <span className="b2b-cust-dd-label">
+            {selectedCustomer ? (
+              <>
+                <strong className="b2b-cust-dd-selected-biz">
+                  {selectedCustomer.businessName || `${selectedCustomer.firstName} ${selectedCustomer.lastName || ''}`}
+                </strong>
+                {selectedCustomer.mobileNumber && (
+                  <span className="b2b-cust-dd-selected-phone">
+                    • {selectedCustomer.mobileNumber}
+                  </span>
+                )}
+              </>
+            ) : (
+              `All B2B Customers (${customers.length})`
+            )}
+          </span>
+        </div>
+
+        <div className="b2b-cust-dd-trigger-right">
+          {selectedCustomer && (
+            <span
+              className="b2b-cust-dd-clear-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClearCustomer();
+              }}
+              title="Clear customer filter"
+            >
+              <X size={13} />
+            </span>
+          )}
+          <ChevronDown size={14} className={`b2b-cust-dd-chevron ${isOpen ? 'open' : ''}`} />
+        </div>
+      </div>
+
+      {/* Popover */}
+      {isOpen && (
+        <div className="b2b-cust-dd-popover">
+          {/* Popover Search Bar */}
+          <div className="b2b-cust-dd-search-header">
+            <Search size={14} className="b2b-cust-dd-search-icon" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="b2b-cust-dd-search-input"
+              placeholder="Search customer name or mobile number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {searchTerm && (
+              <button
+                className="b2b-cust-dd-search-clear"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchTerm('');
+                  if (searchInputRef.current) searchInputRef.current.focus();
+                }}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Options List */}
+          <div className="b2b-cust-dd-list">
+            {/* "All Customers" Option */}
+            <div
+              className={`b2b-cust-dd-item all-option ${selectedCustomerId === 'all' ? 'selected' : ''}`}
+              onClick={() => {
+                onSelectCustomer('all');
+                setIsOpen(false);
+                setSearchTerm('');
+              }}
+            >
+              <div className="b2b-cust-dd-item-info">
+                <span className="b2b-cust-dd-name">🏢 All B2B Customers</span>
+                <span className="b2b-cust-dd-phone">Show orders and sales from all {customers.length} B2B accounts</span>
+              </div>
+              {selectedCustomerId === 'all' && (
+                <Check size={14} className="b2b-cust-dd-check" />
+              )}
+            </div>
+
+            <div className="b2b-cust-dd-divider"></div>
+
+            {/* Filtered Customer Options */}
+            {filteredCustomers.length > 0 ? (
+              filteredCustomers.map(cust => {
+                const isSelected = cust.id === selectedCustomerId;
+                return (
+                  <div
+                    key={cust.id}
+                    className={`b2b-cust-dd-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      onSelectCustomer(cust.id);
+                      setIsOpen(false);
+                      setSearchTerm('');
+                    }}
+                  >
+                    <div className="b2b-cust-dd-item-info">
+                      <div className="b2b-cust-dd-item-top">
+                        <span className="b2b-cust-dd-name">
+                          {cust.businessName || `${cust.firstName} ${cust.lastName || ''}`}
+                        </span>
+                        <span className="b2b-cust-dd-badge">B2B</span>
+                      </div>
+                      <div className="b2b-cust-dd-item-sub">
+                        <span>{cust.firstName} {cust.lastName || ''}</span>
+                        {cust.mobileNumber && (
+                          <>
+                            <span>•</span>
+                            <span className="b2b-cust-dd-phone-highlight">📞 {cust.mobileNumber}</span>
+                          </>
+                        )}
+                        {cust.gstNumber && (
+                          <>
+                            <span>•</span>
+                            <span className="b2b-cust-dd-gst">GST: {cust.gstNumber}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <Check size={14} className="b2b-cust-dd-check" />
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="b2b-cust-dd-empty">
+                <span>No customer found matching "{searchTerm}"</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const B2BInvoices = () => {
@@ -889,22 +1109,13 @@ const B2BInvoices = () => {
             )}
           </div>
 
-          {/* Customer Dropdown Selector */}
-          <div className="b2b-select-wrapper">
-            <User size={14} className="b2b-select-icon" />
-            <select
-              className="b2b-select"
-              value={selectedCustomerId}
-              onChange={(e) => setSelectedCustomerId(e.target.value)}
-            >
-              <option value="all">🏢 All B2B Customers ({b2bCustomers.length})</option>
-              {b2bCustomers.map(cust => (
-                <option key={cust.id} value={cust.id}>
-                  {cust.businessName ? `${cust.businessName} - ${cust.firstName} ${cust.lastName || ''}` : `${cust.firstName} ${cust.lastName || ''}`} ({cust.mobileNumber || 'No Phone'})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Custom Searchable Customer Dropdown */}
+          <CustomerSearchDropdown
+            customers={b2bCustomers}
+            selectedCustomerId={selectedCustomerId}
+            onSelectCustomer={(id) => setSelectedCustomerId(id)}
+            onClearCustomer={() => setSelectedCustomerId('all')}
+          />
 
           {/* Store / Outlet Selector */}
           <div className="b2b-select-wrapper">
