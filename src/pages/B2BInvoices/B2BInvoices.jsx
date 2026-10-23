@@ -829,30 +829,98 @@ const B2BInvoices = () => {
     }
   };
 
-  // Export current list to Excel
+  // Tax calculation helper for GST, CGST, and SGST
+  const calculateRecordTax = (record) => {
+    const items = record.items || [];
+    let taxable = 0;
+    let cgst = 0;
+    let sgst = 0;
+    let totalTax = 0;
+
+    if (items.length > 0) {
+      items.forEach(item => {
+        const itemTotal = Number(item.total) || (Number(item.price || 0) * Number(item.quantity || 1));
+        const rate = Number(item.taxRate) || 5;
+        const itemTaxable = itemTotal / (1 + (rate / 100));
+        const taxAmt = itemTotal - itemTaxable;
+
+        taxable += itemTaxable;
+        cgst += taxAmt / 2;
+        sgst += taxAmt / 2;
+        totalTax += taxAmt;
+      });
+    } else {
+      const net = Number(record.totalAmount) || 0;
+      taxable = net / 1.05;
+      totalTax = net - taxable;
+      cgst = totalTax / 2;
+      sgst = totalTax / 2;
+    }
+
+    return {
+      taxableAmount: taxable,
+      cgstAmount: cgst,
+      sgstAmount: sgst,
+      totalTaxAmount: totalTax
+    };
+  };
+
+  // Export current filtered list to Excel with CGST & SGST
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
+      const generatedAt = new Date().toLocaleString('en-IN');
+
+      const filterSummaryParts = [
+        `Period: ${dateFilterMode === 'this-month' ? 'This Month' : dateFilterMode === 'last-month' ? 'Last Month' : dateFilterMode === 'custom' ? `Custom (${customStartDate || 'Start'} to ${customEndDate || 'End'})` : 'All Time'}`,
+        `Customer: ${activeCustomerObj ? `${activeCustomerObj.businessName || `${activeCustomerObj.firstName} ${activeCustomerObj.lastName || ''}`} (${activeCustomerObj.mobileNumber || 'No Phone'})` : 'All B2B Customers'}`,
+        selectedStoreId !== 'all' ? `Store: ${stores.find(s => s.id === selectedStoreId)?.name || selectedStoreId}` : 'Store: All Stores',
+        customerSearchQuery.trim() ? `Search: "${customerSearchQuery.trim()}"` : null,
+        activeTab === 'orders' 
+          ? (orderPaymentStatusFilter !== 'all' ? `Payment Status: ${orderPaymentStatusFilter}` : null)
+          : (walkinStatusFilter !== 'all' ? `Status: ${walkinStatusFilter}` : null)
+      ].filter(Boolean).join(' | ');
 
       if (activeTab === 'orders') {
+        if (filteredOrders.length === 0) {
+          toast.error("No filtered orders to export");
+          return;
+        }
+
+        let sumItems = 0;
+        let sumGross = 0;
+        let sumDisc = 0;
+        let sumTaxable = 0;
+        let sumCGST = 0;
+        let sumSGST = 0;
+        let sumGST = 0;
+        let sumNet = 0;
+        let sumPaid = 0;
+        let sumDue = 0;
+
         const rows = [
-          ['B2B ORDERS INVOICE REPORT - RAJU GHEE SWEETS'],
-          [`Generated on: ${new Date().toLocaleString('en-IN')}`],
-          [`Date Filter: ${dateFilterMode} | Customer Filter: ${activeCustomerObj ? activeCustomerObj.firstName : 'All'}`],
+          ['SRI RAJU GHEE SWEETS - B2B ORDERS INVOICE REPORT (TAX & GST BREAKDOWN)'],
+          [`Generated on: ${generatedAt}`],
+          [`Filters Applied: ${filterSummaryParts}`],
+          [`Total Records: ${filteredOrders.length}`],
           [],
           [
             'Order #',
             'Serial #',
-            'Date',
+            'Order Date',
             'Delivery Date',
             'Customer Name',
             'Business Name',
             'Mobile Number',
-            'GSTIN',
-            'Store / Outlet',
+            'Customer GSTIN',
+            'Store Outlet',
             'Items Count',
-            'Gross Total (₹)',
+            'Gross Amount (₹)',
             'Discount (₹)',
+            'Taxable Value (₹)',
+            'CGST @ 2.5% (₹)',
+            'SGST @ 2.5% (₹)',
+            'Total GST (₹)',
             'Net Amount (₹)',
             'Advance Paid (₹)',
             'Balance Due (₹)',
@@ -862,9 +930,28 @@ const B2BInvoices = () => {
         ];
 
         filteredOrders.forEach(o => {
+          const itemsCount = (o.items || []).length;
+          const netAmt = Number(o.totalAmount || 0);
+          const disc = Number(o.discount || 0);
+          const gross = netAmt + disc;
+          const paid = Number(o.receivedAmount || 0);
+          const due = Math.max(0, netAmt - paid);
+          const { taxableAmount, cgstAmount, sgstAmount, totalTaxAmount } = calculateRecordTax(o);
+
+          sumItems += itemsCount;
+          sumGross += gross;
+          sumDisc += disc;
+          sumTaxable += taxableAmount;
+          sumCGST += cgstAmount;
+          sumSGST += sgstAmount;
+          sumGST += totalTaxAmount;
+          sumNet += netAmt;
+          sumPaid += paid;
+          sumDue += due;
+
           rows.push([
             o.orderId || o.id,
-            o.serialNumber || '',
+            o.serialNumber ? `S-${o.serialNumber}` : '',
             formatDisplayDate(o),
             o.deliveryDate || '-',
             o.customerName || '',
@@ -872,29 +959,99 @@ const B2BInvoices = () => {
             o.customerPhone || '',
             o.gstNumber || '',
             o.storeName || '',
-            (o.items || []).length,
-            (Number(o.totalAmount || 0) + Number(o.discount || 0)).toFixed(2),
-            Number(o.discount || 0).toFixed(2),
-            Number(o.totalAmount || 0).toFixed(2),
-            Number(o.receivedAmount || 0).toFixed(2),
-            Math.max(0, Number(o.totalAmount || 0) - Number(o.receivedAmount || 0)).toFixed(2),
+            itemsCount,
+            parseFloat(gross.toFixed(2)),
+            parseFloat(disc.toFixed(2)),
+            parseFloat(taxableAmount.toFixed(2)),
+            parseFloat(cgstAmount.toFixed(2)),
+            parseFloat(sgstAmount.toFixed(2)),
+            parseFloat(totalTaxAmount.toFixed(2)),
+            parseFloat(netAmt.toFixed(2)),
+            parseFloat(paid.toFixed(2)),
+            parseFloat(due.toFixed(2)),
             o.paymentStatus || 'Pending',
             o.status || 'New'
           ]);
         });
 
+        // Append Grand Totals Row
+        rows.push([]);
+        rows.push([
+          'GRAND TOTAL',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          `${filteredOrders.length} Orders`,
+          sumItems,
+          parseFloat(sumGross.toFixed(2)),
+          parseFloat(sumDisc.toFixed(2)),
+          parseFloat(sumTaxable.toFixed(2)),
+          parseFloat(sumCGST.toFixed(2)),
+          parseFloat(sumSGST.toFixed(2)),
+          parseFloat(sumGST.toFixed(2)),
+          parseFloat(sumNet.toFixed(2)),
+          parseFloat(sumPaid.toFixed(2)),
+          parseFloat(sumDue.toFixed(2)),
+          '',
+          ''
+        ]);
+
         const ws = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, 'B2B Orders');
-        XLSX.writeFile(wb, `B2B_Orders_Invoices_${dateFilterMode}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        ws['!cols'] = [
+          { wch: 14 }, // Order #
+          { wch: 10 }, // Serial #
+          { wch: 14 }, // Order Date
+          { wch: 14 }, // Delivery Date
+          { wch: 22 }, // Customer Name
+          { wch: 26 }, // Business Name
+          { wch: 14 }, // Mobile
+          { wch: 18 }, // GSTIN
+          { wch: 18 }, // Store
+          { wch: 12 }, // Items
+          { wch: 16 }, // Gross
+          { wch: 14 }, // Discount
+          { wch: 16 }, // Taxable
+          { wch: 14 }, // CGST
+          { wch: 14 }, // SGST
+          { wch: 14 }, // Total GST
+          { wch: 16 }, // Net Total
+          { wch: 14 }, // Advance Paid
+          { wch: 14 }, // Balance Due
+          { wch: 16 }, // Payment Status
+          { wch: 16 }  // Order Status
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Filtered B2B Orders');
+        const filenameCust = activeCustomerObj ? `_${activeCustomerObj.businessName || activeCustomerObj.firstName}`.replace(/[^a-zA-Z0-9]/g, '_') : '';
+        XLSX.writeFile(wb, `B2B_Orders_Tax_Report_${dateFilterMode}${filenameCust}_${new Date().toISOString().split('T')[0]}.xlsx`);
       } else {
+        if (filteredBills.length === 0) {
+          toast.error("No filtered walk-in sales to export");
+          return;
+        }
+
+        let sumItems = 0;
+        let sumGross = 0;
+        let sumDisc = 0;
+        let sumTaxable = 0;
+        let sumCGST = 0;
+        let sumSGST = 0;
+        let sumGST = 0;
+        let sumNet = 0;
+
         const rows = [
-          ['B2B WALK-IN POS SALES REPORT - RAJU GHEE SWEETS'],
-          [`Generated on: ${new Date().toLocaleString('en-IN')}`],
-          [`Date Filter: ${dateFilterMode} | Customer Filter: ${activeCustomerObj ? activeCustomerObj.firstName : 'All'}`],
+          ['SRI RAJU GHEE SWEETS - B2B WALK-IN POS SALES REPORT (TAX & GST BREAKDOWN)'],
+          [`Generated on: ${generatedAt}`],
+          [`Filters Applied: ${filterSummaryParts}`],
+          [`Total Records: ${filteredBills.length}`],
           [],
           [
             'Bill #',
-            'Date',
+            'Bill Date',
             'Time',
             'Customer Name',
             'Business Name',
@@ -903,14 +1060,33 @@ const B2BInvoices = () => {
             'Store Outlet',
             'Payment Mode',
             'Items Count',
-            'Gross Total (₹)',
+            'Gross Amount (₹)',
             'Discount (₹)',
-            'Net Amount (₹)',
+            'Taxable Value (₹)',
+            'CGST @ 2.5% (₹)',
+            'SGST @ 2.5% (₹)',
+            'Total GST (₹)',
+            'Net Bill Amount (₹)',
             'Status'
           ]
         ];
 
         filteredBills.forEach(b => {
+          const itemsCount = (b.items || []).length;
+          const netAmt = Number(b.totalAmount || 0);
+          const disc = Number(b.discount || 0);
+          const gross = netAmt + disc;
+          const { taxableAmount, cgstAmount, sgstAmount, totalTaxAmount } = calculateRecordTax(b);
+
+          sumItems += itemsCount;
+          sumGross += gross;
+          sumDisc += disc;
+          sumTaxable += taxableAmount;
+          sumCGST += cgstAmount;
+          sumSGST += sgstAmount;
+          sumGST += totalTaxAmount;
+          sumNet += netAmt;
+
           rows.push([
             b.billId || b.id,
             formatDisplayDate(b),
@@ -921,20 +1097,69 @@ const B2BInvoices = () => {
             b.customerGst || b.gstNumber || '',
             b.storeName || '',
             formatPaymentModeDisplay(b.paymentMode, b.splitPayments),
-            (b.items || []).length,
-            (Number(b.totalAmount || 0) + Number(b.discount || 0)).toFixed(2),
-            Number(b.discount || 0).toFixed(2),
-            Number(b.totalAmount || 0).toFixed(2),
+            itemsCount,
+            parseFloat(gross.toFixed(2)),
+            parseFloat(disc.toFixed(2)),
+            parseFloat(taxableAmount.toFixed(2)),
+            parseFloat(cgstAmount.toFixed(2)),
+            parseFloat(sgstAmount.toFixed(2)),
+            parseFloat(totalTaxAmount.toFixed(2)),
+            parseFloat(netAmt.toFixed(2)),
             b.status || 'settled'
           ]);
         });
 
+        // Append Grand Totals Row
+        rows.push([]);
+        rows.push([
+          'GRAND TOTAL',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          `${filteredBills.length} Bills`,
+          '',
+          sumItems,
+          parseFloat(sumGross.toFixed(2)),
+          parseFloat(sumDisc.toFixed(2)),
+          parseFloat(sumTaxable.toFixed(2)),
+          parseFloat(sumCGST.toFixed(2)),
+          parseFloat(sumSGST.toFixed(2)),
+          parseFloat(sumGST.toFixed(2)),
+          parseFloat(sumNet.toFixed(2)),
+          ''
+        ]);
+
         const ws = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, 'B2B Walk-In Sales');
-        XLSX.writeFile(wb, `B2B_WalkIn_Invoices_${dateFilterMode}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        ws['!cols'] = [
+          { wch: 14 }, // Bill #
+          { wch: 14 }, // Date
+          { wch: 12 }, // Time
+          { wch: 22 }, // Customer Name
+          { wch: 26 }, // Business Name
+          { wch: 14 }, // Mobile
+          { wch: 18 }, // GSTIN
+          { wch: 18 }, // Store Outlet
+          { wch: 18 }, // Payment Mode
+          { wch: 12 }, // Items
+          { wch: 16 }, // Gross
+          { wch: 14 }, // Discount
+          { wch: 16 }, // Taxable
+          { wch: 14 }, // CGST
+          { wch: 14 }, // SGST
+          { wch: 14 }, // Total GST
+          { wch: 16 }, // Net Total
+          { wch: 14 }  // Status
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Filtered B2B Walk-In');
+        const filenameCust = activeCustomerObj ? `_${activeCustomerObj.businessName || activeCustomerObj.firstName}`.replace(/[^a-zA-Z0-9]/g, '_') : '';
+        XLSX.writeFile(wb, `B2B_WalkIn_Tax_Report_${dateFilterMode}${filenameCust}_${new Date().toISOString().split('T')[0]}.xlsx`);
       }
 
-      toast.success("Excel report downloaded successfully!");
+      toast.success("Excel report with CGST/SGST exported successfully!");
     } catch (err) {
       console.error("Export error:", err);
       toast.error("Failed to export Excel report");
