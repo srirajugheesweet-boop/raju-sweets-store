@@ -37,6 +37,7 @@ import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import SalesCharts from './SalesCharts';
 import './SalesDashboard.css';
 
 // Logo for invoice preview fallback
@@ -1050,6 +1051,17 @@ const SalesDashboard = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* ==================================================== */}
+      {/* VISUAL ANALYTICS & CHARTS SUITE (AREA, LINE, BAR, PIE, PROGRESS) */}
+      {/* ==================================================== */}
+      <SalesCharts 
+        orders={filteredOrders}
+        bills={filteredBills}
+        analytics={analytics}
+        dateFilter={dateFilter}
+        dateRange={dateRange}
+      />
 
       {/* ==================================================== */}
       {/* SECTION 2: CHANNEL COMPARISON (ORDERS VS WALKIN SALES) */}
