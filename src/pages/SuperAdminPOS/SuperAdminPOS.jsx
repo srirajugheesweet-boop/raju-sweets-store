@@ -20,7 +20,8 @@ import {
   Bluetooth,
   Usb,
   RefreshCw,
-  Calendar
+  Calendar,
+  Building2
 } from 'lucide-react';
 
 import { usePrinter } from '../../context/PrinterContext';
@@ -125,6 +126,11 @@ const SuperAdminPOS = () => {
 
   const [submittingBill, setSubmittingBill] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
+
+  // B2B IGST States
+  const [posIsIGST, setPosIsIGST] = useState(false);
+  const [posIgstRate, setPosIgstRate] = useState('5');
+  const [igstPromptData, setIgstPromptData] = useState({ isOpen: false, customerName: '' });
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -531,6 +537,14 @@ const SuperAdminPOS = () => {
       const newCust = { id: docRef.id, ...custForm };
       setCustomers(prev => [newCust, ...prev]);
       setSelectedCustomerId(docRef.id);
+      if (newCust.isB2B) {
+        setIgstPromptData({
+          customerName: newCust.companyName || `${newCust.firstName} ${newCust.lastName || ''}`.trim(),
+          isOpen: true
+        });
+      } else {
+        setPosIsIGST(false);
+      }
       toast.success("Customer created and selected!");
       setShowCreateCustomerModal(false);
       setCustForm({ firstName: '', lastName: '', mobileNumber: '', address: '', city: '', isB2B: false, companyName: '', gstNumber: '' });
@@ -563,7 +577,10 @@ const SuperAdminPOS = () => {
       const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
       const rawDiscount = parseFloat(posDiscount) || 0;
       const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
-      const totalAmt = Math.max(0, cartTotal - discountVal);
+      const taxableSubtotal = Math.max(0, cartTotal - discountVal);
+      const igstPercent = posIsIGST ? (parseFloat(posIgstRate) || 0) : 0;
+      const igstAmount = posIsIGST ? Number(((taxableSubtotal * igstPercent) / 100).toFixed(2)) : 0;
+      const totalAmt = posIsIGST ? Number((taxableSubtotal + igstAmount).toFixed(2)) : taxableSubtotal;
 
 
       const selectedStoreObj = stores.find(s => s.id === selectedStoreId);
@@ -597,6 +614,11 @@ const SuperAdminPOS = () => {
         isB2B: selectedCustomerObj ? (selectedCustomerObj.isB2B || false) : false,
         companyName: selectedCustomerObj ? (selectedCustomerObj.companyName || '') : '',
         customerGst: selectedCustomerObj ? (selectedCustomerObj.gstNumber || selectedCustomerObj.gst || '') : '',
+        isIGST: Boolean(posIsIGST),
+        igstRate: posIsIGST ? igstPercent : 0,
+        igstAmount: posIsIGST ? igstAmount : 0,
+        taxAmount: posIsIGST ? igstAmount : Number((totalAmt - (totalAmt / 1.05)).toFixed(2)),
+        taxLabel: posIsIGST ? 'IGST' : 'GST',
 
         items: cart,
         discount: discountVal,
@@ -634,6 +656,10 @@ const SuperAdminPOS = () => {
       setPosDiscount('');
       setEditingBillId(null);
       setSelectedCustomerId('');
+      setCustomerSearch('');
+      setPosIsIGST(false);
+      setPosIgstRate('5');
+      setIgstPromptData({ isOpen: false, customerName: '' });
       setBillDate(getTodayDateString());
       setPaymentMode('Cash');
       setSplitPayments({ Cash: '', UPI: '', Card: '' });
@@ -658,6 +684,8 @@ const SuperAdminPOS = () => {
   const loadSavedBill = (bill) => {
     setEditingBillId(bill.id);
     setSelectedCustomerId(bill.customerId || '');
+    setPosIsIGST(Boolean(bill.isIGST));
+    setPosIgstRate(bill.igstRate !== undefined ? bill.igstRate.toString() : '5');
     setCart(bill.items || []);
     setPosDiscount(bill.discount ? bill.discount.toString() : '');
     setPaymentMode(bill.paymentMode || 'Cash');
@@ -958,8 +986,16 @@ const SuperAdminPOS = () => {
                                     key={c.id}
                                     onClick={() => {
                                       setSelectedCustomerId(c.id);
-                                      setCustomerSearch(`${c.firstName} ${c.lastName || ''}`);
+                                      setCustomerSearch(`${c.firstName} ${c.lastName || ''}`.trim());
                                       setShowCustDropdown(false);
+                                      if (c.isB2B) {
+                                        setIgstPromptData({
+                                          customerName: c.companyName || c.businessName || `${c.firstName} ${c.lastName || ''}`.trim(),
+                                          isOpen: true
+                                        });
+                                      } else {
+                                        setPosIsIGST(false);
+                                      }
                                     }}
                                     style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s' }}
                                     onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
@@ -1119,17 +1155,83 @@ const SuperAdminPOS = () => {
                 </div>
 
                 {(() => {
+                  const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
                   const cartSubtotal = cart.reduce((sum, item) => sum + item.total, 0);
                   const rawDisc = parseFloat(posDiscount) || 0;
                   const calculatedDisc = discountType === 'percent' ? (cartSubtotal * rawDisc) / 100 : rawDisc;
-                  const finalGrandTotal = Math.max(0, cartSubtotal - calculatedDisc);
+                  const taxableSubtotal = Math.max(0, cartSubtotal - calculatedDisc);
+                  const igstPercent = posIsIGST ? (parseFloat(posIgstRate) || 0) : 0;
+                  const igstAmt = posIsIGST ? Number(((taxableSubtotal * igstPercent) / 100).toFixed(2)) : 0;
+                  const finalGrandTotal = posIsIGST ? Number((taxableSubtotal + igstAmt).toFixed(2)) : taxableSubtotal;
 
                   return (
                     <>
-                      <div className="total-display" style={{ marginBottom: '12px' }}>
-                        <span>Grand Total (Incl. Tax)</span>
-                        <span className="amt">₹{finalGrandTotal.toFixed(2)}</span>
-                      </div>
+                      {selectedCustomerObj?.isB2B && (
+                        <div style={{
+                          marginBottom: '12px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          background: posIsIGST ? '#eff6ff' : '#f8fafc',
+                          border: `1px solid ${posIsIGST ? '#bfdbfe' : '#e2e8f0'}`
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={posIsIGST}
+                                onChange={(e) => setPosIsIGST(e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                              />
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: posIsIGST ? '#1e40af' : '#475569' }}>
+                                Is IGST (Interstate B2B)?
+                              </span>
+                            </label>
+                            {posIsIGST && (
+                              <span style={{ fontSize: '10px', fontWeight: '800', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '10px' }}>
+                                IGST ACTIVE
+                              </span>
+                            )}
+                          </div>
+                          {posIsIGST && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: '700', color: '#1e40af' }}>IGST Percentage (%):</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="100"
+                                value={posIgstRate}
+                                onChange={(e) => setPosIgstRate(e.target.value)}
+                                placeholder="5"
+                                style={{ width: '70px', height: '32px', padding: '0 8px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #bfdbfe', textAlign: 'center' }}
+                              />
+                              <span style={{ fontSize: '11px', color: '#64748b' }}>%</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {posIsIGST ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '12px', fontSize: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                            <span>Taxable Subtotal</span>
+                            <span>₹{taxableSubtotal.toFixed(2)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: '700' }}>
+                            <span>IGST ({igstPercent}%)</span>
+                            <span>+₹{igstAmt.toFixed(2)}</span>
+                          </div>
+                          <div className="total-display" style={{ marginTop: '4px' }}>
+                            <span>Grand Total (Incl. IGST)</span>
+                            <span className="amt">₹{finalGrandTotal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="total-display" style={{ marginBottom: '12px' }}>
+                          <span>Grand Total (Incl. Tax)</span>
+                          <span className="amt">₹{finalGrandTotal.toFixed(2)}</span>
+                        </div>
+                      )}
 
                       {/* Payment Methods with Split */}
                       <div style={{ marginBottom: '12px' }}>
@@ -1440,6 +1542,48 @@ const SuperAdminPOS = () => {
           </div>
         );
       })()}
+      {/* IGST Confirmation Prompt for B2B Customers */}
+      {igstPromptData.isOpen && (
+        <div className="modal-overlay" style={{ zIndex: 4500 }}>
+          <div className="custom-modal" style={{ maxWidth: '420px', width: '90%', textAlign: 'center', background: '#fff', borderRadius: '12px', padding: '24px', margin: 'auto' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#EFF6FF', color: '#2563EB', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Building2 size={28} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#1E293B' }}>
+              B2B Customer Detected
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.5', marginBottom: '20px' }}>
+              <strong>{igstPromptData.customerName}</strong> is registered as a B2B Customer.<br />
+              Is this transaction an <strong>IGST (Interstate)</strong> bill?
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="polaris-btn polaris-btn-secondary"
+                style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
+                onClick={() => {
+                  setPosIsIGST(false);
+                  setIgstPromptData({ isOpen: false, customerName: '' });
+                }}
+              >
+                No, Local (CGST+SGST)
+              </button>
+              <button
+                type="button"
+                className="polaris-btn polaris-btn-primary"
+                style={{ flex: 1, background: '#2563EB', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                onClick={() => {
+                  setPosIsIGST(true);
+                  setIgstPromptData({ isOpen: false, customerName: '' });
+                }}
+              >
+                Yes, Apply IGST
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

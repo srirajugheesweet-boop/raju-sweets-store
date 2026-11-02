@@ -781,6 +781,10 @@ const B2BInvoices = () => {
       storeAddress: bill.storeAddress || '',
       storePhone: bill.storePhone || '',
       storeGstNumber: bill.storeGstNumber || bill.storeGst || '37DFJPK6083N1ZO',
+      isIGST: bill.isIGST,
+      igstRate: bill.igstRate,
+      igstAmount: bill.igstAmount,
+      taxLabel: bill.taxLabel,
       items: (bill.items || []).map(item => ({
         name: item.name,
         unit: item.unit || 'Kg',
@@ -829,39 +833,53 @@ const B2BInvoices = () => {
     }
   };
 
-  // Tax calculation helper for GST, CGST, and SGST
+  // Tax calculation helper for GST, CGST, SGST, and IGST
   const calculateRecordTax = (record) => {
+    const isIGST = Boolean(record.isIGST);
+    const igstRate = Number(record.igstRate) || 5;
     const items = record.items || [];
     let taxable = 0;
     let cgst = 0;
     let sgst = 0;
+    let igst = 0;
     let totalTax = 0;
 
     if (items.length > 0) {
       items.forEach(item => {
         const itemTotal = Number(item.total) || (Number(item.price || 0) * Number(item.quantity || 1));
-        const rate = Number(item.taxRate) || 5;
+        const rate = isIGST ? igstRate : (Number(item.taxRate) || 5);
         const itemTaxable = itemTotal / (1 + (rate / 100));
         const taxAmt = itemTotal - itemTaxable;
 
         taxable += itemTaxable;
-        cgst += taxAmt / 2;
-        sgst += taxAmt / 2;
+        if (isIGST) {
+          igst += taxAmt;
+        } else {
+          cgst += taxAmt / 2;
+          sgst += taxAmt / 2;
+        }
         totalTax += taxAmt;
       });
     } else {
       const net = Number(record.totalAmount) || 0;
-      taxable = net / 1.05;
+      const rate = isIGST ? igstRate : 5;
+      taxable = net / (1 + (rate / 100));
       totalTax = net - taxable;
-      cgst = totalTax / 2;
-      sgst = totalTax / 2;
+      if (isIGST) {
+        igst = totalTax;
+      } else {
+        cgst = totalTax / 2;
+        sgst = totalTax / 2;
+      }
     }
 
     return {
       taxableAmount: taxable,
       cgstAmount: cgst,
       sgstAmount: sgst,
-      totalTaxAmount: totalTax
+      igstAmount: igst,
+      totalTaxAmount: totalTax,
+      isIGST
     };
   };
 
@@ -893,6 +911,7 @@ const B2BInvoices = () => {
         let sumTaxable = 0;
         let sumCGST = 0;
         let sumSGST = 0;
+        let sumIGST = 0;
         let sumGST = 0;
         let sumNet = 0;
         let sumPaid = 0;
@@ -918,9 +937,10 @@ const B2BInvoices = () => {
             'Gross Amount (₹)',
             'Discount (₹)',
             'Taxable Value (₹)',
-            'CGST @ 2.5% (₹)',
-            'SGST @ 2.5% (₹)',
-            'Total GST (₹)',
+            'CGST (₹)',
+            'SGST (₹)',
+            'IGST (₹)',
+            'Total Tax (₹)',
             'Net Amount (₹)',
             'Advance Paid (₹)',
             'Balance Due (₹)',
@@ -936,7 +956,7 @@ const B2BInvoices = () => {
           const gross = netAmt + disc;
           const paid = Number(o.receivedAmount || 0);
           const due = Math.max(0, netAmt - paid);
-          const { taxableAmount, cgstAmount, sgstAmount, totalTaxAmount } = calculateRecordTax(o);
+          const { taxableAmount, cgstAmount, sgstAmount, igstAmount, totalTaxAmount } = calculateRecordTax(o);
 
           sumItems += itemsCount;
           sumGross += gross;
@@ -944,6 +964,7 @@ const B2BInvoices = () => {
           sumTaxable += taxableAmount;
           sumCGST += cgstAmount;
           sumSGST += sgstAmount;
+          sumIGST += (igstAmount || 0);
           sumGST += totalTaxAmount;
           sumNet += netAmt;
           sumPaid += paid;
@@ -965,6 +986,7 @@ const B2BInvoices = () => {
             parseFloat(taxableAmount.toFixed(2)),
             parseFloat(cgstAmount.toFixed(2)),
             parseFloat(sgstAmount.toFixed(2)),
+            parseFloat((igstAmount || 0).toFixed(2)),
             parseFloat(totalTaxAmount.toFixed(2)),
             parseFloat(netAmt.toFixed(2)),
             parseFloat(paid.toFixed(2)),
@@ -992,6 +1014,7 @@ const B2BInvoices = () => {
           parseFloat(sumTaxable.toFixed(2)),
           parseFloat(sumCGST.toFixed(2)),
           parseFloat(sumSGST.toFixed(2)),
+          parseFloat(sumIGST.toFixed(2)),
           parseFloat(sumGST.toFixed(2)),
           parseFloat(sumNet.toFixed(2)),
           parseFloat(sumPaid.toFixed(2)),
@@ -1017,6 +1040,7 @@ const B2BInvoices = () => {
           { wch: 16 }, // Taxable
           { wch: 14 }, // CGST
           { wch: 14 }, // SGST
+          { wch: 14 }, // IGST
           { wch: 14 }, // Total GST
           { wch: 16 }, // Net Total
           { wch: 14 }, // Advance Paid
@@ -1040,6 +1064,7 @@ const B2BInvoices = () => {
         let sumTaxable = 0;
         let sumCGST = 0;
         let sumSGST = 0;
+        let sumIGST = 0;
         let sumGST = 0;
         let sumNet = 0;
 
@@ -1063,9 +1088,10 @@ const B2BInvoices = () => {
             'Gross Amount (₹)',
             'Discount (₹)',
             'Taxable Value (₹)',
-            'CGST @ 2.5% (₹)',
-            'SGST @ 2.5% (₹)',
-            'Total GST (₹)',
+            'CGST (₹)',
+            'SGST (₹)',
+            'IGST (₹)',
+            'Total Tax (₹)',
             'Net Bill Amount (₹)',
             'Status'
           ]
@@ -1076,7 +1102,7 @@ const B2BInvoices = () => {
           const netAmt = Number(b.totalAmount || 0);
           const disc = Number(b.discount || 0);
           const gross = netAmt + disc;
-          const { taxableAmount, cgstAmount, sgstAmount, totalTaxAmount } = calculateRecordTax(b);
+          const { taxableAmount, cgstAmount, sgstAmount, igstAmount, totalTaxAmount } = calculateRecordTax(b);
 
           sumItems += itemsCount;
           sumGross += gross;
@@ -1084,6 +1110,7 @@ const B2BInvoices = () => {
           sumTaxable += taxableAmount;
           sumCGST += cgstAmount;
           sumSGST += sgstAmount;
+          sumIGST += (igstAmount || 0);
           sumGST += totalTaxAmount;
           sumNet += netAmt;
 
@@ -1103,6 +1130,7 @@ const B2BInvoices = () => {
             parseFloat(taxableAmount.toFixed(2)),
             parseFloat(cgstAmount.toFixed(2)),
             parseFloat(sgstAmount.toFixed(2)),
+            parseFloat((igstAmount || 0).toFixed(2)),
             parseFloat(totalTaxAmount.toFixed(2)),
             parseFloat(netAmt.toFixed(2)),
             b.status || 'settled'
@@ -1127,6 +1155,7 @@ const B2BInvoices = () => {
           parseFloat(sumTaxable.toFixed(2)),
           parseFloat(sumCGST.toFixed(2)),
           parseFloat(sumSGST.toFixed(2)),
+          parseFloat(sumIGST.toFixed(2)),
           parseFloat(sumGST.toFixed(2)),
           parseFloat(sumNet.toFixed(2)),
           ''
@@ -1149,6 +1178,7 @@ const B2BInvoices = () => {
           { wch: 16 }, // Taxable
           { wch: 14 }, // CGST
           { wch: 14 }, // SGST
+          { wch: 14 }, // IGST
           { wch: 14 }, // Total GST
           { wch: 16 }, // Net Total
           { wch: 14 }  // Status
@@ -1694,7 +1724,14 @@ const B2BInvoices = () => {
                             <td colSpan={12}>
                               <div className="b2b-expanded-panel">
                                 <div className="b2b-expanded-header">
-                                  <h4>Order #{order.orderId} Item Breakdown & Tax Specifications</h4>
+                                  <h4>
+                                    Order #{order.orderId} Item Breakdown & Tax Specifications
+                                    {order.isIGST && (
+                                      <span style={{ marginLeft: '10px', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800' }}>
+                                        IGST ({order.igstRate || 5}%)
+                                      </span>
+                                    )}
+                                  </h4>
                                   <div className="b2b-expanded-meta">
                                     {order.address && <span>📍 Delivery: {order.address}, {order.city}</span>}
                                     {order.paymentMode && <span>💳 Mode: {formatPaymentModeDisplay(order.paymentMode, order.splitPayments)}</span>}
@@ -1917,7 +1954,14 @@ const B2BInvoices = () => {
                             <td colSpan={10}>
                               <div className="b2b-expanded-panel">
                                 <div className="b2b-expanded-header">
-                                  <h4>Bill #{bill.billId || bill.id} Itemized POS Counter Receipt</h4>
+                                  <h4>
+                                    Bill #{bill.billId || bill.id} Itemized POS Counter Receipt
+                                    {bill.isIGST && (
+                                      <span style={{ marginLeft: '10px', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800' }}>
+                                        IGST ({bill.igstRate || 5}%)
+                                      </span>
+                                    )}
+                                  </h4>
                                   <div className="b2b-expanded-meta">
                                     <span>🏬 Outlet: {bill.storeName}</span>
                                     <span>💳 Mode: {formatPaymentModeDisplay(bill.paymentMode, bill.splitPayments)}</span>

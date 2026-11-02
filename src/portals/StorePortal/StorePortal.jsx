@@ -66,7 +66,8 @@ import {
   Upload,
   Barcode,
   UserCheck,
-  UserPlus
+  UserPlus,
+  Building2
 } from 'lucide-react';
 
 import toast from 'react-hot-toast';
@@ -893,8 +894,19 @@ const StorePortal = () => {
 
   // Weight calculator for Order flow
   const [showOrderWeightModal, setShowOrderWeightModal] = useState(null);
+  const [editingCartItemOrder, setEditingCartItemOrder] = useState(null);
   const [orderWeightInput, setOrderWeightInput] = useState({ weight: '', amount: '', description: '' });
   const [savingOrder, setSavingOrder] = useState(false);
+
+  // B2B IGST States for Order
+  const [orderIsIGST, setOrderIsIGST] = useState(false);
+  const [orderIgstRate, setOrderIgstRate] = useState('5');
+  const [orderIgstPromptData, setOrderIgstPromptData] = useState({ isOpen: false, customerName: '' });
+
+  // B2B IGST States for POS Billing
+  const [storePosIsIGST, setStorePosIsIGST] = useState(false);
+  const [storePosIgstRate, setStorePosIgstRate] = useState('5');
+  const [storePosIgstPromptData, setStorePosIgstPromptData] = useState({ isOpen: false, customerName: '' });
 
   // Customer creation for Order flow
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false);
@@ -1675,20 +1687,27 @@ const StorePortal = () => {
 
   // --- ADD ORDER CART & CHECKOUT OPERATIONS ---
   const handleItemClickOrder = (item) => {
-    const existing = orderCart.find(c => c.id === item.id);
+    setEditingCartItemOrder(null);
+    setShowOrderWeightModal(item);
     if (item.unit === 'Weight') {
-      setShowOrderWeightModal(item);
-      setOrderWeightInput({
-        weight: existing ? existing.quantity.toString() : '',
-        amount: existing ? existing.total.toString() : '',
-        description: existing ? existing.description || '' : ''
-      });
+      setOrderWeightInput({ weight: '', amount: '', description: '' });
     } else {
-      addToCartOrder(item, 1, item.price);
+      setOrderWeightInput({ weight: '1', amount: item.price.toString(), description: '' });
     }
   };
 
   const handleOrderWeightCalc = (type, value, price) => {
+    if (showOrderWeightModal?.unit === 'Piece') {
+      if (type === 'weight') {
+        const qty = parseInt(value) || 0;
+        const amt = (qty * price).toFixed(2);
+        setOrderWeightInput(prev => ({ ...prev, weight: value, amount: isNaN(amt) ? '' : amt }));
+      } else {
+        const qty = Math.round(parseFloat(value) / price) || 0;
+        setOrderWeightInput(prev => ({ ...prev, weight: isNaN(qty) ? '' : qty.toString(), amount: value }));
+      }
+      return;
+    }
     if (type === 'weight') {
       const amt = (parseFloat(value) * price).toFixed(2);
       setOrderWeightInput(prev => ({ ...prev, weight: value, amount: isNaN(amt) ? '' : amt }));
@@ -1699,79 +1718,107 @@ const StorePortal = () => {
   };
 
   const confirmOrderWeightAdd = () => {
-    if (!orderWeightInput.weight || !orderWeightInput.amount) {
-      toast.error("Please enter weight or amount");
-      return;
+    if (!showOrderWeightModal) return;
+    if (showOrderWeightModal.unit === 'Weight') {
+      if (!orderWeightInput.weight || !orderWeightInput.amount) {
+        toast.error("Please enter weight or amount");
+        return;
+      }
+    } else {
+      if (!orderWeightInput.weight || Number(orderWeightInput.weight) <= 0) {
+        toast.error("Please enter a valid quantity");
+        return;
+      }
     }
-    addToCartOrder(showOrderWeightModal, orderWeightInput.weight, orderWeightInput.amount, orderWeightInput.description);
+
+    if (editingCartItemOrder) {
+      setOrderCart(prev => prev.map(c => {
+        const matches = c.cartItemId ? c.cartItemId === editingCartItemOrder.cartItemId : (c === editingCartItemOrder || c.id === editingCartItemOrder.id);
+        if (matches) {
+          const qty = Number(orderWeightInput.weight);
+          const amt = Number(orderWeightInput.amount);
+          return {
+            ...c,
+            quantity: qty,
+            total: amt,
+            description: orderWeightInput.description || ''
+          };
+        }
+        return c;
+      }));
+      toast.success(`Updated ${editingCartItemOrder.name}`);
+      setEditingCartItemOrder(null);
+    } else {
+      addToCartOrder(showOrderWeightModal, orderWeightInput.weight, orderWeightInput.amount, orderWeightInput.description);
+    }
     setShowOrderWeightModal(null);
   };
 
   const addToCartOrder = (item, quantity, total, itemDescription = '') => {
-    setOrderCart(prev => {
-      const existingIndex = prev.findIndex(c => c.id === item.id);
-      if (existingIndex > -1) {
-        const newCart = [...prev];
-        if (item.unit !== 'Weight') {
-          newCart[existingIndex].quantity += Number(quantity);
-          newCart[existingIndex].total = newCart[existingIndex].quantity * item.price;
-        } else {
-          newCart[existingIndex].quantity = Number(quantity);
-          newCart[existingIndex].total = Number(total);
-          newCart[existingIndex].description = itemDescription;
-        }
-        return newCart;
-      } else {
-        return [...prev, {
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          unit: item.unit,
-          quantity: Number(quantity),
-          total: Number(total),
-          description: itemDescription,
-          mUnitId: item.mUnitId || '',
-          status: 'preparation_started'
-        }];
-      }
-    });
+    // Always add as a separate item in cart so multiple weights or items don't club
+    const newCartItem = {
+      cartItemId: `${item.id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      unit: item.unit,
+      quantity: Number(quantity),
+      total: Number(total),
+      description: itemDescription || '',
+      mUnitId: item.mUnitId || '',
+      status: 'preparation_started'
+    };
+    setOrderCart(prev => [...prev, newCartItem]);
     toast.success(`${item.name} added`);
   };
 
-  const updateCartQuantityOrder = (id, delta) => {
+  const updateCartQuantityOrder = (cartItemId, delta) => {
     setOrderCart(prev => prev.map(c => {
-      if (c.id === id) {
+      const isTarget = c.cartItemId ? c.cartItemId === cartItemId : c.id === cartItemId;
+      if (isTarget) {
         const newQty = c.quantity + delta;
         if (newQty < 1) return c;
-        return { ...c, quantity: newQty, total: newQty * c.price };
+        return { ...c, quantity: newQty, total: Number((newQty * c.price).toFixed(2)) };
       }
       return c;
     }));
   };
 
-  const setOrderCartQuantity = (id, qty) => {
+  const setOrderCartQuantity = (cartItemId, qty) => {
     setOrderCart(prev => prev.map(c => {
-      if (c.id === id) {
-        return { ...c, quantity: qty, total: qty * c.price };
+      const isTarget = c.cartItemId ? c.cartItemId === cartItemId : c.id === cartItemId;
+      if (isTarget) {
+        if (qty === '') {
+          return { ...c, quantity: '' };
+        }
+        const numericQty = parseInt(qty);
+        if (isNaN(numericQty) || numericQty < 0) return c;
+        return { ...c, quantity: numericQty, total: Number((numericQty * c.price).toFixed(2)) };
       }
       return c;
     }));
   };
 
+  const handleBlurCartQuantityOrder = (cartItemId, currentQty) => {
+    const numericQty = parseInt(currentQty);
+    if (isNaN(numericQty) || numericQty < 1) {
+      removeFromCartOrder(cartItemId);
+    }
+  };
 
-  const handleEditCartItemOrder = (item) => {
-    const originalItem = orderItems.find(i => i.id === item.id);
-    if (!originalItem) return;
+  const handleEditCartItemOrder = (cartItem) => {
+    const originalItem = orderItems.find(i => i.id === cartItem.id) || cartItem;
+    setEditingCartItemOrder(cartItem);
     setShowOrderWeightModal(originalItem);
     setOrderWeightInput({
-      weight: item.quantity.toString(),
-      amount: item.total.toString(),
-      description: item.description || ''
+      weight: cartItem.quantity.toString(),
+      amount: cartItem.total.toString(),
+      description: cartItem.description || ''
     });
   };
 
-  const removeFromCartOrder = (id) => {
-    setOrderCart(prev => prev.filter(c => c.id !== id));
+  const removeFromCartOrder = (cartItemId) => {
+    setOrderCart(prev => prev.filter(c => (c.cartItemId ? c.cartItemId !== cartItemId : c.id !== cartItemId)));
   };
 
   const getNextOrderSequenceForDeliveryDate = async (storeId, deliveryDate) => {
@@ -1811,6 +1858,19 @@ const StorePortal = () => {
     return `${DD}${MM}${YY}${HH}${mm}${SS}`;
   };
 
+  const handleCustomerSelectOrder = (custId) => {
+    setSelectedCustomer(custId);
+    const cust = orderCustomers.find(c => c.id === custId);
+    if (cust && cust.isB2B) {
+      setOrderIgstPromptData({
+        isOpen: true,
+        customerName: `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || cust.businessName || 'B2B Customer'
+      });
+    } else {
+      setOrderIsIGST(false);
+    }
+  };
+
   const resetFormOrder = () => {
     setSelectedCustomer('');
     setSelectedPUnit('');
@@ -1832,6 +1892,9 @@ const StorePortal = () => {
     setSelectedCategoryFilter('All');
     setActiveModalTab('items');
     setFormErrors({});
+    setOrderIsIGST(false);
+    setOrderIgstRate('5');
+    setOrderIgstPromptData({ isOpen: false, customerName: '' });
   };
 
 
@@ -1879,7 +1942,10 @@ const StorePortal = () => {
       const customer = orderCustomers.find(c => c.id === selectedCustomer);
       const cartTotalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
       const discountVal = parseFloat(orderDiscount) || 0;
-      const totalAmt = Math.max(0, cartTotalAmt - discountVal);
+      const taxableSubtotalVal = Math.max(0, cartTotalAmt - discountVal);
+      const igstRateNum = orderIsIGST ? (parseFloat(orderIgstRate) || 0) : 0;
+      const igstAmount = orderIsIGST ? Number(((taxableSubtotalVal * igstRateNum) / 100).toFixed(2)) : 0;
+      const totalAmt = orderIsIGST ? Number((taxableSubtotalVal + igstAmount).toFixed(2)) : taxableSubtotalVal;
       const recAmtVal = parseFloat(receivedAmount) || 0;
       let payStatus = 'Pending';
       if (recAmtVal > 0) {
@@ -1906,6 +1972,11 @@ const StorePortal = () => {
         customerName: `${customer.firstName} ${customer.lastName || ''}`.trim(),
         customerPhone: customer.mobileNumber,
         isB2B: customer.isB2B || false,
+        isIGST: Boolean(orderIsIGST),
+        igstRate: orderIsIGST ? igstRateNum : 0,
+        igstAmount: orderIsIGST ? igstAmount : 0,
+        taxAmount: orderIsIGST ? igstAmount : Number((totalAmt - (totalAmt / 1.05)).toFixed(2)),
+        taxLabel: orderIsIGST ? 'IGST' : 'GST',
         businessName: customer.businessName || '',
         gstNumber: customer.gstNumber || '',
         address: customer.address || '',
@@ -2042,6 +2113,16 @@ const StorePortal = () => {
       setCustomerSearch(`${newCust.firstName} ${newCust.lastName || ''}`.trim());
 
       toast.success("Customer created and selected!");
+      if (customerFormData.isB2B) {
+        setOrderIgstPromptData({
+          isOpen: true,
+          customerName: `${customerFormData.firstName} ${customerFormData.lastName || ''}`.trim() || customerFormData.businessName || 'B2B Customer'
+        });
+        setStorePosIgstPromptData({
+          isOpen: true,
+          customerName: `${customerFormData.firstName} ${customerFormData.lastName || ''}`.trim() || customerFormData.businessName || 'B2B Customer'
+        });
+      }
       setShowCreateCustomerModal(false);
       setCustomerFormData({
         firstName: '',
@@ -2077,7 +2158,12 @@ const StorePortal = () => {
     setOrderDiscount(order.discount !== undefined ? order.discount.toString() : '');
     setDeliveryDate(order.deliveryDate || '');
     setDeliveryTime(order.deliveryTime || '');
-    setOrderCart(order.items || []);
+    setOrderIsIGST(Boolean(order.isIGST));
+    setOrderIgstRate(order.igstRate !== undefined && order.igstRate !== null ? order.igstRate.toString() : '5');
+    setOrderCart((order.items || []).map(it => ({
+      ...it,
+      cartItemId: it.cartItemId || `${it.id}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    })));
     setEditingOrderId(order.id);
     setShowAddModal(true);
   };
@@ -2385,7 +2471,10 @@ const StorePortal = () => {
       const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
       const rawDiscount = parseFloat(posDiscount) || 0;
       const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
-      const totalAmt = Math.max(0, cartTotal - discountVal);
+      const taxableSubtotalVal = Math.max(0, cartTotal - discountVal);
+      const igstRateNum = storePosIsIGST ? (parseFloat(storePosIgstRate) || 0) : 0;
+      const igstAmount = storePosIsIGST ? Number(((taxableSubtotalVal * igstRateNum) / 100).toFixed(2)) : 0;
+      const totalAmt = storePosIsIGST ? Number((taxableSubtotalVal + igstAmount).toFixed(2)) : taxableSubtotalVal;
 
       if (paymentMode === 'Split') {
         const splitVal = validateSplitPayment('Split', splitPayments, totalAmt);
@@ -2416,6 +2505,11 @@ const StorePortal = () => {
         customerName: selectedCustomerObj ? `${selectedCustomerObj.firstName} ${selectedCustomerObj.lastName || ''}`.trim() : 'Walk-in Customer',
         customerPhone: selectedCustomerObj ? selectedCustomerObj.mobileNumber : '',
         isB2B: selectedCustomerObj ? (selectedCustomerObj.isB2B || false) : false,
+        isIGST: Boolean(storePosIsIGST),
+        igstRate: storePosIsIGST ? igstRateNum : 0,
+        igstAmount: storePosIsIGST ? igstAmount : 0,
+        taxAmount: storePosIsIGST ? igstAmount : Number((totalAmt - (totalAmt / 1.05)).toFixed(2)),
+        taxLabel: storePosIsIGST ? 'IGST' : 'GST',
         companyName: selectedCustomerObj ? (selectedCustomerObj.companyName || selectedCustomerObj.businessName || '') : '',
         customerGst: selectedCustomerObj ? (selectedCustomerObj.gstNumber || selectedCustomerObj.gst || '') : '',
         items: cart,
@@ -2440,6 +2534,8 @@ const StorePortal = () => {
       setCart([]);
       setPosDiscount('');
       setSelectedCustomerId('');
+      setStorePosIsIGST(false);
+      setStorePosIgstRate('5');
       setPosBillDate(new Date().toISOString().split('T')[0]);
       setPaymentMode('UPI');
       setSplitPayments({ Cash: '', UPI: '', Card: '' });
@@ -2502,9 +2598,13 @@ const StorePortal = () => {
     (item.name || '').toLowerCase().includes(wsSearch.toLowerCase())
   );
 
+  const selectedOrderCustomerObj = orderCustomers.find(c => c.id === selectedCustomer);
   const orderCartTotalAmt = orderCart.reduce((sum, item) => sum + item.total, 0);
   const orderDiscountVal = parseFloat(orderDiscount) || 0;
-  const orderTotalAmount = Math.max(0, orderCartTotalAmt - orderDiscountVal);
+  const orderTaxableSubtotal = Math.max(0, orderCartTotalAmt - orderDiscountVal);
+  const orderIgstRateNum = orderIsIGST ? (parseFloat(orderIgstRate) || 0) : 0;
+  const orderIgstAmount = orderIsIGST ? Number(((orderTaxableSubtotal * orderIgstRateNum) / 100).toFixed(2)) : 0;
+  const orderTotalAmount = orderIsIGST ? Number((orderTaxableSubtotal + orderIgstAmount).toFixed(2)) : orderTaxableSubtotal;
   const orderRecAmt = parseFloat(receivedAmount) || 0;
   let orderPaymentStatus = 'Pending';
   if (orderRecAmt > 0) {
@@ -3848,7 +3948,7 @@ const StorePortal = () => {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); }}
+                                  onClick={() => { setSelectedCustomerId(''); setCustomerSearch(''); setStorePosIsIGST(false); }}
                                   style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}
                                   title="Clear selected customer"
                                 >
@@ -3879,6 +3979,14 @@ const StorePortal = () => {
                                             setSelectedCustomerId(c.id);
                                             setCustomerSearch(`${c.firstName} ${c.lastName || ''}`.trim());
                                             setShowCustDropdown(false);
+                                            if (c.isB2B) {
+                                              setStorePosIgstPromptData({
+                                                isOpen: true,
+                                                customerName: `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.businessName || 'B2B Customer'
+                                              });
+                                            } else {
+                                              setStorePosIsIGST(false);
+                                            }
                                           }}
                                           style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                                           onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
@@ -4049,16 +4157,64 @@ const StorePortal = () => {
                       </div>
 
                       {(() => {
+                        const selectedCustomerObj = customers.find(c => c.id === selectedCustomerId);
                         const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
                         const rawDiscount = parseFloat(posDiscount) || 0;
                         const discountVal = discountType === 'percent' ? (cartTotal * rawDiscount) / 100 : rawDiscount;
-                        const totalAmt = Math.max(0, cartTotal - discountVal);
+                        const taxableSubtotal = Math.max(0, cartTotal - discountVal);
+                        const igstPercent = storePosIsIGST ? (parseFloat(storePosIgstRate) || 0) : 0;
+                        const igstAmt = storePosIsIGST ? Number(((taxableSubtotal * igstPercent) / 100).toFixed(2)) : 0;
+                        const totalAmt = storePosIsIGST ? Number((taxableSubtotal + igstAmt).toFixed(2)) : taxableSubtotal;
                         const posSubtotal = totalAmt / 1.05;
                         const posGst = totalAmt - posSubtotal;
 
-
                         return (
                           <>
+                            {selectedCustomerObj?.isB2B && (
+                              <div style={{
+                                marginBottom: '12px',
+                                padding: '10px 12px',
+                                borderRadius: '8px',
+                                background: storePosIsIGST ? '#eff6ff' : '#f8fafc',
+                                border: `1px solid ${storePosIsIGST ? '#bfdbfe' : '#e2e8f0'}`
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={storePosIsIGST}
+                                      onChange={(e) => setStorePosIsIGST(e.target.checked)}
+                                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                                    />
+                                    <span style={{ fontSize: '12px', fontWeight: '700', color: storePosIsIGST ? '#1e40af' : '#475569' }}>
+                                      Is IGST (Interstate B2B)?
+                                    </span>
+                                  </label>
+                                  {storePosIsIGST && (
+                                    <span style={{ fontSize: '10px', fontWeight: '800', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '10px' }}>
+                                      IGST ACTIVE
+                                    </span>
+                                  )}
+                                </div>
+                                {storePosIsIGST && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#1e40af' }}>IGST Percentage (%):</label>
+                                    <input
+                                      type="number"
+                                      step="0.1"
+                                      min="0"
+                                      max="100"
+                                      value={storePosIgstRate}
+                                      onChange={(e) => setStorePosIgstRate(e.target.value)}
+                                      placeholder="5"
+                                      style={{ width: '70px', height: '32px', padding: '0 8px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #bfdbfe', textAlign: 'center' }}
+                                    />
+                                    <span style={{ fontSize: '11px', color: '#64748b' }}>%</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             <div className="st-pos-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 0 8px 0', borderBottom: '1.5px dashed #cbd5e1', marginBottom: '8px' }}>
                               {discountVal > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
@@ -4072,18 +4228,33 @@ const StorePortal = () => {
                                   <span>-₹{discountVal.toFixed(2)}</span>
                                 </div>
                               )}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
-                                <span>Subtotal (Excl. Tax)</span>
-                                <span>₹{posSubtotal.toFixed(2)}</span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
-                                <span>GST (5%)</span>
-                                <span>₹{posGst.toFixed(2)}</span>
-                              </div>
+                              {storePosIsIGST ? (
+                                <>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                    <span>Taxable Subtotal</span>
+                                    <span>₹{taxableSubtotal.toFixed(2)}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#0284c7', fontWeight: '700' }}>
+                                    <span>IGST ({igstPercent}%)</span>
+                                    <span>+₹{igstAmt.toFixed(2)}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                    <span>Subtotal (Excl. Tax)</span>
+                                    <span>₹{posSubtotal.toFixed(2)}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', fontWeight: '700' }}>
+                                    <span>GST (5%)</span>
+                                    <span>₹{posGst.toFixed(2)}</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
 
                             <div className="total-display" style={{ marginBottom: '10px' }}>
-                              <span>Grand Total (Incl. Tax)</span>
+                              <span>{storePosIsIGST ? 'Grand Total (Incl. IGST)' : 'Grand Total (Incl. Tax)'}</span>
                               <span className="amt">₹{totalAmt.toFixed(2)}</span>
                             </div>
 
@@ -4946,6 +5117,27 @@ const StorePortal = () => {
                       ))}
                       {(() => {
                         const billTotal = Number(selectedReceiptBill.totalAmount || 0);
+                        if (selectedReceiptBill.isIGST) {
+                          const igstRate = selectedReceiptBill.igstRate || 5;
+                          const igstAmount = Number(selectedReceiptBill.igstAmount || (billTotal - (billTotal / (1 + igstRate / 100))));
+                          const taxableSubtotal = billTotal - igstAmount;
+                          return (
+                            <>
+                              <tr>
+                                <td colSpan="3" style={{ fontWeight: '700', color: '#64748b', fontSize: '12px', borderBottom: '1px dashed #e2e8f0', padding: '8px' }}>Taxable Subtotal</td>
+                                <td style={{ textAlign: 'right', fontWeight: '700', color: '#64748b', fontSize: '12px', borderBottom: '1px dashed #e2e8f0', padding: '8px' }}>
+                                  ₹{taxableSubtotal.toFixed(2)}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td colSpan="3" style={{ fontWeight: '700', color: '#0284c7', fontSize: '12px', borderBottom: '1.5px solid #cbd5e1', padding: '8px' }}>IGST ({igstRate}%)</td>
+                                <td style={{ textAlign: 'right', fontWeight: '700', color: '#0284c7', fontSize: '12px', borderBottom: '1.5px solid #cbd5e1', padding: '8px' }}>
+                                  +₹{igstAmount.toFixed(2)}
+                                </td>
+                              </tr>
+                            </>
+                          );
+                        }
                         const billSubtotal = billTotal / 1.05;
                         const billGst = billTotal - billSubtotal;
                         return (
@@ -5039,7 +5231,7 @@ const StorePortal = () => {
                     <CustomDropdown
                       label="Select Customer *"
                       options={orderCustomers}
-                      onSelect={setSelectedCustomer}
+                      onSelect={handleCustomerSelectOrder}
                       selectedValue={selectedCustomer}
                       placeholder="Search name or number..."
                       icon={User}
@@ -5254,8 +5446,9 @@ const StorePortal = () => {
                 <div className="ord-items-grid" style={{ paddingBottom: '30px' }}>
                   {filteredItemsForOrder.length > 0 ? (
                     filteredItemsForOrder.map(item => {
-                      const cartItem = orderCart.find(ci => ci.id === item.id);
-                      const isInCart = !!cartItem;
+                      const matchingCartItems = orderCart.filter(ci => ci.id === item.id);
+                      const totalCartQty = matchingCartItems.reduce((sum, ci) => sum + (Number(ci.quantity) || 0), 0);
+                      const isInCart = matchingCartItems.length > 0;
                       return (
                         <div key={item.id} className={`ord-selectable-card ${isInCart ? 'in-cart' : ''}`} onClick={() => handleItemClickOrder(item)}>
                           <div className="ord-item-img-container">
@@ -5270,46 +5463,74 @@ const StorePortal = () => {
                             />
                             {isInCart && item.unit === 'Weight' && (
                               <div className="ord-card-cart-badge">
-                                {cartItem.quantity} kg
+                                {matchingCartItems.length > 1 ? `${matchingCartItems.length} items (${totalCartQty} kg)` : `${totalCartQty} kg`}
+                              </div>
+                            )}
+                            {isInCart && item.unit !== 'Weight' && (
+                              <div className="ord-card-cart-badge">
+                                {matchingCartItems.length > 1 ? `${matchingCartItems.length} items (${totalCartQty} pcs)` : `${totalCartQty} pcs`}
                               </div>
                             )}
                           </div>
                           <div className="ord-item-details">
                             <h4>{item.name}</h4>
-                            {isInCart && item.unit !== 'Weight' ? (
+                            {item.unit !== 'Weight' ? (
                               <div className="ord-card-qty-wrapper" onClick={(e) => e.stopPropagation()}>
-                                <button className="ord-card-qty-btn" onClick={() => updateCartQuantityOrder(item.id, -1)} type="button">
+                                <button
+                                  className="ord-card-qty-btn"
+                                  onClick={() => {
+                                    if (matchingCartItems.length > 0) {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      updateCartQuantityOrder(lastItem.cartItemId || lastItem.id, -1);
+                                    }
+                                  }}
+                                  type="button"
+                                >
                                   <Minus size={12} />
                                 </button>
                                 <input
                                   type="number"
+                                  min="1"
                                   className="ord-card-qty-input"
-                                  value={cartItem.quantity}
+                                  value={isInCart ? totalCartQty : ''}
+                                  placeholder="0"
                                   onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (!isNaN(val) && val >= 0) {
-                                      if (val === 0) {
-                                        removeFromCartOrder(item.id);
-                                      } else {
-                                        setOrderCartQuantity(item.id, val);
-                                      }
+                                    const val = e.target.value;
+                                    if (!isInCart) {
+                                      const num = parseInt(val);
+                                      if (num > 0) addToCartOrder(item, num, item.price * num);
+                                    } else {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      setOrderCartQuantity(lastItem.cartItemId || lastItem.id, val);
                                     }
                                   }}
-                                  onBlur={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (isNaN(val) || val < 1) {
-                                      setOrderCartQuantity(item.id, 1);
+                                  onBlur={() => {
+                                    if (isInCart) {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      handleBlurCartQuantityOrder(lastItem.cartItemId || lastItem.id, lastItem.quantity);
                                     }
                                   }}
+                                  onClick={(e) => e.stopPropagation()}
                                 />
-                                <button className="ord-card-qty-btn" onClick={() => updateCartQuantityOrder(item.id, 1)} type="button">
+                                <button
+                                  className="ord-card-qty-btn"
+                                  onClick={() => {
+                                    if (isInCart) {
+                                      const lastItem = matchingCartItems[matchingCartItems.length - 1];
+                                      updateCartQuantityOrder(lastItem.cartItemId || lastItem.id, 1);
+                                    } else {
+                                      addToCartOrder(item, 1, item.price);
+                                    }
+                                  }}
+                                  type="button"
+                                >
                                   <Plus size={12} />
                                 </button>
                               </div>
                             ) : (
                               <div className="ord-price-row">
                                 <span className="price">₹{item.price}</span>
-                                <span className="unit">{item.unit === 'Weight' ? '/ kg' : '/ piece'}</span>
+                                <span className="unit">/ kg</span>
                               </div>
                             )}
                           </div>
@@ -5331,52 +5552,77 @@ const StorePortal = () => {
 
                 <div className="ord-summary-list">
                   {orderCart.length > 0 ? orderCart.map((item, idx) => (
-                    <div key={idx} className="ord-summary-item">
+                    <div key={item.cartItemId || idx} className="ord-summary-item">
                       <div className="ord-item-info">
                         <h4>{item.name}</h4>
                         <p>{item.unit === 'Weight' ? `${item.quantity}kg` : `${item.quantity} pcs`} @ ₹{item.price}</p>
                         {item.description && <p className="item-note">Note: {item.description}</p>}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {item.unit === 'Weight' ? (
-                          <button onClick={() => handleEditCartItemOrder(item)} className="ord-edit-cart-btn" title="Edit Weight" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary-color)' }}>
-                            <Edit size={14} />
-                          </button>
-                        ) : (
-                          <div className="ord-qty-controls">
-                            <button onClick={() => updateCartQuantityOrder(item.id, -1)} type="button">
-                              <Minus size={12} />
-                            </button>
-                            <input
-                              type="number"
-                              className="ord-qty-input"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                if (!isNaN(val) && val >= 0) {
-                                  if (val === 0) {
-                                    removeFromCartOrder(item.id);
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="ord-qty-controls">
+                              <input
+                                type="number"
+                                step="0.001"
+                                min="0.001"
+                                className="ord-qty-input"
+                                style={{ width: '56px' }}
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setOrderCart(prev => prev.map(c => ((c.cartItemId ? c.cartItemId === item.cartItemId : c === item) ? {
+                                    ...c,
+                                    quantity: val === '' ? '' : parseFloat(val) || 0,
+                                    total: val === '' ? 0 : Number(((parseFloat(val) || 0) * c.price).toFixed(2))
+                                  } : c)));
+                                }}
+                                onBlur={() => {
+                                  const wt = parseFloat(item.quantity);
+                                  if (isNaN(wt) || wt <= 0) {
+                                    removeFromCartOrder(item.cartItemId || item.id);
                                   } else {
-                                    setOrderCartQuantity(item.id, val);
+                                    setOrderCart(prev => prev.map(c => ((c.cartItemId ? c.cartItemId === item.cartItemId : c === item) ? {
+                                      ...c,
+                                      quantity: wt,
+                                      total: Number((wt * c.price).toFixed(2))
+                                    } : c)));
                                   }
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const val = parseInt(e.target.value);
-                                if (isNaN(val) || val < 1) {
-                                  setOrderCartQuantity(item.id, 1);
-                                }
-                              }}
-                            />
-                            <button onClick={() => updateCartQuantityOrder(item.id, 1)} type="button">
-                              <Plus size={12} />
+                                }}
+                              />
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>kg</span>
+                            </div>
+                            <button onClick={() => handleEditCartItemOrder(item)} className="ord-edit-cart-btn" title="Edit Weight & Note">
+                              <Edit size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div className="ord-qty-controls">
+                              <button onClick={() => updateCartQuantityOrder(item.cartItemId || item.id, -1)} type="button">
+                                <Minus size={12} />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                className="ord-qty-input"
+                                value={item.quantity}
+                                onChange={(e) => setOrderCartQuantity(item.cartItemId || item.id, e.target.value)}
+                                onBlur={() => handleBlurCartQuantityOrder(item.cartItemId || item.id, item.quantity)}
+                              />
+                              <button onClick={() => updateCartQuantityOrder(item.cartItemId || item.id, 1)} type="button">
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                            <button onClick={() => handleEditCartItemOrder(item)} className="ord-edit-cart-btn" title="Edit Quantity & Note">
+                              <Edit size={14} />
                             </button>
                           </div>
                         )}
                         <div className="ord-item-price">
-                          <span className="amt">₹{item.total.toFixed(2)}</span>
+                          <span className="amt">₹{Number(item.total).toFixed(2)}</span>
                         </div>
-                        <button onClick={() => removeFromCartOrder(item.id)} style={{ color: 'var(--error-color)', background: 'none', border: 'none', cursor: 'pointer' }} title="Remove Item">
+                        <button onClick={() => removeFromCartOrder(item.cartItemId || item.id)} style={{ color: 'var(--error-color)', background: 'none', border: 'none', cursor: 'pointer' }} title="Remove Item">
                           <X size={16} />
                         </button>
                       </div>
@@ -5390,30 +5636,47 @@ const StorePortal = () => {
                 </div>
 
                 <div className="ord-summary-totals" style={{ borderTop: 'none', paddingTop: '0' }}>
+                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                    <span>Cart Total</span>
+                    <span>₹{orderCartTotalAmt.toFixed(2)}</span>
+                  </div>
                   {orderDiscountVal > 0 && (
-                    <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                      <span>Cart Total</span>
-                      <span>₹{orderCartTotalAmt.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {orderDiscountVal > 0 && (
-                    <div className="ord-total-row" style={{ fontSize: '13px', color: '#dc2626', fontWeight: '600', marginTop: '2px' }}>
-                      <span>Discount (₹)</span>
+                    <div className="ord-total-row" style={{ fontSize: '13px', color: '#dc2626', fontWeight: '700', marginTop: '2px' }}>
+                      <span>Discount</span>
                       <span>-₹{orderDiscountVal.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                    <span>Subtotal (Excl. Tax)</span>
-                    <span>₹{(orderTotalAmount / 1.05).toFixed(2)}</span>
-                  </div>
-                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
-                    <span>GST (5%)</span>
-                    <span>₹{(orderTotalAmount - (orderTotalAmount / 1.05)).toFixed(2)}</span>
-                  </div>
-                  <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
-                    <span>Grand Total (Incl. Tax)</span>
-                    <span>₹{orderTotalAmount.toFixed(2)}</span>
-                  </div>
+                  {orderIsIGST ? (
+                    <>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                        <span>Taxable Amount</span>
+                        <span>₹{orderTaxableSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: '#0284c7', fontWeight: '700', marginTop: '2px' }}>
+                        <span>IGST ({orderIgstRateNum}%)</span>
+                        <span>+₹{orderIgstAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
+                        <span>Grand Total (Incl. IGST)</span>
+                        <span>₹{orderTotalAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                        <span>Subtotal (Excl. Tax)</span>
+                        <span>₹{(orderTotalAmount / 1.05).toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                        <span>GST (5%)</span>
+                        <span>₹{(orderTotalAmount - (orderTotalAmount / 1.05)).toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
+                        <span>Grand Total (Incl. Tax)</span>
+                        <span>₹{orderTotalAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="ord-total-row" style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
                     <span>Total Paid</span>
                     <span>₹{(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
@@ -5422,6 +5685,51 @@ const StorePortal = () => {
                     <span>Balance Due</span>
                     <span>₹{Math.max(0, orderTotalAmount - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
                   </div>
+
+                  {selectedOrderCustomerObj?.isB2B && (
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: orderIsIGST ? '#eff6ff' : '#f8fafc',
+                      border: `1px solid ${orderIsIGST ? '#bfdbfe' : '#e2e8f0'}`
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={orderIsIGST}
+                            onChange={(e) => setOrderIsIGST(e.target.checked)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: orderIsIGST ? '#1e40af' : '#475569' }}>
+                            Is IGST (Interstate B2B)?
+                          </span>
+                        </label>
+                        {orderIsIGST && (
+                          <span style={{ fontSize: '10px', fontWeight: '800', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '10px' }}>
+                            IGST ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      {orderIsIGST && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#1e40af' }}>IGST Percentage (%):</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={orderIgstRate}
+                            onChange={(e) => setOrderIgstRate(e.target.value)}
+                            placeholder="5"
+                            style={{ width: '70px', height: '32px', padding: '0 8px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #bfdbfe', textAlign: 'center' }}
+                          />
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>%</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -5511,33 +5819,64 @@ const StorePortal = () => {
               exit={{ opacity: 0, scale: 0.9 }}
             >
               <div className="modal-icon-box" style={{ background: '#FEF3C7', color: '#D97706' }}>
-                <Scale size={32} />
+                {showOrderWeightModal.unit === 'Weight' ? <Scale size={32} /> : <Package size={32} />}
               </div>
-              <h3 className="modal-title">Enter Quantity for {showOrderWeightModal.name}</h3>
+              <h3 className="modal-title">
+                {editingCartItemOrder ? 'Edit' : 'Enter Quantity for'} {showOrderWeightModal.name}
+              </h3>
 
               <div className="ord-weight-form">
-                <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '10px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    placeholder="0.000"
-                    value={orderWeightInput.weight}
-                    onChange={(e) => handleOrderWeightCalc('weight', e.target.value, showOrderWeightModal.price)}
-                    style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                  />
-                </div>
-                <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5, margin: '5px 0' }}>OR</div>
-                <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '700' }}>Amount (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={orderWeightInput.amount}
-                    onChange={(e) => handleOrderWeightCalc('amount', e.target.value, showOrderWeightModal.price)}
-                    style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
-                  />
-                </div>
+                {showOrderWeightModal.unit === 'Weight' ? (
+                  <>
+                    <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700' }}>Weight (kg)</label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        placeholder="0.000"
+                        value={orderWeightInput.weight}
+                        onChange={(e) => handleOrderWeightCalc('weight', e.target.value, showOrderWeightModal.price)}
+                        style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      />
+                    </div>
+                    <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5, margin: '5px 0' }}>OR</div>
+                    <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700' }}>Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={orderWeightInput.amount}
+                        onChange={(e) => handleOrderWeightCalc('amount', e.target.value, showOrderWeightModal.price)}
+                        style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700' }}>Quantity (Pieces)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 5"
+                        value={orderWeightInput.weight}
+                        onChange={(e) => handleOrderWeightCalc('weight', e.target.value, showOrderWeightModal.price)}
+                        style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      />
+                    </div>
+                    <div style={{ textAlign: 'center', fontWeight: '700', opacity: 0.5, margin: '5px 0' }}>OR</div>
+                    <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700' }}>Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={orderWeightInput.amount}
+                        onChange={(e) => handleOrderWeightCalc('amount', e.target.value, showOrderWeightModal.price)}
+                        style={{ height: '38px', padding: '0 12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="ord-weight-input-group" style={{ display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'left', marginBottom: '15px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '700' }}>Manufacturing description</label>
@@ -5558,13 +5897,13 @@ const StorePortal = () => {
                 </div>
 
                 <div className="modal-actions" style={{ marginTop: '10px' }}>
-                  <button className="modal-btn cancel" onClick={() => setShowOrderWeightModal(null)}>Cancel</button>
+                  <button className="modal-btn cancel" onClick={() => { setShowOrderWeightModal(null); setEditingCartItemOrder(null); }}>Cancel</button>
                   <button
                     className="modal-btn confirm"
                     style={{ background: 'var(--primary-color)' }}
                     onClick={confirmOrderWeightAdd}
                   >
-                    Add to Order
+                    {editingCartItemOrder ? 'Update Item' : 'Add to Order'}
                   </button>
                 </div>
               </div>
@@ -5901,6 +6240,12 @@ const StorePortal = () => {
                           <h4>Total Bill</h4>
                           <p>₹{previewOrder.totalAmount.toFixed(2)}</p>
                         </div>
+                        {previewOrder.isIGST && (
+                          <div className="ord-payment-summary-card" style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe' }}>
+                            <h4>IGST ({previewOrder.igstRate || 5}%)</h4>
+                            <p>+₹{Number(previewOrder.igstAmount || (previewOrder.totalAmount - (previewOrder.totalAmount / (1 + ((previewOrder.igstRate || 5) / 100))))).toFixed(2)}</p>
+                          </div>
+                        )}
                         <div className="ord-payment-summary-card">
                           <h4>Total Paid</h4>
                           <p>₹{previewOrder.receivedAmount.toFixed(2)}</p>
@@ -6072,6 +6417,106 @@ const StorePortal = () => {
             </div>
           );
         })()}
+      </AnimatePresence>
+
+      {/* Order B2B IGST Prompt Modal */}
+      <AnimatePresence>
+        {orderIgstPromptData.isOpen && (
+          <div className="modal-overlay" style={{ zIndex: 4500 }}>
+            <motion.div
+              className="custom-modal"
+              style={{ maxWidth: '420px', width: '90%', textAlign: 'center' }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box" style={{ background: '#EFF6FF', color: '#2563EB', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Building2 size={32} />
+              </div>
+              <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#1E293B' }}>
+                B2B Customer Detected
+              </h3>
+              <p className="modal-text" style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.5', marginBottom: '20px' }}>
+                <strong>{orderIgstPromptData.customerName}</strong> is registered as a B2B Customer.<br />
+                Is this transaction an <strong>IGST (Interstate)</strong> order?
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="modal-btn cancel"
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
+                  onClick={() => {
+                    setOrderIsIGST(false);
+                    setOrderIgstPromptData({ isOpen: false, customerName: '' });
+                  }}
+                >
+                  No, Local (CGST+SGST)
+                </button>
+                <button
+                  type="button"
+                  className="modal-btn confirm"
+                  style={{ flex: 1, background: '#2563EB', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  onClick={() => {
+                    setOrderIsIGST(true);
+                    setOrderIgstPromptData({ isOpen: false, customerName: '' });
+                  }}
+                >
+                  Yes, Apply IGST
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* POS Billing B2B IGST Prompt Modal */}
+      <AnimatePresence>
+        {storePosIgstPromptData.isOpen && (
+          <div className="modal-overlay" style={{ zIndex: 4500 }}>
+            <motion.div
+              className="custom-modal"
+              style={{ maxWidth: '420px', width: '90%', textAlign: 'center' }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box" style={{ background: '#EFF6FF', color: '#2563EB', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Building2 size={32} />
+              </div>
+              <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#1E293B' }}>
+                B2B Customer Detected
+              </h3>
+              <p className="modal-text" style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.5', marginBottom: '20px' }}>
+                <strong>{storePosIgstPromptData.customerName}</strong> is registered as a B2B Customer.<br />
+                Is this transaction an <strong>IGST (Interstate)</strong> bill?
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="modal-btn cancel"
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
+                  onClick={() => {
+                    setStorePosIsIGST(false);
+                    setStorePosIgstPromptData({ isOpen: false, customerName: '' });
+                  }}
+                >
+                  No, Local (CGST+SGST)
+                </button>
+                <button
+                  type="button"
+                  className="modal-btn confirm"
+                  style={{ flex: 1, background: '#2563EB', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  onClick={() => {
+                    setStorePosIsIGST(true);
+                    setStorePosIgstPromptData({ isOpen: false, customerName: '' });
+                  }}
+                >
+                  Yes, Apply IGST
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
     </PortalLayout>

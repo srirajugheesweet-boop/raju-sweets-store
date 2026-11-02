@@ -35,13 +35,32 @@ export const numberToWords = (num) => {
  * Returns formatted HTML for 80mm thermal receipt matching physical POS bill layout.
  */
 export const generateReceiptHTML = (bill = {}) => {
+  const isIGST = Boolean(bill.isIGST);
+  const igstRateVal = isIGST ? Number(bill.igstRate || 5) : 5;
   const totalVal = Number(bill.totalAmount || 0);
   const discountVal = Number(bill.discount || 0);
   const grossVal = totalVal + discountVal;
-  const taxableVal = totalVal / 1.05;
-  const taxAmtVal = totalVal - taxableVal;
-  const cgstVal = taxAmtVal / 2;
-  const sgstVal = taxAmtVal / 2;
+
+  let taxableVal, taxAmtVal, cgstVal, sgstVal, igstVal;
+  if (isIGST) {
+    if (bill.igstAmount !== undefined && Number(bill.igstAmount) > 0) {
+      igstVal = Number(bill.igstAmount);
+      taxableVal = totalVal - igstVal;
+      taxAmtVal = igstVal;
+    } else {
+      taxableVal = totalVal / (1 + (igstRateVal / 100));
+      taxAmtVal = totalVal - taxableVal;
+      igstVal = taxAmtVal;
+    }
+    cgstVal = 0;
+    sgstVal = 0;
+  } else {
+    taxableVal = totalVal / 1.05;
+    taxAmtVal = totalVal - taxableVal;
+    cgstVal = taxAmtVal / 2;
+    sgstVal = taxAmtVal / 2;
+    igstVal = 0;
+  }
   const totalQty = (bill.items || []).reduce((acc, i) => acc + (i.unit === 'Weight' ? 1 : Number(i.quantity || 1)), 0);
 
   const formattedDate = bill.date || (bill.createdAt?.toDate ? bill.createdAt.toDate().toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }));
@@ -169,13 +188,13 @@ export const generateReceiptHTML = (bill = {}) => {
           </thead>
           <tbody>
             <tr>
-              <td colspan="6" style="padding-top: 3px;"><b>GST 5%</b></td>
+              <td colspan="6" style="padding-top: 3px;"><b>${isIGST ? `IGST ${igstRateVal}%` : 'GST 5%'}</b></td>
             </tr>
             <tr>
               <td style="text-align: left;">${taxableVal.toFixed(2)}</td>
               <td class="right">${cgstVal.toFixed(2)}</td>
               <td class="right">${sgstVal.toFixed(2)}</td>
-              <td class="right">0.00</td>
+              <td class="right">${igstVal.toFixed(2)}</td>
               <td class="right">0.00</td>
               <td class="right">${taxAmtVal.toFixed(2)}</td>
             </tr>
@@ -183,7 +202,7 @@ export const generateReceiptHTML = (bill = {}) => {
               <td style="text-align: left;">${taxableVal.toFixed(2)}</td>
               <td class="right">${cgstVal.toFixed(2)}</td>
               <td class="right">${sgstVal.toFixed(2)}</td>
-              <td class="right">0.00</td>
+              <td class="right">${igstVal.toFixed(2)}</td>
               <td class="right">0.00</td>
               <td class="right">${taxAmtVal.toFixed(2)}</td>
             </tr>
@@ -218,13 +237,32 @@ export const generateReceiptHTML = (bill = {}) => {
  * Returns formatted HTML for 80mm thermal receipt for customer orders.
  */
 export const generateOrderReceiptHTML = (order = {}) => {
+  const isIGST = Boolean(order.isIGST);
+  const igstRateVal = isIGST ? Number(order.igstRate || 5) : 5;
   const totalVal = Number(order.totalAmount || 0);
   const discountVal = Number(order.discount || 0);
   const grossVal = totalVal + discountVal;
-  const taxableVal = totalVal / 1.05;
-  const taxAmtVal = totalVal - taxableVal;
-  const cgstVal = taxAmtVal / 2;
-  const sgstVal = taxAmtVal / 2;
+
+  let taxableVal, taxAmtVal, cgstVal, sgstVal, igstVal;
+  if (isIGST) {
+    if (order.igstAmount !== undefined && Number(order.igstAmount) > 0) {
+      igstVal = Number(order.igstAmount);
+      taxableVal = totalVal - igstVal;
+      taxAmtVal = igstVal;
+    } else {
+      taxableVal = totalVal / (1 + (igstRateVal / 100));
+      taxAmtVal = totalVal - taxableVal;
+      igstVal = taxAmtVal;
+    }
+    cgstVal = 0;
+    sgstVal = 0;
+  } else {
+    taxableVal = totalVal / 1.05;
+    taxAmtVal = totalVal - taxableVal;
+    cgstVal = taxAmtVal / 2;
+    sgstVal = taxAmtVal / 2;
+    igstVal = 0;
+  }
   const receivedVal = Number(order.receivedAmount || 0);
   const balanceVal = Math.max(0, totalVal - receivedVal);
 
@@ -351,12 +389,20 @@ export const generateOrderReceiptHTML = (order = {}) => {
         </div>
         <div class="solid-divider"></div>
 
-        <div class="bold" style="font-size: 10px; margin-bottom: 2px;">GST (5% Included in Total)</div>
-        <div class="info-row" style="font-size: 10px;">
-          <span>Taxable: ₹${taxableVal.toFixed(2)}</span>
-          <span>CGST (2.5%): ₹${cgstVal.toFixed(2)}</span>
-          <span>SGST (2.5%): ₹${sgstVal.toFixed(2)}</span>
-        </div>
+        ${isIGST ? `
+          <div class="bold" style="font-size: 10px; margin-bottom: 2px;">IGST (${igstRateVal}% Included in Total)</div>
+          <div class="info-row" style="font-size: 10px;">
+            <span>Taxable: ₹${taxableVal.toFixed(2)}</span>
+            <span>IGST (${igstRateVal}%): ₹${igstVal.toFixed(2)}</span>
+          </div>
+        ` : `
+          <div class="bold" style="font-size: 10px; margin-bottom: 2px;">GST (5% Included in Total)</div>
+          <div class="info-row" style="font-size: 10px;">
+            <span>Taxable: ₹${taxableVal.toFixed(2)}</span>
+            <span>CGST (2.5%): ₹${cgstVal.toFixed(2)}</span>
+            <span>SGST (2.5%): ₹${sgstVal.toFixed(2)}</span>
+          </div>
+        `}
         <div class="solid-divider"></div>
 
         <div style="font-size: 10px; font-weight: bold; margin: 3px 0;">

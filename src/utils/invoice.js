@@ -96,6 +96,10 @@ export function getInvoiceHtml(order) {
   // Determine if it is Intrastate (within AP) or Interstate
   const isIntrastate = customerState.toLowerCase().replace(/\s+/g, '') === 'andhrapradesh';
 
+  // Determine if it is IGST
+  const isIGST = Boolean(order.isIGST !== undefined ? order.isIGST : !isIntrastate);
+  const igstRate = Number(order.igstRate || 5);
+
   // State Code Mapping
   const stateCodes = {
     'andhrapradesh': '37',
@@ -110,27 +114,36 @@ export function getInvoiceHtml(order) {
   const customerStateNorm = customerState.toLowerCase().replace(/\s+/g, '');
   const customerStateCode = stateCodes[customerStateNorm] || 'N/A';
 
-  // GST Calculation (5% total)
+  // GST Calculation
   const totalAmount = order.totalAmount || 0;
-  const taxableValue = totalAmount / 1.05;
-  const totalGST = totalAmount - taxableValue;
-
+  let taxableValue = 0;
+  let totalGST = 0;
   let cgstAmount = 0;
   let sgstAmount = 0;
   let igstAmount = 0;
 
-  if (isIntrastate) {
+  if (isIGST) {
+    if (order.igstAmount !== undefined && Number(order.igstAmount) > 0) {
+      igstAmount = Number(order.igstAmount);
+      taxableValue = totalAmount - igstAmount;
+      totalGST = igstAmount;
+    } else {
+      taxableValue = totalAmount / (1 + (igstRate / 100));
+      totalGST = totalAmount - taxableValue;
+      igstAmount = totalGST;
+    }
+  } else {
+    taxableValue = totalAmount / 1.05;
+    totalGST = totalAmount - taxableValue;
     cgstAmount = totalGST / 2;
     sgstAmount = totalGST / 2;
-  } else {
-    igstAmount = totalGST;
   }
 
   // Retrieve store/seller details
   const storeName = order.storeName || 'Raju Ghee Sweets';
   const sellerGSTIN = '37AEQPK1348P1ZS'; // Official GSTIN
 
-  const tableHeadersHtml = isIntrastate
+  const tableHeadersHtml = !isIGST
     ? `
         <th style="width: 5%; text-align: center;">S.No</th>
         <th style="width: 35%; text-align: left;">Product Name / Description</th>
@@ -153,13 +166,14 @@ export function getInvoiceHtml(order) {
         <th style="width: 12%; text-align: right;">Total Amount</th>
       `;
 
-  const itemsHtml = order.items.map((item, idx) => {
+  const itemsHtml = (order.items || []).map((item, idx) => {
     const itemTotal = item.total || 0;
-    const itemTaxable = itemTotal / 1.05;
+    const rate = isIGST ? igstRate : 5;
+    const itemTaxable = itemTotal / (1 + (rate / 100));
     const itemGST = itemTotal - itemTaxable;
     const itemRate = item.price || 0;
     
-    if (isIntrastate) {
+    if (!isIGST) {
       const itemCGST = itemGST / 2;
       const itemSGST = itemGST / 2;
       return `
@@ -184,14 +198,14 @@ export function getInvoiceHtml(order) {
           <td style="text-align: center;">${item.unit === 'Weight' ? `${item.quantity} kg` : `${item.quantity} pcs`}</td>
           <td style="text-align: right;">₹${itemRate.toFixed(2)}</td>
           <td style="text-align: right;">₹${itemTaxable.toFixed(2)}</td>
-          <td style="text-align: right;">5%<br/>₹${itemGST.toFixed(2)}</td>
+          <td style="text-align: right;">${igstRate}%<br/>₹${itemGST.toFixed(2)}</td>
           <td style="text-align: right;">₹${itemTotal.toFixed(2)}</td>
         </tr>
       `;
     }
   }).join('');
 
-  const summaryRowHtml = isIntrastate
+  const summaryRowHtml = !isIGST
     ? `
         <tr style="font-weight: bold; background-color: #f9f9f9;">
           <td colspan="5" style="text-align: right;">Total / Taxable Value:</td>
@@ -210,7 +224,7 @@ export function getInvoiceHtml(order) {
         </tr>
       `;
 
-  const gstBreakupHtml = isIntrastate
+  const gstBreakupHtml = !isIGST
     ? `
         <strong>GST Summary Breakup:</strong><br/>
         - CGST @ 2.5%: ₹${cgstAmount.toFixed(2)}<br/>
@@ -219,7 +233,7 @@ export function getInvoiceHtml(order) {
       `
     : `
         <strong>GST Summary Breakup:</strong><br/>
-        - IGST @ 5%: ₹${igstAmount.toFixed(2)}<br/>
+        - IGST @ ${igstRate}%: ₹${igstAmount.toFixed(2)}<br/>
         - Total Tax Amount: ₹${totalGST.toFixed(2)}
       `;
 

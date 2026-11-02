@@ -469,6 +469,13 @@ const WalkInSales = () => {
                 </div>
               )}
               <div><b>Payment Mode:</b> {formatPaymentModeDisplay(previewBill)}</div>
+              {previewBill.isIGST && (
+                <div>
+                  <span style={{ display: 'inline-block', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800' }}>
+                    IGST ({previewBill.igstRate || 5}%)
+                  </span>
+                </div>
+              )}
 
               <div>
                 <b>Bill Status:</b>{' '}
@@ -500,6 +507,12 @@ const WalkInSales = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626' }}>
                   <span>Discount</span>
                   <span>-₹{previewBill.discount}</span>
+                </div>
+              )}
+              {previewBill.isIGST && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: '600' }}>
+                  <span>IGST ({previewBill.igstRate || 5}%)</span>
+                  <span>+₹{Number(previewBill.igstAmount || 0).toFixed(2)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '15px' }}>

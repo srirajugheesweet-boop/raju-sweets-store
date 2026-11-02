@@ -26,7 +26,8 @@ import {
   Bluetooth,
   Usb,
   RefreshCw,
-  Upload
+  Upload,
+  Building2
 } from 'lucide-react';
 import { uploadToImageKit } from '../../config/imagekit';
 import { usePrinter } from '../../context/PrinterContext';
@@ -675,6 +676,11 @@ const Orders = () => {
   const [cart, setCart] = useState([]);
   const [formErrors, setFormErrors] = useState({});
 
+  // B2B IGST States
+  const [isIGST, setIsIGST] = useState(false);
+  const [igstRate, setIgstRate] = useState('5');
+  const [igstPromptData, setIgstPromptData] = useState({ isOpen: false, customerName: '' });
+
   // Modals
   const [showWeightModal, setShowWeightModal] = useState(null);
   const [editingCartItem, setEditingCartItem] = useState(null);
@@ -755,6 +761,15 @@ const Orders = () => {
       setCustomers(prev => [newCust, ...prev].sort((a, b) => a.firstName.localeCompare(b.firstName)));
       setSelectedCustomer(docRef.id);
 
+      if (customerFormData.isB2B) {
+        setIgstPromptData({
+          customerName: customerFormData.businessName || `${customerFormData.firstName} ${customerFormData.lastName || ''}`.trim(),
+          isOpen: true
+        });
+      } else {
+        setIsIGST(false);
+      }
+
       toast.success("Customer created and selected!");
       setShowCreateCustomerModal(false);
     } catch (error) {
@@ -762,6 +777,19 @@ const Orders = () => {
       toast.error("Error creating customer");
     } finally {
       setSavingCustomer(false);
+    }
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    setSelectedCustomer(customerId);
+    const cust = customers.find(c => c.id === customerId);
+    if (cust && cust.isB2B) {
+      setIgstPromptData({
+        customerName: cust.businessName || `${cust.firstName} ${cust.lastName || ''}`.trim(),
+        isOpen: true
+      });
+    } else {
+      setIsIGST(false);
     }
   };
 
@@ -1102,7 +1130,10 @@ const Orders = () => {
 
       const cartTotalAmt = cart.reduce((sum, item) => sum + item.total, 0);
       const discountVal = parseFloat(discount) || 0;
-      const totalAmt = Math.max(0, cartTotalAmt - discountVal);
+      const taxableSubtotalVal = Math.max(0, cartTotalAmt - discountVal);
+      const igstRateNum = isIGST ? (parseFloat(igstRate) || 0) : 0;
+      const igstAmount = isIGST ? Number(((taxableSubtotalVal * igstRateNum) / 100).toFixed(2)) : 0;
+      const totalAmt = isIGST ? Number((taxableSubtotalVal + igstAmount).toFixed(2)) : taxableSubtotalVal;
       const recAmtVal = parseFloat(receivedAmount) || 0;
       let payStatus = 'Pending';
       if (recAmtVal > 0) {
@@ -1140,6 +1171,11 @@ const Orders = () => {
         customerName: `${customer.firstName} ${customer.lastName}`,
         customerPhone: customer.mobileNumber,
         isB2B: customer.isB2B || false,
+        isIGST: Boolean(isIGST),
+        igstRate: isIGST ? igstRateNum : 0,
+        igstAmount: isIGST ? igstAmount : 0,
+        taxAmount: isIGST ? igstAmount : Number((totalAmt - (totalAmt / 1.05)).toFixed(2)),
+        taxLabel: isIGST ? 'IGST' : 'GST',
         businessName: customer.businessName || '',
         gstNumber: customer.gstNumber || '',
         address: customer.address || '',
@@ -1230,6 +1266,9 @@ const Orders = () => {
     setSplitPayments({ Cash: '', UPI: '', Card: '' });
     setReceivedAmount('');
     setDiscount('');
+    setIsIGST(false);
+    setIgstRate('5');
+    setIgstPromptData({ isOpen: false, customerName: '' });
     setDeliveryDate('');
     setDeliveryTime('');
     setEditingOrderId(null);
@@ -1253,6 +1292,8 @@ const Orders = () => {
     setSplitPayments(order.splitPayments || { Cash: '', UPI: '', Card: '' });
     setReceivedAmount(order.receivedAmount !== undefined ? order.receivedAmount.toString() : '');
     setDiscount(order.discount !== undefined ? order.discount.toString() : '');
+    setIsIGST(Boolean(order.isIGST));
+    setIgstRate(order.igstRate !== undefined ? order.igstRate.toString() : '5');
     setDeliveryDate(order.deliveryDate || '');
     setDeliveryTime(order.deliveryTime || '');
     setCart((order.items || []).map((it, idx) => ({
@@ -1420,9 +1461,13 @@ const Orders = () => {
       return (a.name || '').localeCompare(b.name || '');
     });
 
+  const selectedCustomerObj = customers.find(c => c.id === selectedCustomer);
   const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
   const discountVal = parseFloat(discount) || 0;
-  const totalAmount = Math.max(0, cartTotal - discountVal);
+  const taxableSubtotal = Math.max(0, cartTotal - discountVal);
+  const igstRateNum = isIGST ? (parseFloat(igstRate) || 0) : 0;
+  const igstAmount = isIGST ? Number(((taxableSubtotal * igstRateNum) / 100).toFixed(2)) : 0;
+  const totalAmount = isIGST ? Number((taxableSubtotal + igstAmount).toFixed(2)) : taxableSubtotal;
   const recAmt = parseFloat(receivedAmount) || 0;
   let paymentStatus = 'Pending';
   if (recAmt > 0) {
@@ -2243,7 +2288,7 @@ const Orders = () => {
                     <CustomDropdown
                       label="Select Customer *"
                       options={customers}
-                      onSelect={setSelectedCustomer}
+                      onSelect={handleCustomerSelect}
                       selectedValue={selectedCustomer}
                       placeholder="Search name or number..."
                       icon={User}
@@ -2623,18 +2668,37 @@ const Orders = () => {
                       <span>-₹{discountVal.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
-                    <span>Subtotal (Excl. Tax)</span>
-                    <span>₹{(totalAmount / 1.05).toFixed(2)}</span>
-                  </div>
-                  <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
-                    <span>GST (5%)</span>
-                    <span>₹{(totalAmount - (totalAmount / 1.05)).toFixed(2)}</span>
-                  </div>
-                  <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
-                    <span>Grand Total (Incl. Tax)</span>
-                    <span>₹{totalAmount.toFixed(2)}</span>
-                  </div>
+                  {isIGST ? (
+                    <>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                        <span>Taxable Amount</span>
+                        <span>₹{taxableSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: '#0284c7', fontWeight: '700', marginTop: '2px' }}>
+                        <span>IGST ({igstRateNum}%)</span>
+                        <span>+₹{igstAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
+                        <span>Grand Total (Incl. IGST)</span>
+                        <span>₹{totalAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                        <span>Subtotal (Excl. Tax)</span>
+                        <span>₹{(totalAmount / 1.05).toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '2px' }}>
+                        <span>GST (5%)</span>
+                        <span>₹{(totalAmount - (totalAmount / 1.05)).toFixed(2)}</span>
+                      </div>
+                      <div className="ord-total-row" style={{ borderTop: '1px dashed var(--border-color)', marginTop: '6px', paddingTop: '6px' }}>
+                        <span>Grand Total (Incl. Tax)</span>
+                        <span>₹{totalAmount.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="ord-total-row" style={{ fontSize: '13px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
                     <span>Total Paid</span>
                     <span>₹{(parseFloat(receivedAmount) || 0).toFixed(2)}</span>
@@ -2643,6 +2707,51 @@ const Orders = () => {
                     <span>Balance Due</span>
                     <span>₹{Math.max(0, totalAmount - (parseFloat(receivedAmount) || 0)).toFixed(2)}</span>
                   </div>
+
+                  {selectedCustomerObj?.isB2B && (
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: isIGST ? '#eff6ff' : '#f8fafc',
+                      border: `1px solid ${isIGST ? '#bfdbfe' : '#e2e8f0'}`
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={isIGST}
+                            onChange={(e) => setIsIGST(e.target.checked)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                          />
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: isIGST ? '#1e40af' : '#475569' }}>
+                            Is IGST (Interstate B2B)?
+                          </span>
+                        </label>
+                        {isIGST && (
+                          <span style={{ fontSize: '10px', fontWeight: '800', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '10px' }}>
+                            IGST ACTIVE
+                          </span>
+                        )}
+                      </div>
+                      {isIGST && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#1e40af' }}>IGST Percentage (%):</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            value={igstRate}
+                            onChange={(e) => setIgstRate(e.target.value)}
+                            placeholder="5"
+                            style={{ width: '70px', height: '32px', padding: '0 8px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: '1px solid #bfdbfe', textAlign: 'center' }}
+                          />
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>%</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', gap: '15px' }}>
@@ -3032,6 +3141,12 @@ const Orders = () => {
                           <h4>Total Bill</h4>
                           <p>₹{previewOrder.totalAmount.toFixed(2)}</p>
                         </div>
+                        {previewOrder.isIGST && (
+                          <div className="ord-payment-summary-card" style={{ background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe' }}>
+                            <h4>IGST ({previewOrder.igstRate || 5}%)</h4>
+                            <p>+₹{Number(previewOrder.igstAmount || (previewOrder.totalAmount - (previewOrder.totalAmount / (1 + ((previewOrder.igstRate || 5) / 100))))).toFixed(2)}</p>
+                          </div>
+                        )}
                         <div className="ord-payment-summary-card">
                           <h4>Total Paid</h4>
                           <p>₹{previewOrder.receivedAmount.toFixed(2)}</p>
@@ -3408,6 +3523,56 @@ const Orders = () => {
                   disabled={isDeletingOrder}
                 >
                   {isDeletingOrder ? <div className="loader" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Yes, Delete Order'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* IGST Confirmation Prompt for B2B Customers */}
+      <AnimatePresence>
+        {igstPromptData.isOpen && (
+          <div className="modal-overlay" style={{ zIndex: 4500 }}>
+            <motion.div
+              className="custom-modal"
+              style={{ maxWidth: '420px', width: '90%', textAlign: 'center' }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+            >
+              <div className="modal-icon-box" style={{ background: '#EFF6FF', color: '#2563EB', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Building2 size={32} />
+              </div>
+              <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: '800', marginBottom: '8px', color: '#1E293B' }}>
+                B2B Customer Detected
+              </h3>
+              <p className="modal-text" style={{ fontSize: '13px', color: '#64748B', lineHeight: '1.5', marginBottom: '20px' }}>
+                <strong>{igstPromptData.customerName}</strong> is registered as a B2B Customer.<br />
+                Is this transaction an <strong>IGST (Interstate)</strong> order?
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="modal-btn cancel"
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', fontWeight: '600' }}
+                  onClick={() => {
+                    setIsIGST(false);
+                    setIgstPromptData({ isOpen: false, customerName: '' });
+                  }}
+                >
+                  No, Local (CGST+SGST)
+                </button>
+                <button
+                  type="button"
+                  className="modal-btn confirm"
+                  style={{ flex: 1, background: '#2563EB', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  onClick={() => {
+                    setIsIGST(true);
+                    setIgstPromptData({ isOpen: false, customerName: '' });
+                  }}
+                >
+                  Yes, Apply IGST
                 </button>
               </div>
             </motion.div>
