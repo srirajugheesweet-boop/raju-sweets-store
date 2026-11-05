@@ -39,6 +39,7 @@ import BarcodeGenerator from './pages/BarcodeGenerator/BarcodeGenerator';
 import CustomBarcode from './pages/CustomBarcode/CustomBarcode';
 import Quotations from './pages/Quotations/Quotations';
 import B2BInvoices from './pages/B2BInvoices/B2BInvoices';
+import ItemAnalyser from './pages/ItemAnalyser/ItemAnalyser';
 import BulkOrderCleanupModal from './components/BulkOrderCleanupModal/BulkOrderCleanupModal';
 import { Toaster } from 'react-hot-toast';
 
@@ -114,6 +115,8 @@ function App() {
           <Route path="/custom-barcode" element={<Navigate to="/custom-sticker" replace />} />
           <Route path="/walkin-sales" element={<ProtectedRoute><Layout><WalkInSales /></Layout></ProtectedRoute>} />
           <Route path="/store-worksheet" element={<ProtectedRoute><Layout><StoreWorkSheet /></Layout></ProtectedRoute>} />
+          <Route path="/item-analyser" element={<ProtectedRoute><Layout><ItemAnalyser /></Layout></ProtectedRoute>} />
+          <Route path="/item-analyzer" element={<Navigate to="/item-analyser" replace />} />
 
           <Route path="/customers" element={<ProtectedRoute><Layout><Customers /></Layout></ProtectedRoute>} />
           <Route path="/customers/:id" element={<ProtectedRoute><Layout><CustomerDetails /></Layout></ProtectedRoute>} />

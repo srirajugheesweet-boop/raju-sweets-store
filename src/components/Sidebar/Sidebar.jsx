@@ -24,6 +24,7 @@ import {
   FileText,
   TrendingUp,
   Building2,
+  PackageSearch,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -40,6 +41,7 @@ export const menuItems = [
 
   { id: 'barcode-generator', label: 'Barcode Generator', icon: <Barcode />, path: '/barcode-generator', section: 'operations' },
   { id: 'custom-sticker', label: 'Custom Sticker', icon: <Sparkles />, path: '/custom-sticker', section: 'operations' },
+  { id: 'item-analyser', label: 'Item Analyser', icon: <PackageSearch />, path: '/item-analyser', section: 'operations' },
   { id: 'items', label: 'Products', icon: <Box />, path: '/items', section: 'operations' },
   { id: 'categories', label: 'Collections', icon: <Tag />, path: '/categories', section: 'operations' },
   { id: 'payments', label: 'Payments', icon: <CreditCard />, path: '/payments', section: 'operations' },
