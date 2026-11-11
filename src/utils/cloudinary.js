@@ -71,6 +71,56 @@ export async function uploadQuotationImage(imageDataUrl, quotationNo = '') {
 }
 
 /**
+ * Upload an Invoice image to Cloudinary
+ * @param {string} imageDataUrl - Base64 data URI of the invoice image
+ * @param {string} invoiceNo - Unique invoice identifier
+ * @returns {Promise<{ url: string, publicId: string, secureUrl: string }>}
+ */
+export async function uploadInvoiceImage(imageDataUrl, invoiceNo = '') {
+  try {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const sanitizedNo = (invoiceNo || `INV_${Date.now()}`).toString().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const publicId = `${sanitizedNo}_${Date.now()}`;
+    const folder = 'invoices';
+
+    // Parameters to sign in alphabetical order: folder, public_id, timestamp
+    const stringToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
+    const signature = await computeSha1(stringToSign);
+
+    const formData = new FormData();
+    formData.append('file', imageDataUrl);
+    formData.append('api_key', API_KEY);
+    formData.append('timestamp', timestamp.toString());
+    formData.append('folder', folder);
+    formData.append('public_id', publicId);
+    formData.append('signature', signature);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      throw new Error(data.error?.message || 'Failed to upload invoice to Cloudinary');
+    }
+
+    return {
+      success: true,
+      url: data.secure_url || data.url,
+      secureUrl: data.secure_url || data.url,
+      publicId: data.public_id,
+      format: data.format,
+      bytes: data.bytes
+    };
+  } catch (error) {
+    console.error('Cloudinary invoice upload error:', error);
+    throw error;
+  }
+}
+
+/**
  * Delete a previously uploaded quotation from Cloudinary
  * @param {string} publicId - The Cloudinary public_id (e.g. "quotations/QT_123_456")
  * @returns {Promise<{ success: boolean, result?: any }>}

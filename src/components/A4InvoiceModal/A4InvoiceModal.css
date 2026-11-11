@@ -1,0 +1,542 @@
+/* A4 Invoice Preview Modal Styles - Raju Ghee Sweets */
+
+.a4-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: a4FadeIn 0.2s ease-out;
+}
+
+@keyframes a4FadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.a4-modal-container {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 980px;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+/* Modal Toolbar Header */
+.a4-modal-header {
+  padding: 14px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.a4-header-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.a4-header-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(10, 42, 27, 0.1);
+  color: #0A2A1B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.a4-header-text h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.a4-header-text p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Modal Action Toolbar */
+.a4-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.a4-phone-input-group {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  height: 36px;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.a4-phone-input-group:focus-within {
+  border-color: #25d366;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.15);
+}
+
+.a4-phone-input-group input {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  width: 130px;
+  outline: none;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.a4-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.a4-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.a4-btn-whatsapp {
+  background: #25d366;
+  color: #ffffff;
+}
+
+.a4-btn-whatsapp:hover:not(:disabled) {
+  background: #20bd5a;
+  box-shadow: 0 2px 6px rgba(37, 211, 102, 0.3);
+}
+
+.a4-btn-download {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.a4-btn-download:hover:not(:disabled) {
+  background: #0369a1;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+
+.a4-btn-print {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.a4-btn-print:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.a4-btn-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.a4-btn-close:hover {
+  background: #fee2e2;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+/* Modal Body / Scrollable Canvas Area */
+.a4-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  background: #475569; /* Slate background to provide sharp paper contrast */
+  padding: 24px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* The A4 Paper Document */
+.a4-sheet {
+  background: #ffffff;
+  width: 100%;
+  max-width: 800px; /* Calibrated for standard A4 visual ratio */
+  min-width: 720px; /* Preserve crisp layout on any screen width */
+  min-height: 1050px;
+  padding: 36px 40px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  color: #1e293b;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  position: relative;
+}
+
+/* Top Brand Header */
+.a4-brand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #0A2A1B;
+  gap: 20px;
+}
+
+.a4-brand-left {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.a4-logo {
+  height: 64px;
+  width: auto;
+  object-fit: contain;
+}
+
+.a4-company-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0A2A1B;
+  letter-spacing: 0.5px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.a4-tagline {
+  font-size: 11px;
+  color: #b45309;
+  font-weight: 700;
+  margin: 2px 0 4px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.a4-store-details {
+  font-size: 10.5px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.a4-gst-highlight {
+  font-weight: 700;
+  color: #0A2A1B;
+}
+
+.a4-brand-right {
+  text-align: right;
+}
+
+.a4-invoice-badge {
+  display: inline-block;
+  background: #0A2A1B;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 14px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.a4-original-subtext {
+  font-size: 9.5px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+.a4-meta-list {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.a4-meta-list strong {
+  color: #0f172a;
+}
+
+/* Bill From / Bill To Two-Column Box */
+.a4-party-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.a4-party-box {
+  padding: 12px 14px;
+}
+
+.a4-party-box:first-child {
+  border-right: 1px solid #cbd5e1;
+  background: #fafbfc;
+}
+
+.a4-party-box:last-child {
+  background: #ffffff;
+}
+
+.a4-party-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #0A2A1B;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.a4-party-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.a4-party-info {
+  font-size: 10.5px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+/* Items Table */
+.a4-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  border: 1px solid #cbd5e1;
+  font-size: 11px;
+}
+
+.a4-items-table th {
+  background: #0A2A1B;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 7px 8px;
+  border: 1px solid #0A2A1B;
+}
+
+.a4-items-table td {
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.a4-items-table tbody tr:nth-child(even) {
+  background-color: #fafbfc;
+}
+
+.a4-item-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.a4-item-cat {
+  font-size: 9.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* Financial Summary Section */
+.a4-summary-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+  align-items: start;
+}
+
+.a4-summary-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.a4-words-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.a4-words-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 3px;
+}
+
+.a4-words-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0A2A1B;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.a4-tax-breakdown-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 10.5px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.a4-tax-breakdown-box strong {
+  color: #0A2A1B;
+}
+
+.a4-bank-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 10px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.a4-bank-title {
+  font-weight: 700;
+  color: #0A2A1B;
+  font-size: 10.5px;
+  margin-bottom: 4px;
+}
+
+/* Right Totals Table */
+.a4-totals-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.a4-totals-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.a4-grand-total-row {
+  background: #e6f4ea !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #0A2A1B !important;
+  border-top: 2px solid #0A2A1B !important;
+  border-bottom: 2px solid #0A2A1B !important;
+}
+
+/* Signatory & Terms Footer */
+.a4-bottom-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  gap: 20px;
+}
+
+.a4-terms-box {
+  flex: 1;
+  font-size: 9.5px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.a4-signatory-box {
+  width: 180px;
+  text-align: center;
+}
+
+.a4-sign-line {
+  border-top: 1px dashed #334155;
+  padding-top: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #0A2A1B;
+}
+
+.a4-footer-thanks {
+  text-align: center;
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Print Overrides */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .a4-sheet, .a4-sheet * {
+    visibility: visible;
+  }
+  .a4-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}

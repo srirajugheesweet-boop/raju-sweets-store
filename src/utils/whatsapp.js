@@ -167,3 +167,59 @@ export const openWhatsAppWithQuotation = ({ quotation, cloudinaryUrl }) => {
   window.open(url, '_blank');
   return true;
 };
+
+/**
+ * Formats a clean, professional WhatsApp invoice message for walk-in/POS bills
+ */
+export const formatInvoiceWhatsAppMessage = (bill, invoiceUrl = '') => {
+  const customerName = bill.customerName || 'Valued Customer';
+  const billNo = bill.billId || bill.id || 'N/A';
+  const storeName = bill.tradeName || bill.storeName || 'Raju Ghee Sweets';
+  const totalAmount = Number(bill.totalAmount || 0).toFixed(2);
+  const items = Array.isArray(bill.items) ? bill.items : [];
+  const itemCount = items.length;
+  const billDate = bill.date || (bill.createdAt?.toDate ? bill.createdAt.toDate().toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN'));
+
+  let message = `Hello *${customerName}* 👋,
+
+Greetings from *${storeName}*!
+Here is your Tax Invoice for Bill *#${billNo}*:
+
+📅 *Date:* ${billDate}
+🏬 *Store:* ${storeName}
+📦 *Items:* ${itemCount} ${itemCount === 1 ? 'item' : 'items'}
+💰 *Grand Total:* ₹${totalAmount}`;
+
+  if (invoiceUrl) {
+    message += `\n\n📄 *View / Download Tax Invoice:*\n${invoiceUrl}`;
+  } else if (items.length > 0) {
+    message += `\n\n📋 *Purchased Items:*`;
+    items.forEach((item, idx) => {
+      const isWeight = item.unit === 'Weight' || item.weightUnit;
+      const qtyStr = isWeight ? `${item.quantity} kg` : `${item.quantity} ${item.unit || 'pcs'}`;
+      message += `\n${idx + 1}. ${item.name} (${qtyStr}) - ₹${Number(item.total || 0).toFixed(2)}`;
+    });
+  }
+
+  message += `\n\nThank you for choosing Raju Ghee Sweets! Taste the authentic pure ghee tradition. 🙏`;
+
+  return message;
+};
+
+/**
+ * Opens WhatsApp Web or App with pre-filled bill/invoice details and link
+ */
+export const openWhatsAppWithInvoice = ({ bill, phone, invoiceUrl }) => {
+  const targetPhone = phone || bill.customerPhone || '';
+  let cleanPhone = (targetPhone || '').replace(/[^0-9]/g, '');
+  if (cleanPhone.length === 10) {
+    cleanPhone = '91' + cleanPhone;
+  }
+  const text = formatInvoiceWhatsAppMessage(bill, invoiceUrl);
+  const url = cleanPhone
+    ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+  return true;
+};
+

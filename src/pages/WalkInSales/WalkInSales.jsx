@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Receipt, 
   Search, 
@@ -14,28 +14,52 @@ import {
   CreditCard,
   ShoppingBag,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { db } from '../../config/firebase';
-import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  limit, 
+  startAfter, 
+  getCountFromServer 
+} from 'firebase/firestore';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import { formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
 import logo from '../../assets/logo.png';
 import { usePrinter } from '../../context/PrinterContext';
+import A4InvoiceModal from '../../components/A4InvoiceModal/A4InvoiceModal';
 import './WalkInSales.css';
 
 const DEFAULT_ITEM_IMAGE = logo;
+const PAGE_SIZE = 24;
 
 const WalkInSales = () => {
   const [bills, setBills] = useState([]);
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalBillsCount, setTotalBillsCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all', 'settled', 'saved'
   const [filterDate, setFilterDate] = useState('');
   const [previewBill, setPreviewBill] = useState(null);
+  const [a4InvoiceBill, setA4InvoiceBill] = useState(null);
   const [expandedBills, setExpandedBills] = useState([]);
+
+  const pageCursorsRef = useRef({});
+  const pageCacheRef = useRef({});
 
   const toggleBillAccordion = (billId) => {
     setExpandedBills(prev => 
@@ -58,23 +82,92 @@ const WalkInSales = () => {
     fetchStores();
   }, []);
 
-  // Fetch Global Bills across all stores reactively
+  // Fetch Total Bills Count from server for accurate pagination metrics
   useEffect(() => {
+    const fetchTotalCount = async () => {
+      try {
+        const countSnap = await getCountFromServer(collection(db, 'bills'));
+        if (countSnap && typeof countSnap.data().count === 'number') {
+          setTotalBillsCount(countSnap.data().count);
+        }
+      } catch (err) {
+        console.warn("Could not fetch total count of bills:", err);
+      }
+    };
+    fetchTotalCount();
+  }, []);
+
+  // Page 1: Real-time subscription with limit(24)
+  useEffect(() => {
+    if (currentPage !== 1) return;
+
     setLoading(true);
-    const q = query(collection(db, 'bills'), orderBy('createdAt', 'desc'));
+    const q = query(
+      collection(db, 'bills'), 
+      orderBy('createdAt', 'desc'), 
+      limit(PAGE_SIZE)
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedBills = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setBills(fetchedBills);
+      pageCacheRef.current[1] = fetchedBills;
+      if (snapshot.docs.length > 0) {
+        pageCursorsRef.current[1] = snapshot.docs[snapshot.docs.length - 1];
+      }
+      setHasMore(snapshot.docs.length === PAGE_SIZE);
       setLoading(false);
     }, (err) => {
       console.error("Error subscribing to root bills:", err);
-      // Fallback: search subcollections if root bills is empty
       fetchBillsFromSubcollections();
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentPage]);
+
+  // Page > 1: Paginated fetching using startAfter cursor with limit(24)
+  useEffect(() => {
+    if (currentPage <= 1) return;
+
+    const fetchPage = async () => {
+      // If already cached, show instantly
+      if (pageCacheRef.current[currentPage]) {
+        setBills(pageCacheRef.current[currentPage]);
+        return;
+      }
+
+      const prevCursor = pageCursorsRef.current[currentPage - 1];
+      if (!prevCursor) {
+        setCurrentPage(1);
+        return;
+      }
+
+      setPageLoading(true);
+      try {
+        const q = query(
+          collection(db, 'bills'),
+          orderBy('createdAt', 'desc'),
+          startAfter(prevCursor),
+          limit(PAGE_SIZE)
+        );
+        const snapshot = await getDocs(q);
+        const fetchedBills = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        setBills(fetchedBills);
+        pageCacheRef.current[currentPage] = fetchedBills;
+        if (snapshot.docs.length > 0) {
+          pageCursorsRef.current[currentPage] = snapshot.docs[snapshot.docs.length - 1];
+        }
+        setHasMore(snapshot.docs.length === PAGE_SIZE);
+      } catch (err) {
+        console.error(`Error fetching page ${currentPage}:`, err);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+
+    fetchPage();
+  }, [currentPage]);
 
   const fetchBillsFromSubcollections = async () => {
     try {
@@ -84,7 +177,13 @@ const WalkInSales = () => {
       for (const sDoc of storeSnap.docs) {
         const storeId = sDoc.id;
         const storeName = sDoc.data().name || 'Store';
-        const bSnap = await getDocs(collection(db, 'stores', storeId, 'bills'));
+        const bSnap = await getDocs(
+          query(
+            collection(db, 'stores', storeId, 'bills'),
+            orderBy('createdAt', 'desc'),
+            limit(PAGE_SIZE)
+          )
+        );
         bSnap.docs.forEach(bDoc => {
           allBills.push({
             id: bDoc.id,
@@ -97,12 +196,89 @@ const WalkInSales = () => {
       }
 
       allBills.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setBills(allBills);
+      const paged = allBills.slice(0, PAGE_SIZE);
+      setBills(paged);
+      setTotalBillsCount(allBills.length);
+      setHasMore(allBills.length > PAGE_SIZE);
     } catch (err) {
       console.error("Fallback subcollection bills fetch error:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedStore, selectedStatus, filterDate]);
+
+  // Total pages calculation
+  const totalPages = totalBillsCount > 0 
+    ? Math.ceil(totalBillsCount / PAGE_SIZE) 
+    : (hasMore ? currentPage + 1 : currentPage);
+
+  // Jump to page with sequential cursor resolution
+  const goToPage = async (targetPage) => {
+    if (targetPage < 1 || targetPage === currentPage || loading || pageLoading) return;
+    if (totalPages > 0 && targetPage > totalPages && !hasMore) return;
+
+    if (pageCacheRef.current[targetPage] || pageCursorsRef.current[targetPage - 1]) {
+      setCurrentPage(targetPage);
+      return;
+    }
+
+    setPageLoading(true);
+    try {
+      let currentCursor = pageCursorsRef.current[1];
+      for (let p = 2; p < targetPage; p++) {
+        if (!pageCursorsRef.current[p]) {
+          const q = query(
+            collection(db, 'bills'),
+            orderBy('createdAt', 'desc'),
+            startAfter(currentCursor),
+            limit(PAGE_SIZE)
+          );
+          const snap = await getDocs(q);
+          if (snap.docs.length === 0) break;
+          currentCursor = snap.docs[snap.docs.length - 1];
+          pageCursorsRef.current[p] = currentCursor;
+          pageCacheRef.current[p] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } else {
+          currentCursor = pageCursorsRef.current[p];
+        }
+      }
+      setCurrentPage(targetPage);
+    } catch (err) {
+      console.error("Error jumping to page:", err);
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  // Page Numbers with Ellipsis
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      let start = Math.max(2, currentPage - 1);
+      let end = Math.min(totalPages - 1, currentPage + 1);
+
+      if (currentPage <= 2) {
+        end = 4;
+      } else if (currentPage >= totalPages - 1) {
+        start = totalPages - 3;
+      }
+
+      if (start > 2) pages.push('...');
+      for (let i = start; i <= end; i++) {
+        if (i > 1 && i < totalPages) pages.push(i);
+      }
+      if (end < totalPages - 1) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   // Filter Logic
@@ -319,6 +495,25 @@ const WalkInSales = () => {
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                             <button 
+                              className="polaris-btn" 
+                              style={{ 
+                                height: '30px', 
+                                padding: '0 9px', 
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                background: '#ecfdf5',
+                                color: '#065f46',
+                                border: '1px solid #a7f3d0',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              onClick={() => setA4InvoiceBill(bill)}
+                              title="A4 Tax Invoice Preview, Download PDF & WhatsApp"
+                            >
+                              <FileText size={13} /> A4
+                            </button>
+                            <button 
                               className="polaris-btn polaris-btn-secondary" 
                               style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
                               onClick={() => setPreviewBill(bill)}
@@ -431,6 +626,88 @@ const WalkInSales = () => {
             </div>
           )}
         </div>
+
+        {/* Pagination Bar */}
+        {bills.length > 0 && (
+          <div className="walkin-pagination-bar">
+            <div className="walkin-pagination-info">
+              <span>
+                Showing <b>{((currentPage - 1) * PAGE_SIZE) + (filteredBills.length > 0 ? 1 : 0)}</b> to{' '}
+                <b>{((currentPage - 1) * PAGE_SIZE) + filteredBills.length}</b> of{' '}
+                <b>{totalBillsCount > 0 ? totalBillsCount : bills.length}</b> bills
+              </span>
+              {filteredBills.length !== bills.length && (
+                <span className="walkin-pagination-badge">
+                  {filteredBills.length} matching filters
+                </span>
+              )}
+              {pageLoading && (
+                <span className="walkin-page-spinner" title="Loading page..."></span>
+              )}
+            </div>
+
+            <div className="walkin-pagination-controls">
+              {/* First Page Button */}
+              <button 
+                className="walkin-page-btn"
+                disabled={currentPage === 1 || loading || pageLoading}
+                onClick={() => goToPage(1)}
+                title="First Page"
+              >
+                <ChevronsLeft size={15} />
+              </button>
+
+              {/* Previous Button */}
+              <button 
+                className="walkin-page-btn"
+                disabled={currentPage === 1 || loading || pageLoading}
+                onClick={() => goToPage(currentPage - 1)}
+                title="Previous Page"
+              >
+                <ChevronLeft size={15} /> Prev
+              </button>
+
+              {/* Page Number Buttons */}
+              {getPageNumbers().map((p, idx) => (
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="walkin-page-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={`page-${p}`}
+                    className={`walkin-page-btn ${currentPage === p ? 'active' : ''}`}
+                    disabled={loading || pageLoading}
+                    onClick={() => goToPage(p)}
+                    title={`Page ${p}`}
+                  >
+                    {p}
+                  </button>
+                )
+              ))}
+
+              {/* Next Button */}
+              <button 
+                className="walkin-page-btn"
+                disabled={(!hasMore && currentPage >= totalPages) || loading || pageLoading}
+                onClick={() => goToPage(currentPage + 1)}
+                title="Next Page"
+              >
+                Next <ChevronRight size={15} />
+              </button>
+
+              {/* Last Page Button */}
+              {totalPages > 1 && (
+                <button 
+                  className="walkin-page-btn"
+                  disabled={currentPage >= totalPages || loading || pageLoading}
+                  onClick={() => goToPage(totalPages)}
+                  title="Last Page"
+                >
+                  <ChevronsRight size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bill Preview Modal */}
@@ -523,6 +800,27 @@ const WalkInSales = () => {
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button 
+                className="polaris-btn" 
+                style={{ 
+                  flex: 1, 
+                  justifyContent: 'center',
+                  background: '#047857',
+                  color: '#ffffff',
+                  fontWeight: '700',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onClick={() => {
+                  const b = previewBill;
+                  setPreviewBill(null);
+                  setA4InvoiceBill(b);
+                }}
+                title="Open A4 Tax Invoice Preview"
+              >
+                <FileText size={15} /> A4 Invoice
+              </button>
+              <button 
                 className="polaris-btn polaris-btn-primary" 
                 style={{ flex: 1, justifyContent: 'center' }}
                 onClick={() => {
@@ -535,6 +833,14 @@ const WalkInSales = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* A4 Invoice Preview Modal */}
+      {a4InvoiceBill && (
+        <A4InvoiceModal 
+          bill={a4InvoiceBill} 
+          onClose={() => setA4InvoiceBill(null)} 
+        />
       )}
     </div>
   );
