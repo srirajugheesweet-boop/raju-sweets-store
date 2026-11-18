@@ -19,8 +19,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Trash2
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -30,7 +32,10 @@ import {
   onSnapshot, 
   limit, 
   startAfter, 
-  getCountFromServer 
+  getCountFromServer,
+  deleteDoc,
+  doc,
+  where
 } from 'firebase/firestore';
 import { generateReceiptHTML } from '../../utils/printReceiptHelper';
 import { formatPaymentModeDisplay } from '../../components/SplitPaymentSelector/SplitPaymentSelector';
@@ -56,6 +61,8 @@ const WalkInSales = () => {
   const [filterDate, setFilterDate] = useState('');
   const [previewBill, setPreviewBill] = useState(null);
   const [a4InvoiceBill, setA4InvoiceBill] = useState(null);
+  const [billToDelete, setBillToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [expandedBills, setExpandedBills] = useState([]);
 
   const pageCursorsRef = useRef({});
@@ -324,6 +331,55 @@ const WalkInSales = () => {
     await printHTMLContent(printContent, bill);
   };
 
+  const handleConfirmDeleteBill = async () => {
+    if (!billToDelete) return;
+    setIsDeleting(true);
+    const billLabel = billToDelete.billId || billToDelete.id;
+    const toastId = toast.loading(`Deleting bill #${billLabel}...`);
+
+    try {
+      // 1. Delete from root 'bills' collection
+      await deleteDoc(doc(db, 'bills', billToDelete.id));
+
+      // 2. Also clean up mirrored copy in store's 'bills' subcollection if present
+      if (billToDelete.storeId) {
+        try {
+          await deleteDoc(doc(db, 'stores', billToDelete.storeId, 'bills', billToDelete.id)).catch(() => {});
+
+          const subColRef = collection(db, 'stores', billToDelete.storeId, 'bills');
+          const matchesById = await getDocs(query(subColRef, where('id', '==', billToDelete.id)));
+          const deletePromises = matchesById.docs.map(d => deleteDoc(d.ref));
+
+          if (matchesById.empty && billToDelete.billId) {
+            const matchesByBillId = await getDocs(query(subColRef, where('billId', '==', billToDelete.billId)));
+            matchesByBillId.docs.forEach(d => deletePromises.push(deleteDoc(d.ref)));
+          }
+
+          await Promise.all(deletePromises);
+        } catch (subErr) {
+          console.warn('Subcollection bill cleanup warning:', subErr);
+        }
+      }
+
+      // 3. Update local list, cached pages, and total count
+      setBills(prev => prev.filter(b => b.id !== billToDelete.id));
+      setTotalBillsCount(prev => Math.max(0, prev - 1));
+      Object.keys(pageCacheRef.current).forEach(pageKey => {
+        if (Array.isArray(pageCacheRef.current[pageKey])) {
+          pageCacheRef.current[pageKey] = pageCacheRef.current[pageKey].filter(b => b.id !== billToDelete.id);
+        }
+      });
+
+      toast.success(`Bill #${billLabel} deleted successfully`, { id: toastId });
+      setBillToDelete(null);
+    } catch (err) {
+      console.error('Error deleting bill:', err);
+      toast.error(`Failed to delete bill: ${err.message}`, { id: toastId });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   return (
     <div className="walkin-sales-container">
@@ -493,41 +549,42 @@ const WalkInSales = () => {
                         </td>
                         <td style={{ color: '#6b7280', fontSize: '12px' }}>{bill.date || '—'}</td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                          <div className="walkin-actions-group">
                             <button 
-                              className="polaris-btn" 
-                              style={{ 
-                                height: '30px', 
-                                padding: '0 9px', 
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                background: '#ecfdf5',
-                                color: '#065f46',
-                                border: '1px solid #a7f3d0',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
+                              type="button"
+                              className="walkin-icon-btn a4"
                               onClick={() => setA4InvoiceBill(bill)}
-                              title="A4 Tax Invoice Preview, Download PDF & WhatsApp"
+                              title="A4 Tax Invoice (Preview, Download PDF & WhatsApp)"
+                              aria-label="A4 Tax Invoice"
                             >
-                              <FileText size={13} /> A4
+                              <FileText size={15} />
                             </button>
                             <button 
-                              className="polaris-btn polaris-btn-secondary" 
-                              style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
+                              type="button"
+                              className="walkin-icon-btn view"
                               onClick={() => setPreviewBill(bill)}
                               title="View Bill Details"
+                              aria-label="View Bill Details"
                             >
-                              <Eye size={14} /> View
+                              <Eye size={15} />
                             </button>
                             <button 
-                              className="polaris-btn polaris-btn-secondary" 
-                              style={{ height: '30px', padding: '0 8px', fontSize: '12px' }}
+                              type="button"
+                              className="walkin-icon-btn print"
                               onClick={() => handlePrintReceipt(bill)}
                               title="Print Thermal Receipt"
+                              aria-label="Print Thermal Receipt"
                             >
-                              <Printer size={14} /> Print
+                              <Printer size={15} />
+                            </button>
+                            <button 
+                              type="button"
+                              className="walkin-icon-btn delete"
+                              onClick={() => setBillToDelete(bill)}
+                              title="Delete Bill"
+                              aria-label="Delete Bill"
+                            >
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -841,6 +898,57 @@ const WalkInSales = () => {
           bill={a4InvoiceBill} 
           onClose={() => setA4InvoiceBill(null)} 
         />
+      )}
+
+      {/* Delete Bill Confirmation Modal */}
+      {billToDelete && (
+        <div
+          className="walkin-modal-overlay"
+          onClick={() => !isDeleting && setBillToDelete(null)}
+        >
+          <div
+            className="walkin-modal-card walkin-delete-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="walkin-delete-icon-wrap">
+              <Trash2 size={22} />
+            </div>
+            <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: '#0f172a' }}>
+              Delete Walk-In Bill?
+            </h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete this bill? This action cannot be undone.
+            </p>
+
+            <div className="walkin-delete-summary">
+              <div><b>Bill ID:</b> #{billToDelete.billId || billToDelete.id}</div>
+              <div><b>Store:</b> {billToDelete.storeName || 'Outlet Store'}</div>
+              <div><b>Customer:</b> {billToDelete.customerName || 'Walk-in Customer'}</div>
+              <div><b>Amount:</b> ₹{Number(billToDelete.totalAmount || 0).toFixed(2)}</div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="polaris-btn polaris-btn-secondary"
+                style={{ flex: 1, justifyContent: 'center' }}
+                disabled={isDeleting}
+                onClick={() => setBillToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="polaris-btn walkin-btn-danger"
+                style={{ flex: 1, justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                disabled={isDeleting}
+                onClick={handleConfirmDeleteBill}
+              >
+                <Trash2 size={14} /> {isDeleting ? 'Deleting...' : 'Delete Bill'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -471,3 +471,125 @@
 @keyframes walkinSpin {
   to { transform: rotate(360deg); }
 }
+
+/* Icon-Only Row Action Buttons */
+.walkin-actions-group {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.walkin-icon-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.walkin-icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.walkin-icon-btn.a4 {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.walkin-icon-btn.a4:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.walkin-icon-btn.view {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.walkin-icon-btn.view:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.walkin-icon-btn.print {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.walkin-icon-btn.print:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.walkin-icon-btn.delete {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.walkin-icon-btn.delete:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+/* Delete Confirmation Modal */
+.walkin-delete-modal {
+  max-width: 420px;
+  text-align: left;
+}
+
+.walkin-delete-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  border: 1px solid #fecaca;
+}
+
+.walkin-delete-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 14px 0 18px;
+}
+
+.walkin-btn-danger {
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #b91c1c;
+  font-weight: 600;
+}
+
+.walkin-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.walkin-btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
