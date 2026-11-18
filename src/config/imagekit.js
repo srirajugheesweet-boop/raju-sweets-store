@@ -1,10 +1,10 @@
-export const uploadToImageKit = async (file) => {
+export const uploadToImageKit = async (file, folder = "/items") => {
   try {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("fileName", `${Date.now()}-${file.name}`);
     formData.append("publicKey", import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY);
-    formData.append("folder", "/items");
+    formData.append("folder", folder);
 
     console.log("Uploading to ImageKit via API...");
     const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {

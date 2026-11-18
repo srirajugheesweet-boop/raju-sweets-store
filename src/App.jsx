@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { PrinterProvider } from './context/PrinterContext';
@@ -40,8 +40,10 @@ import CustomBarcode from './pages/CustomBarcode/CustomBarcode';
 import Quotations from './pages/Quotations/Quotations';
 import B2BInvoices from './pages/B2BInvoices/B2BInvoices';
 import ItemAnalyser from './pages/ItemAnalyser/ItemAnalyser';
+import Settings from './pages/Settings/Settings';
 import BulkOrderCleanupModal from './components/BulkOrderCleanupModal/BulkOrderCleanupModal';
 import { Toaster } from 'react-hot-toast';
+import { initInvoiceSettingsListener } from './utils/invoiceSettings';
 
 import { NotificationProvider } from './context/NotificationContext';
 
@@ -58,6 +60,10 @@ const PlaceholderPage = ({ title }) => (
 );
 
 function App() {
+  useEffect(() => {
+    initInvoiceSettingsListener();
+  }, []);
+
   return (
     <AuthProvider>
       <NotificationProvider>
@@ -138,7 +144,7 @@ function App() {
           <Route path="/support" element={<ProtectedRoute><Layout><Support /></Layout></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><Layout><Payments /></Layout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><PlaceholderPage title="Settings" /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><PlaceholderPage title="Notifications" /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><PlaceholderPage title="Documents" /></ProtectedRoute>} />
 

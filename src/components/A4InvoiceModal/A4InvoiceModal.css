@@ -503,6 +503,14 @@
   text-align: center;
 }
 
+.a4-signature-img {
+  max-height: 54px;
+  max-width: 160px;
+  object-fit: contain;
+  display: block;
+  margin: 4px auto 6px;
+}
+
 .a4-sign-line {
   border-top: 1px dashed #334155;
   padding-top: 6px;

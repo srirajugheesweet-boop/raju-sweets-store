@@ -1,11 +1,19 @@
 import html2canvas from 'html2canvas';
 import logo from '../assets/logo.png';
 import { numberToWords } from './invoice';
+import {
+  getCachedInvoiceSettings,
+  fetchInvoiceSettings,
+  isInvoiceSettingsLoaded
+} from './invoiceSettings';
 
 /**
  * Generate a clean, branded HTML string for a Quotation
  */
-export function getQuotationHtml(quotation) {
+export function getQuotationHtml(quotation, customSettings = null) {
+  const settings = customSettings || getCachedInvoiceSettings();
+  const activeLogo = settings.logoUrl || logo;
+  const activeSignature = settings.signatureUrl || '';
   const quotationNo = quotation.quotationNo || `QT-${Date.now().toString().slice(-6)}`;
   const dateStr = quotation.quotationDate || new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -63,7 +71,7 @@ export function getQuotationHtml(quotation) {
       <!-- Header with Logo and Brand -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid #0A2A1B;">
         <div style="display: flex; align-items: center; gap: 16px;">
-          <img src="${logo}" alt="Raju Ghee Sweets" style="height: 64px; width: auto; object-fit: contain;" />
+          <img src="${activeLogo}" alt="Raju Ghee Sweets" crossorigin="anonymous" style="height: 64px; width: auto; object-fit: contain;" />
           <div>
             <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #0A2A1B; letter-spacing: -0.5px;">RAJU GHEE SWEETS</h1>
             <p style="margin: 2px 0 0; font-size: 12px; color: #D4AF37; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Pure Ghee Sweets & Traditional Savouries</p>
@@ -160,7 +168,8 @@ export function getQuotationHtml(quotation) {
           </div>
 
           <div style="margin-top: 24px; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 12px;">
-            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 24px;">For Raju Ghee Sweets</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: ${activeSignature ? '6px' : '24px'};">For Raju Ghee Sweets</div>
+            ${activeSignature ? `<img src="${activeSignature}" alt="Authorised Signature" crossorigin="anonymous" style="max-height: 55px; max-width: 170px; object-fit: contain; display: block; margin: 4px auto 8px;" />` : ''}
             <div style="font-size: 12px; font-weight: 700; color: #0A2A1B;">Authorised Signatory</div>
           </div>
         </div>
@@ -182,12 +191,16 @@ export function getQuotationHtml(quotation) {
  * @returns {Promise<string>} Base64 image data url
  */
 export async function renderQuotationToImage(quotation) {
+  const settings = isInvoiceSettingsLoaded()
+    ? getCachedInvoiceSettings()
+    : await fetchInvoiceSettings();
+
   const container = document.createElement('div');
   container.style.position = 'fixed';
   container.style.left = '-9999px';
   container.style.top = '-9999px';
   container.style.zIndex = '-1000';
-  container.innerHTML = getQuotationHtml(quotation);
+  container.innerHTML = getQuotationHtml(quotation, settings);
 
   document.body.appendChild(container);
 

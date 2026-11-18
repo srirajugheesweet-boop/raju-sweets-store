@@ -1,6 +1,11 @@
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 import { getInvoiceHtml } from './invoice';
+import {
+  getCachedInvoiceSettings,
+  fetchInvoiceSettings,
+  isInvoiceSettingsLoaded
+} from './invoiceSettings';
 
 /**
  * Sends a WhatsApp notification to the customer when the order status is "Ready for Delivery"
@@ -76,6 +81,9 @@ export const triggerWhatsAppOrderConfirmation = async (order) => {
     
     try {
       console.log("Generating invoice image using html2canvas...");
+      const settings = isInvoiceSettingsLoaded()
+        ? getCachedInvoiceSettings()
+        : await fetchInvoiceSettings();
       const tempDiv = document.createElement('div');
       tempDiv.className = 'invoice-image-temp-container';
       tempDiv.style.position = 'absolute';
@@ -83,7 +91,7 @@ export const triggerWhatsAppOrderConfirmation = async (order) => {
       tempDiv.style.top = '-9999px';
       tempDiv.style.width = '800px';
       tempDiv.style.background = '#ffffff';
-      tempDiv.innerHTML = getInvoiceHtml(order);
+      tempDiv.innerHTML = getInvoiceHtml(order, settings);
       document.body.appendChild(tempDiv);
 
       // Wait a short delay to ensure any layout rendering and image loading is complete

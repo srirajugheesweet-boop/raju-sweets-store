@@ -54,6 +54,7 @@ export const menuItems = [
   { id: 'employees', label: 'Employees', icon: <UserCircle />, path: '/employees', section: 'admin' },
   { id: 'timesheet', label: 'Timesheet', icon: <Clock />, path: '/timesheet', section: 'admin' },
   { id: 'support', label: 'Support', icon: <LifeBuoy />, path: '/support', section: 'admin' },
+  { id: 'settings', label: 'Settings', icon: <Settings />, path: '/settings', section: 'admin' },
 ];
 
 

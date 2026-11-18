@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FileText, 
   Download, 
@@ -17,6 +17,7 @@ import { numberToWords } from '../../utils/printReceiptHelper';
 import { formatPaymentModeDisplay } from '../SplitPaymentSelector/SplitPaymentSelector';
 import { uploadInvoiceImage } from '../../utils/cloudinary';
 import { openWhatsAppWithInvoice } from '../../utils/whatsapp';
+import { getCachedInvoiceSettings, subscribeInvoiceSettings } from '../../utils/invoiceSettings';
 import './A4InvoiceModal.css';
 
 const A4InvoiceModal = ({ bill, onClose }) => {
@@ -24,8 +25,17 @@ const A4InvoiceModal = ({ bill, onClose }) => {
   const [targetPhone, setTargetPhone] = useState(bill?.customerPhone || '');
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [invoiceSettings, setInvoiceSettings] = useState(() => getCachedInvoiceSettings());
+
+  useEffect(() => {
+    const unsubscribe = subscribeInvoiceSettings(setInvoiceSettings);
+    return unsubscribe;
+  }, []);
 
   if (!bill) return null;
+
+  const activeLogoUrl = invoiceSettings.logoUrl || logo;
+  const activeSignatureUrl = invoiceSettings.signatureUrl || '';
 
   // Invoice & GST Calculations
   const isIGST = Boolean(bill.isIGST);
@@ -252,7 +262,12 @@ const A4InvoiceModal = ({ bill, onClose }) => {
             {/* 1. Brand Header */}
             <div className="a4-brand-header">
               <div className="a4-brand-left">
-                <img src={logo} alt="Raju Ghee Sweets" className="a4-logo" />
+                <img
+                  src={activeLogoUrl}
+                  alt="Raju Ghee Sweets"
+                  className="a4-logo"
+                  crossOrigin="anonymous"
+                />
                 <div>
                   <h1 className="a4-company-name">RAJU GHEE SWEETS</h1>
                   <div className="a4-tagline">Pure Ghee Sweets & Traditional Savouries</div>
@@ -510,7 +525,17 @@ const A4InvoiceModal = ({ bill, onClose }) => {
               </div>
 
               <div className="a4-signatory-box">
-                <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '26px' }}>For Raju Ghee Sweets</div>
+                <div style={{ fontSize: '10px', color: '#64748b', marginBottom: activeSignatureUrl ? '4px' : '26px' }}>
+                  For Raju Ghee Sweets
+                </div>
+                {activeSignatureUrl && (
+                  <img
+                    src={activeSignatureUrl}
+                    alt="Authorised Signature"
+                    className="a4-signature-img"
+                    crossOrigin="anonymous"
+                  />
+                )}
                 <div className="a4-sign-line">Authorised Signatory</div>
               </div>
             </div>

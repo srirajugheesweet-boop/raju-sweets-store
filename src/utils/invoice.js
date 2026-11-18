@@ -1,5 +1,10 @@
 import logo from '../assets/logo.png';
 import { printHTMLContent } from '../context/PrinterContext';
+import {
+  getCachedInvoiceSettings,
+  fetchInvoiceSettings,
+  isInvoiceSettingsLoaded
+} from './invoiceSettings';
 
 /**
  * Converts a number to its Indian Rupee word representation.
@@ -77,7 +82,10 @@ export function numberToWords(num) {
  * 
  * @param {Object} order The order object containing items, store name, customer details.
  */
-export function getInvoiceHtml(order) {
+export function getInvoiceHtml(order, customSettings = null) {
+  const settings = customSettings || getCachedInvoiceSettings();
+  const activeLogo = settings.logoUrl || logo;
+  const activeSignature = settings.signatureUrl || '';
   const invoiceNo = order.orderId;
   const invoiceDate = order.createdAt?.toDate 
     ? order.createdAt.toDate().toLocaleDateString('en-IN') 
@@ -387,7 +395,7 @@ export function getInvoiceHtml(order) {
           <table class="header-table">
             <tr>
               <td>
-                <img src="${logo}" alt="Logo" class="logo" /><br/>
+                <img src="${activeLogo}" alt="Logo" class="logo" crossorigin="anonymous" /><br/>
                 <strong style="font-size: 16px; color: #0c4a24;">RAJU GHEE SWEETS</strong><br/>
                 <span>Store: ${storeName}</span><br/>
                 <span>Andhra Pradesh, India</span><br/>
@@ -503,7 +511,10 @@ export function getInvoiceHtml(order) {
             </div>
             <div style="float: right; width: 40%; text-align: right;">
               <div class="signature-box">
-                <span style="font-size: 10px; color: #555;">for Raju Ghee Sweets</span><br/><br/><br/>
+                <span style="font-size: 10px; color: #555;">for Raju Ghee Sweets</span>
+                ${activeSignature
+                  ? `<img src="${activeSignature}" alt="Authorized Signature" crossorigin="anonymous" style="max-height: 55px; max-width: 170px; object-fit: contain; display: block; margin: 6px auto;" />`
+                  : '<br/><br/><br/>'}
                 <strong>Authorized Signatory</strong>
               </div>
             </div>
@@ -514,7 +525,10 @@ export function getInvoiceHtml(order) {
   `;
 }
 
-export function generateGSTInvoice(order) {
-  const printContent = getInvoiceHtml(order);
+export async function generateGSTInvoice(order) {
+  const settings = isInvoiceSettingsLoaded()
+    ? getCachedInvoiceSettings()
+    : await fetchInvoiceSettings();
+  const printContent = getInvoiceHtml(order, settings);
   printHTMLContent(printContent);
 }
