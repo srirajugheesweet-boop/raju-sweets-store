@@ -24,7 +24,8 @@ import {
   ExternalLink,
   DollarSign,
   ArrowUpDown,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { 
@@ -32,7 +33,10 @@ import {
   getDocs, 
   query, 
   orderBy, 
-  onSnapshot 
+  onSnapshot,
+  deleteDoc,
+  doc,
+  where
 } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -372,6 +376,8 @@ const B2BInvoices = () => {
   // UI accordion & preview
   const [expandedRowId, setExpandedRowId] = useState(null);
   const [previewInvoiceModal, setPreviewInvoiceModal] = useState(null); // { type: 'order'|'walkin', data: record }
+  const [recordToDelete, setRecordToDelete] = useState(null); // { record, type: 'order' | 'walkin' }
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { printHTMLContent } = usePrinter();
 
@@ -830,6 +836,74 @@ const B2BInvoices = () => {
     } catch (err) {
       console.error("Thermal print error:", err);
       toast.error("Failed to print thermal slip");
+    }
+  };
+
+  // Confirm and Execute Deletion of an Order Invoice or Walk-In Bill
+  const handleConfirmDelete = async () => {
+    if (!recordToDelete) return;
+    const { record, type } = recordToDelete;
+    setIsDeleting(true);
+
+    const label = type === 'order' 
+      ? (record.orderId || record.id) 
+      : (record.billId || record.id);
+
+    const toastId = toast.loading(`Deleting ${type === 'order' ? 'order invoice' : 'walk-in bill'} #${label}...`);
+
+    try {
+      if (type === 'order') {
+        // 1. Delete from root 'orders' collection
+        await deleteDoc(doc(db, 'orders', record.id));
+
+        // 2. Clean up installments subcollection if any
+        try {
+          const instSnap = await getDocs(collection(db, 'orders', record.id, 'installments'));
+          if (!instSnap.empty) {
+            await Promise.all(instSnap.docs.map(d => deleteDoc(d.ref)));
+          }
+        } catch (instErr) {
+          console.warn('Installments cleanup warning:', instErr);
+        }
+
+        // 3. Update local state
+        setOrders(prev => prev.filter(o => o.id !== record.id));
+        toast.success(`Order #${label} deleted successfully`, { id: toastId });
+      } else {
+        // 1. Delete from root 'bills' collection
+        await deleteDoc(doc(db, 'bills', record.id));
+
+        // 2. Also clean up mirrored copy in store's 'bills' subcollection if present
+        if (record.storeId) {
+          try {
+            await deleteDoc(doc(db, 'stores', record.storeId, 'bills', record.id)).catch(() => {});
+
+            const subColRef = collection(db, 'stores', record.storeId, 'bills');
+            const matchesById = await getDocs(query(subColRef, where('id', '==', record.id)));
+            const deletePromises = matchesById.docs.map(d => deleteDoc(d.ref));
+
+            if (matchesById.empty && record.billId) {
+              const matchesByBillId = await getDocs(query(subColRef, where('billId', '==', record.billId)));
+              matchesByBillId.docs.forEach(d => deletePromises.push(deleteDoc(d.ref)));
+            }
+
+            await Promise.all(deletePromises);
+          } catch (subErr) {
+            console.warn('Store bills subcollection cleanup warning:', subErr);
+          }
+        }
+
+        // 3. Update local state
+        setBills(prev => prev.filter(b => b.id !== record.id && b.billId !== record.billId));
+        toast.success(`Bill #${label} deleted successfully`, { id: toastId });
+      }
+
+      setRecordToDelete(null);
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error(`Failed to delete: ${err.message}`, { id: toastId });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1698,21 +1772,33 @@ const B2BInvoices = () => {
                           <td className="text-right">
                             <div className="b2b-action-btn-group">
                               <button
-                                className="b2b-action-btn primary"
+                                type="button"
+                                className="b2b-icon-btn invoice"
                                 onClick={() => handlePrintGSTInvoice(order, 'order')}
                                 title="Print GST Tax Invoice"
+                                aria-label="Print GST Tax Invoice"
                               >
-                                <FileText size={13} />
-                                <span>GST Invoice</span>
+                                <FileText size={15} />
                               </button>
 
                               <button
-                                className="b2b-action-btn secondary"
+                                type="button"
+                                className="b2b-icon-btn thermal"
                                 onClick={() => handlePrintThermalSlip(order, 'order')}
                                 title="Print 80mm Thermal Slip"
+                                aria-label="Print 80mm Thermal Slip"
                               >
-                                <Printer size={13} />
-                                <span>Thermal</span>
+                                <Printer size={15} />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="b2b-icon-btn delete"
+                                onClick={() => setRecordToDelete({ record: order, type: 'order' })}
+                                title="Delete Order Invoice"
+                                aria-label="Delete Order Invoice"
+                              >
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           </td>
@@ -1928,21 +2014,33 @@ const B2BInvoices = () => {
                           <td className="text-right">
                             <div className="b2b-action-btn-group">
                               <button
-                                className="b2b-action-btn primary"
+                                type="button"
+                                className="b2b-icon-btn invoice"
                                 onClick={() => handlePrintGSTInvoice(bill, 'walkin')}
                                 title="Print GST Tax Invoice"
+                                aria-label="Print GST Tax Invoice"
                               >
-                                <FileText size={13} />
-                                <span>GST Invoice</span>
+                                <FileText size={15} />
                               </button>
 
                               <button
-                                className="b2b-action-btn secondary"
+                                type="button"
+                                className="b2b-icon-btn thermal"
                                 onClick={() => handlePrintThermalSlip(bill, 'walkin')}
                                 title="Print 80mm POS Thermal Receipt"
+                                aria-label="Print 80mm POS Thermal Receipt"
                               >
-                                <Printer size={13} />
-                                <span>Thermal</span>
+                                <Printer size={15} />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="b2b-icon-btn delete"
+                                onClick={() => setRecordToDelete({ record: bill, type: 'walkin' })}
+                                title="Delete Walk-In Bill"
+                                aria-label="Delete Walk-In Bill"
+                              >
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           </td>
@@ -2013,6 +2111,77 @@ const B2BInvoices = () => {
           )
         )}
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {recordToDelete && (
+        <div 
+          className="b2b-modal-overlay"
+          onClick={() => !isDeleting && setRecordToDelete(null)}
+        >
+          <div 
+            className="b2b-delete-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="b2b-delete-icon-wrap">
+              <Trash2 size={22} />
+            </div>
+
+            <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: '#0f172a' }}>
+              Delete {recordToDelete.type === 'order' ? 'Order Invoice' : 'Walk-In Bill'}?
+            </h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete this {recordToDelete.type === 'order' ? 'order invoice' : 'walk-in bill'}? This action cannot be undone.
+            </p>
+
+            <div className="b2b-delete-summary">
+              <div>
+                <b>{recordToDelete.type === 'order' ? 'Order ID:' : 'Bill ID:'}</b> #{recordToDelete.type === 'order' 
+                  ? (recordToDelete.record.orderId || recordToDelete.record.id) 
+                  : (recordToDelete.record.billId || recordToDelete.record.id)}
+              </div>
+              <div>
+                <b>Customer:</b> {recordToDelete.record.customerName || 'Valued Customer'}
+                {(recordToDelete.record.businessName || recordToDelete.record.companyName) && (
+                  <span style={{ color: '#475569', fontWeight: '500' }}>
+                    {' '}({recordToDelete.record.businessName || recordToDelete.record.companyName})
+                  </span>
+                )}
+              </div>
+              {recordToDelete.record.storeName && (
+                <div>
+                  <b>Store:</b> {recordToDelete.record.storeName}
+                </div>
+              )}
+              <div>
+                <b>Date:</b> {formatDisplayDate(recordToDelete.record)}
+              </div>
+              <div>
+                <b>Total Amount:</b> ₹{Number(recordToDelete.record.totalAmount || 0).toFixed(2)}
+              </div>
+            </div>
+
+            <div className="b2b-modal-actions">
+              <button
+                type="button"
+                className="b2b-btn-secondary"
+                disabled={isDeleting}
+                onClick={() => setRecordToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="b2b-btn-danger"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+              >
+                <Trash2 size={14} />
+                <span>{isDeleting ? 'Deleting...' : 'Delete Invoice'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
