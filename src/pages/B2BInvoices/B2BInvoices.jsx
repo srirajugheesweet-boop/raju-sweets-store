@@ -12,6 +12,10 @@ import {
   Download, 
   ChevronDown, 
   ChevronUp, 
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   User, 
   Phone, 
   MapPin, 
@@ -36,7 +40,8 @@ import {
   onSnapshot,
   deleteDoc,
   doc,
-  where
+  where,
+  getCountFromServer
 } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -378,6 +383,34 @@ const B2BInvoices = () => {
   const [previewInvoiceModal, setPreviewInvoiceModal] = useState(null); // { type: 'order'|'walkin', data: record }
   const [recordToDelete, setRecordToDelete] = useState(null); // { record, type: 'order' | 'walkin' }
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Pagination & Server Counts
+  const PAGE_SIZE = 24;
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [walkinPage, setWalkinPage] = useState(1);
+  const [totalOrdersServerCount, setTotalOrdersServerCount] = useState(0);
+  const [totalBillsServerCount, setTotalBillsServerCount] = useState(0);
+
+  // Fetch Total Records Count from server using getCountFromServer
+  useEffect(() => {
+    const fetchServerCounts = async () => {
+      try {
+        const [ordersCountSnap, billsCountSnap] = await Promise.all([
+          getCountFromServer(collection(db, 'orders')),
+          getCountFromServer(collection(db, 'bills'))
+        ]);
+        if (ordersCountSnap && typeof ordersCountSnap.data().count === 'number') {
+          setTotalOrdersServerCount(ordersCountSnap.data().count);
+        }
+        if (billsCountSnap && typeof billsCountSnap.data().count === 'number') {
+          setTotalBillsServerCount(billsCountSnap.data().count);
+        }
+      } catch (err) {
+        console.warn("Could not fetch server counts:", err);
+      }
+    };
+    fetchServerCounts();
+  }, []);
 
   const { printHTMLContent } = usePrinter();
 
@@ -763,6 +796,65 @@ const B2BInvoices = () => {
       grandTotal: ordTotal + billTotal
     };
   }, [activeCustomerObj, filteredOrders, filteredBills]);
+
+  // Reset pages to 1 when any filter changes
+  useEffect(() => {
+    setOrdersPage(1);
+    setWalkinPage(1);
+  }, [
+    selectedCustomerId,
+    customerSearchQuery,
+    dateFilterMode,
+    customStartDate,
+    customEndDate,
+    selectedStoreId,
+    orderPaymentStatusFilter,
+    walkinStatusFilter
+  ]);
+
+  // Pagination computations for Limit 24
+  const totalOrdersPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  const totalBillsPages = Math.max(1, Math.ceil(filteredBills.length / PAGE_SIZE));
+
+  useEffect(() => {
+    if (ordersPage > totalOrdersPages) {
+      setOrdersPage(totalOrdersPages);
+    }
+  }, [ordersPage, totalOrdersPages]);
+
+  useEffect(() => {
+    if (walkinPage > totalBillsPages) {
+      setWalkinPage(totalBillsPages);
+    }
+  }, [walkinPage, totalBillsPages]);
+
+  const pagedOrders = useMemo(() => {
+    const start = (ordersPage - 1) * PAGE_SIZE;
+    return filteredOrders.slice(start, start + PAGE_SIZE);
+  }, [filteredOrders, ordersPage]);
+
+  const pagedBills = useMemo(() => {
+    const start = (walkinPage - 1) * PAGE_SIZE;
+    return filteredBills.slice(start, start + PAGE_SIZE);
+  }, [filteredBills, walkinPage]);
+
+  const getPageNumbers = (currentPage, totalPages) => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   // Toggle Accordion Rows
   const toggleRow = (id) => {
@@ -1645,7 +1737,7 @@ const B2BInvoices = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map(order => {
+                  {pagedOrders.map(order => {
                     const isExpanded = expandedRowId === order.id;
                     const totalAmt = Number(order.totalAmount || 0);
                     const recAmt = Number(order.receivedAmount || 0);
@@ -1874,6 +1966,78 @@ const B2BInvoices = () => {
                   })}
                 </tbody>
               </table>
+
+              {/* B2B Orders Pagination Bar (Limit: 24) */}
+              <div className="b2b-pagination-bar">
+                <div className="b2b-pagination-info">
+                  <span>
+                    Showing <b>{filteredOrders.length === 0 ? 0 : (ordersPage - 1) * PAGE_SIZE + 1}</b> to{' '}
+                    <b>{Math.min(ordersPage * PAGE_SIZE, filteredOrders.length)}</b> of{' '}
+                    <b>{filteredOrders.length}</b> B2B orders
+                  </span>
+                  {totalOrdersServerCount > 0 && (
+                    <span className="b2b-pagination-badge" title="Total orders count in database">
+                      DB Total: {totalOrdersServerCount}
+                    </span>
+                  )}
+                </div>
+
+                {totalOrdersPages > 1 && (
+                  <div className="b2b-pagination-controls">
+                    <button
+                      className="b2b-page-btn"
+                      disabled={ordersPage === 1}
+                      onClick={() => setOrdersPage(1)}
+                      title="First Page"
+                      aria-label="First Page"
+                    >
+                      <ChevronsLeft size={15} />
+                    </button>
+                    <button
+                      className="b2b-page-btn"
+                      disabled={ordersPage === 1}
+                      onClick={() => setOrdersPage(p => Math.max(1, p - 1))}
+                      title="Previous Page"
+                      aria-label="Previous Page"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+
+                    {getPageNumbers(ordersPage, totalOrdersPages).map((pNum, idx) => (
+                      pNum === '...' ? (
+                        <span key={`ord-dots-${idx}`} className="b2b-page-ellipsis">…</span>
+                      ) : (
+                        <button
+                          key={`ord-page-${pNum}`}
+                          className={`b2b-page-btn ${ordersPage === pNum ? 'active' : ''}`}
+                          onClick={() => setOrdersPage(pNum)}
+                        >
+                          {pNum}
+                        </button>
+                      )
+                    ))}
+
+                    <button
+                      className="b2b-page-btn"
+                      disabled={ordersPage === totalOrdersPages}
+                      onClick={() => setOrdersPage(p => Math.min(totalOrdersPages, p + 1))}
+                      title="Next Page"
+                      aria-label="Next Page"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                    <button
+                      className="b2b-page-btn"
+                      disabled={ordersPage === totalOrdersPages}
+                      onClick={() => setOrdersPage(totalOrdersPages)}
+                      title="Last Page"
+                      aria-label="Last Page"
+                    >
+                      <ChevronsRight size={15} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )
         ) : (
@@ -1911,7 +2075,7 @@ const B2BInvoices = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredBills.map(bill => {
+                  {pagedBills.map(bill => {
                     const isExpanded = expandedRowId === bill.id;
                     const totalAmt = Number(bill.totalAmount || 0);
                     const bStatus = (bill.status || 'settled').toLowerCase();
@@ -2107,6 +2271,78 @@ const B2BInvoices = () => {
                   })}
                 </tbody>
               </table>
+
+              {/* B2B Walk-In Sales Pagination Bar (Limit: 24) */}
+              <div className="b2b-pagination-bar">
+                <div className="b2b-pagination-info">
+                  <span>
+                    Showing <b>{filteredBills.length === 0 ? 0 : (walkinPage - 1) * PAGE_SIZE + 1}</b> to{' '}
+                    <b>{Math.min(walkinPage * PAGE_SIZE, filteredBills.length)}</b> of{' '}
+                    <b>{filteredBills.length}</b> walk-in bills
+                  </span>
+                  {totalBillsServerCount > 0 && (
+                    <span className="b2b-pagination-badge" title="Total bills count in database">
+                      DB Total: {totalBillsServerCount}
+                    </span>
+                  )}
+                </div>
+
+                {totalBillsPages > 1 && (
+                  <div className="b2b-pagination-controls">
+                    <button
+                      className="b2b-page-btn"
+                      disabled={walkinPage === 1}
+                      onClick={() => setWalkinPage(1)}
+                      title="First Page"
+                      aria-label="First Page"
+                    >
+                      <ChevronsLeft size={15} />
+                    </button>
+                    <button
+                      className="b2b-page-btn"
+                      disabled={walkinPage === 1}
+                      onClick={() => setWalkinPage(p => Math.max(1, p - 1))}
+                      title="Previous Page"
+                      aria-label="Previous Page"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+
+                    {getPageNumbers(walkinPage, totalBillsPages).map((pNum, idx) => (
+                      pNum === '...' ? (
+                        <span key={`wlk-dots-${idx}`} className="b2b-page-ellipsis">…</span>
+                      ) : (
+                        <button
+                          key={`wlk-page-${pNum}`}
+                          className={`b2b-page-btn ${walkinPage === pNum ? 'active' : ''}`}
+                          onClick={() => setWalkinPage(pNum)}
+                        >
+                          {pNum}
+                        </button>
+                      )
+                    ))}
+
+                    <button
+                      className="b2b-page-btn"
+                      disabled={walkinPage === totalBillsPages}
+                      onClick={() => setWalkinPage(p => Math.min(totalBillsPages, p + 1))}
+                      title="Next Page"
+                      aria-label="Next Page"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                    <button
+                      className="b2b-page-btn"
+                      disabled={walkinPage === totalBillsPages}
+                      onClick={() => setWalkinPage(totalBillsPages)}
+                      title="Last Page"
+                      aria-label="Last Page"
+                    >
+                      <ChevronsRight size={15} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )
         )}
